@@ -1,0 +1,230 @@
+name: Shrubify - Watch, Build, Release and Update Source
+
+on:
+  schedule:
+    # Spotify version check twice daily (GitHub may delay scheduled runs).
+    - cron: '23 7,19 * * *'
+  workflow_dispatch:
+    inputs:
+      ipa_url:
+        description: 'Direct HTTPS URL of a Spotify IPA you may modify (optional; overrides catalog)'
+        required: false
+        type: string
+      force_release:
+        description: 'Publish another revision even if the same source/Spotify version already exists'
+        required: false
+        type: boolean
+        default: false
+  push:
+    branches:
+      - main
+      - Master
+    paths:
+      - 'Sources/**'
+      - 'Scripts/**'
+      - 'Tools/**'
+      - 'modules/**'
+      - 'layout/**'
+      - 'Assets/**'
+      - 'config/ipa-sources.json'
+      - 'scripts/**'
+      - 'Makefile'
+      - 'control'
+      - '.github/workflows/shrubify-release.yml'
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: shrubify-release-main
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    name: Check Spotify updates and source catalog
+    runs-on: ubuntu-latest
+    outputs:
+      build: ${{ steps.check.outputs.build }}
+      latest_version: ${{ steps.check.outputs.latest_version }}
+      expected_version: ${{ steps.check.outputs.expected_version }}
+      reason: ${{ steps.check.outputs.reason }}
+      needs_ipa: ${{ steps.check.outputs.needs_ipa }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Find current Spotify version and matching user-supplied IPA
+        id: check
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MANUAL_IPA: ${{ inputs.ipa_url }}
+          CATALOG_URL: ${{ secrets.SPOTIFY_IPA_CATALOG_URL }}
+          FALLBACK_IPA: ${{ secrets.SPOTIFY_IPA_URL }}
+          PUBLIC_RELEASE: ${{ vars.ALLOW_PUBLIC_IPA_RELEASE }}
+        run: |
+          TWEAK_VERSION=$(awk '$1=="Version:"{print $2}' control)
+          SOURCE_SHA=$(git log -1 --format=%H -- Sources Scripts Tools modules layout Assets config scripts Makefile control .github/workflows/shrubify-release.yml)
+          python3 scripts/plan_release.py \
+            --repo "$GITHUB_REPOSITORY" --sha "$SOURCE_SHA" \
+            --tweak "$TWEAK_VERSION" \
+            --manual-url "$MANUAL_IPA" --catalog-url "$CATALOG_URL" \
+            --fallback-url "$FALLBACK_IPA" \
+            --token "$GITHUB_TOKEN" --event "$GITHUB_EVENT_NAME" \
+            --public-release "${PUBLIC_RELEASE:-false}"
+      - name: Create one tracking issue if a new Spotify IPA is needed
+        if: ${{ steps.check.outputs.build == 'false' && steps.check.outputs.needs_ipa == 'true' && vars.ALLOW_PUBLIC_IPA_RELEASE == 'true' }}
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.check.outputs.latest_version }}
+        run: |
+          title="Spotify ${VERSION} - source IPA required"
+          if ! gh issue list --state all --limit 200 --json title --jq '.[].title' | grep -Fxq "$title"; then
+            gh issue create --title "$title" \
+              --body "Spotify ${VERSION} was detected. Supply a matching, authorized IPA URL in config/ipa-sources.json or your private catalog. The build will run automatically once an IPA is available. No IPA is sourced or decrypted by this workflow."
+          fi
+
+  build:
+    name: Compile Shrubify and inject selected Spotify IPA
+    needs: plan
+    if: ${{ needs.plan.outputs.build == 'true' }}
+    runs-on: macos-latest
+    env:
+      THEOS: ${{ github.workspace }}/theos
+      SWIFTPROTOBUF_VERSION: '1.29.0'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: '26.1.1'
+      - name: Resolve authorized IPA URL on this runner (keep secrets out of job outputs)
+        env:
+          MANUAL_IPA: ${{ inputs.ipa_url }}
+          CATALOG_URL: ${{ secrets.SPOTIFY_IPA_CATALOG_URL }}
+          FALLBACK_IPA: ${{ secrets.SPOTIFY_IPA_URL }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TWEAK_VERSION=$(awk '$1=="Version:"{print $2}' control)
+          SOURCE_SHA=$(git log -1 --format=%H -- Sources Scripts Tools modules layout Assets config scripts Makefile control .github/workflows/shrubify-release.yml)
+          python3 scripts/plan_release.py \
+            --repo "$GITHUB_REPOSITORY" --sha "$SOURCE_SHA" \
+            --tweak "$TWEAK_VERSION" \
+            --manual-url "$MANUAL_IPA" --catalog-url "$CATALOG_URL" \
+            --fallback-url "$FALLBACK_IPA" --token "$GH_TOKEN" \
+            --event "$GITHUB_EVENT_NAME" --public-release 'true' \
+            --url-file "$RUNNER_TEMP/shrubify-ipa-url"
+      - name: Download the user-provided IPA
+        env:
+          EXPECTED_VERSION: ${{ needs.plan.outputs.expected_version }}
+        run: |
+          IPA_URL="$(cat "$RUNNER_TEMP/shrubify-ipa-url")"
+          curl -fL --retry 3 --connect-timeout 25 --max-time 900 \
+            --output "$GITHUB_WORKSPACE/spotify.ipa" "$IPA_URL"
+          python3 scripts/inspect_ipa.py spotify.ipa --expected "$EXPECTED_VERSION" --output "$GITHUB_OUTPUT"
+        id: ipa
+      - name: Derive reproducible release tag from actual Spotify Info.plist
+        id: metadata
+        run: |
+          TWEAK_VERSION=$(awk '$1=="Version:"{print $2}' control)
+          SOURCE_SHA=$(git log -1 --format=%H -- Sources Scripts Tools modules layout Assets config scripts Makefile control .github/workflows/shrubify-release.yml)
+          SHA7="${SOURCE_SHA:0:7}"
+          TAG="shrubify-s${SPOT_VERSION}-v${TWEAK_VERSION}-g${SHA7}"
+          if [[ "$FORCE" == "true" ]]; then TAG="${TAG}-r${GITHUB_RUN_NUMBER}"; fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "tweak_version=$TWEAK_VERSION" >> "$GITHUB_OUTPUT"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo 'already_exists=true' >> "$GITHUB_OUTPUT"
+            echo "Release $TAG already exists" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo 'already_exists=false' >> "$GITHUB_OUTPUT"
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SPOT_VERSION: ${{ steps.ipa.outputs.version }}
+          FORCE: ${{ inputs.force_release }}
+      - name: Checkout Theos
+        if: ${{ steps.metadata.outputs.already_exists == 'false' }}
+        uses: actions/checkout@v4
+        with:
+          repository: theos/theos
+          path: theos
+          submodules: recursive
+      - name: Install build tools
+        if: ${{ steps.metadata.outputs.already_exists == 'false' }}
+        run: |
+          brew install make dpkg ldid wget
+          echo "$(brew --prefix make)/libexec/gnubin" >> "$GITHUB_PATH"
+          python3 -m pip install --upgrade --break-system-packages \
+            git+https://github.com/asdfzxcvbn/pyzule-rw.git
+          ARCH=$(uname -m)
+          if [[ "$ARCH" == 'arm64' ]]; then SUFFIX='macos-arm64'; else SUFFIX='macos-amd64'; fi
+          sudo curl -fsSL "https://github.com/asdfzxcvbn/ipapatch/releases/latest/download/ipapatch.${SUFFIX}" \
+            -o /usr/local/bin/ipapatch
+          sudo chmod +x /usr/local/bin/ipapatch
+          ipapatch --help >/dev/null
+      - name: Compile tweak and inject IPA
+        if: ${{ steps.metadata.outputs.already_exists == 'false' }}
+        env:
+          REPO_SLUG: ${{ github.repository }}
+          BRANCH_NAME: ${{ github.event.repository.default_branch }}
+        run: |
+          scripts/build_shrubify.sh "$GITHUB_WORKSPACE/spotify.ipa" "$GITHUB_RUN_NUMBER"
+      - name: Upload build as private Actions artifact
+        if: ${{ steps.metadata.outputs.already_exists == 'false' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: Shrubify-IPA-Spotify-${{ steps.ipa.outputs.version }}
+          path: |
+            Outputs/IPAS/*.ipa
+            packages/com.shrubify.spotify_*.deb
+          if-no-files-found: error
+      - name: Publish public GitHub Release when authorized
+        if: ${{ steps.metadata.outputs.already_exists == 'false' && vars.ALLOW_PUBLIC_IPA_RELEASE == 'true' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ steps.metadata.outputs.tag }}
+          SPOTIFY_VERSION: ${{ steps.ipa.outputs.version }}
+          TWEAK_VERSION: ${{ steps.metadata.outputs.tweak_version }}
+        run: |
+          IPA_PATH="$(cat Outputs/latest_ipa_path.txt)"
+          DEB_PATH="$(cat Outputs/latest_deb_path.txt)"
+          test -s "$IPA_PATH"
+          cat > "$RUNNER_TEMP/shrubify-notes.md" <<EOF
+          Shrubify fork of EeveeSpotify Reincarnated.
+
+          - Spotify: ${SPOTIFY_VERSION}
+          - Shrubify tweak: ${TWEAK_VERSION}
+          - iOS 26 native Liquid Glass settings; original Spotify colors preserved
+          - This is an automated build, NOT a device-verified compatibility certification.
+          - You must sign the IPA with your own certificate.
+          - Unofficial and not affiliated with Spotify.
+
+          altstore-build: ${GITHUB_RUN_NUMBER}
+          source-sha: ${GITHUB_SHA}
+          EOF
+          gh release create "$RELEASE_TAG" "$IPA_PATH" "$DEB_PATH" \
+            --title "Shrubify ${TWEAK_VERSION} · Spotify ${SPOTIFY_VERSION}" \
+            --notes-file "$RUNNER_TEMP/shrubify-notes.md" \
+            --target "$GITHUB_SHA"
+      - name: Regenerate AltStore repo.json from published releases
+        if: ${{ vars.ALLOW_PUBLIC_IPA_RELEASE == 'true' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          BRANCH="${{ github.event.repository.default_branch }}"
+          git pull --rebase origin "$BRANCH"
+          python3 scripts/generate_source.py \
+            --repo "$GITHUB_REPOSITORY" --token "$GH_TOKEN" \
+            --branch "$BRANCH" --output docs/repo.json
+          git config user.name 'shrubify-release-bot'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/repo.json
+          if ! git diff --cached --quiet; then
+            git commit -m "Update Shrubify AltStore source [skip ci]"
+            git push origin "HEAD:$BRANCH"
+          fi
+          echo "Source: https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/${BRANCH}/docs/repo.json" >> "$GITHUB_STEP_SUMMARY"

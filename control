@@ -1,9 +1,9 @@
-Package: com.eevee.spotify
-Name: EeveeSpotify
-Version: 7.0.0
+Package: com.shrubify.spotify
+Name: Shrubify
+Version: 1.0.0
 Architecture: iphoneos-arm
-Description: A tweak to get Spotify Premium for free, just like Spotilife
-Maintainer: jaydenjcpy
-Author: Eevee
+Description: Shrubify fork of EeveeSpotify Reincarnated with refined settings and Liquid Glass; see upstream credit
+Maintainer: Shrubify contributors
+Author: EeveeSpotify Reincarnated contributors; Shrubify contributors
 Section: Tweaks
 Depends: ${ORION}, firmware (>= 16.1)

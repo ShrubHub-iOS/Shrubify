@@ -7,10 +7,10 @@ include $(THEOS)/makefiles/common.mk
 TWEAK_NAME = EeveeSpotify
 
 REPO_SLUG ?= $(shell git remote get-url origin 2>/dev/null | sed -E 's|.*github\.com[:/]([^/]+/[^/.]+)(\.git)?$$|\1|')
-REPO_SLUG_FINAL := $(if $(REPO_SLUG),$(REPO_SLUG),jaydenjcpy/EeveeSpotifyReincarnated)
+REPO_SLUG_FINAL := $(if $(REPO_SLUG),$(REPO_SLUG),zoinkdoggie94/Shrubify)
 
 BRANCH_NAME ?= $(shell git rev-parse --abbrev-ref HEAD 2>/dev/null)
-BRANCH_NAME_FINAL := $(if $(BRANCH_NAME),$(BRANCH_NAME),Master)
+BRANCH_NAME_FINAL := $(if $(BRANCH_NAME),$(BRANCH_NAME),main)
 
 $(shell mkdir -p Sources/EeveeSpotify/Generated)
 $(shell printf 'enum GeneratedConfig {\n    static let repoSlug = "%s"\n    static let branchName = "%s"\n}\n' "$(REPO_SLUG_FINAL)" "$(BRANCH_NAME_FINAL)" > Sources/EeveeSpotify/Generated/RepoSlug.swift)

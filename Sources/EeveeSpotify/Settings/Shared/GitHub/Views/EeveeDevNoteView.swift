@@ -6,7 +6,7 @@ struct EeveeDevNoteView: View {
     @State private var errorMessage: String? = nil
     
     private let devNoteURL = URL(
-        string: "https://raw.githubusercontent.com/SideloadLabs/EeveeSpotifyReincarnated/refs/heads/Master/devnote.txt"
+        string: "https://raw.githubusercontent.com/\(EeveeSpotify.repoSlug)/\(GeneratedConfig.branchName)/devnote.txt"
     )!
     
     var body: some View {

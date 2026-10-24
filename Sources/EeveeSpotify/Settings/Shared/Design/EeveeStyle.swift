@@ -60,7 +60,7 @@ struct SettingsLabel: View {
             if chevron { ChevronRightView() }
         }
         .contentShape(Rectangle())
-        .padding(.vertical, 2)
+        .padding(.vertical, 5)
     }
 }
 
@@ -93,19 +93,31 @@ struct SettingsHero: View {
     }
 
     var body: some View {
-        VStack(spacing: 6) {
-            logo
+        VStack(spacing: 10) {
+            Image(systemName: "waveform")
+                .font(.system(size: 27, weight: .medium, design: .rounded))
+                .foregroundColor(.primary)
                 .frame(width: 64, height: 64)
-                .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
-                .shadow(color: EeveeTheme.accent.opacity(0.45), radius: 18)
-            Text("EeveeSpotify")
-                .font(.system(size: 26, weight: .bold, design: .rounded))
-            Text("v\(EeveeSpotify.version) (build \(EeveeSpotify.buildNumber)) · Spotify \(EeveeSpotify.spotifyVersion)")
+                .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                .accessibilityHidden(true)
+            Text("Shrubify")
+                .font(.system(size: 27, weight: .bold, design: .rounded))
+                .tracking(-0.6)
+                .foregroundColor(.primary)
+            Text("Clean. Fluid. Yours.")
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+            Text("v\(EeveeSpotify.version) · Spotify \(EeveeSpotify.spotifyVersion)")
                 .font(.footnote.monospacedDigit())
                 .foregroundColor(.secondary)
         }
+        .padding(.horizontal, 18)
+        .padding(.vertical, 24)
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 18)
+        .modifier(ShrubifyGlassSurface())
+        .padding(.horizontal, 14)
+        .padding(.bottom, 5)
+        .accessibilityElement(children: .combine)
     }
 }
 
@@ -137,7 +149,9 @@ struct SettingsGroupSection: View {
                 } label: {
                     SettingsLabel(
                         title: entry.key.localized,
-                        subtitle: "\(entry.key)_subtitle".localized,
+                        subtitle: entry.key == "liquid_glass"
+                            ? (LiquidGlassSettingsView.supported ? "Native iOS 26 glass surfaces" : "Requires iOS 26")
+                            : "\(entry.key)_subtitle".localized,
                         icon: entry.icon,
                         color: entry.color,
                         chevron: true
@@ -213,4 +227,16 @@ func confirmDestructive(title: String, message: String? = nil, confirm: String, 
     alert.addAction(UIAlertAction(title: "Cancel".uiKitLocalized, style: .cancel))
     alert.addAction(UIAlertAction(title: confirm, style: .destructive) { _ in action() })
     WindowHelper.shared.present(alert)
+}
+
+// Native Liquid Glass on iOS 26, quiet material on earlier iOS releases.
+// No forced tint: the app keeps its Spotify/user-selected accent color.
+struct ShrubifyGlassSurface: ViewModifier {
+    @ViewBuilder func body(content: Content) -> some View {
+        if #available(iOS 26.0, *) {
+            content.glassEffect(.regular, in: .rect(cornerRadius: 26))
+        } else {
+            content.background(.regularMaterial, in: RoundedRectangle(cornerRadius: 26, style: .continuous))
+        }
+    }
 }

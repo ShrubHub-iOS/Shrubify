@@ -52,6 +52,7 @@ struct EeveeSettingsView: View {
         ]),
         SettingsGroup(key: "settings_group_looks", entries: [
             SettingsEntry(key: "appearance", icon: "drop.fill", color: Color(hex: "#30B0C7")) { AnyView(AppearanceSettingsView()) },
+            SettingsEntry(key: "liquid_glass", icon: "circle.hexagongrid.fill", color: EeveeTheme.accent) { AnyView(LiquidGlassSettingsView()) },
             SettingsEntry(key: "customization", icon: "paintpalette.fill", color: Color(hex: "#64D2FF")) { AnyView(EeveeUISettingsView()) },
             SettingsEntry(key: "appIcon", icon: "app.badge.fill", color: .pink) { AnyView(EeveeAppIconPickerView()) },
         ]),
@@ -74,7 +75,7 @@ struct EeveeSettingsView: View {
                 SettingsHero()
             }
             .listRowBackground(Color.clear)
-            .listRowInsets(EdgeInsets())
+            .listRowInsets(EdgeInsets(top: 8, leading: 0, bottom: 4, trailing: 0))
 
             EeveeSettingsVersionView()
             
