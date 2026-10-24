@@ -24,8 +24,8 @@ def main():
     if a.expected and metadata['version'] != a.expected:
         raise ValueError(f"IPA version {metadata['version']} does not match App Store version {a.expected}")
     if a.require_shrubify:
-        if metadata['bundle'] != 'com.spotify.client':
-            raise ValueError('Unexpected Spotify bundle ID: '+metadata['bundle'])
+        if metadata['bundle'] != 'com.shrubify.client':
+            raise ValueError('Unexpected Shrubify bundle ID: '+metadata['bundle'])
         with zipfile.ZipFile(a.ipa) as z:
             if not any('EeveeSpotify.dylib' in f for f in z.namelist()):
                 raise ValueError('Missing injected tweak dylib')

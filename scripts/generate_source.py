@@ -36,7 +36,7 @@ def source_for(repo, releases, branch="main"):
     return {'name':'Shrubify','subtitle':'A refined Spotify tweak fork',
        'description':'A community fork of EeveeSpotify Reincarnated. Liquid Glass settings on iOS 26, with Spotify\u2019s original colors preserved. Unofficial, not affiliated with Spotify.',
        'iconURL':icon,'website':f'https://github.com/{repo}',
-       'apps': ([{'name':'Shrubify','bundleIdentifier':'com.spotify.client',
+       'apps': ([{'name':'Shrubify','bundleIdentifier':'com.shrubify.client',
                   'developerName':'Shrubify contributors',
                   'subtitle':'Clean Spotify customization',
                   'localizedDescription':'Shrubify is an unofficial EeveeSpotify Reincarnated fork, with a polished interface and iOS 26 Liquid Glass options.',

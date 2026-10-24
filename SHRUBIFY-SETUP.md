@@ -4,7 +4,7 @@ This fork is built from the EeveeSpotify Reincarnated source in the ZIP you prov
 
 ## What changed
 
-- **Shrubify** name in its settings header and app display name (when built).
+- **Shrubify** name in its settings header, app display name, and output IPA bundle ID (`com.shrubify.client`). The source IPA stays `com.spotify.client`.
 - Polished, more spacious settings rows; neutral black/white header without forcing ShrubHub colors.
 - Real iOS 26 SwiftUI glass for the settings hero (`.glassEffect`); earlier supported iOS versions material fallback.
 - The upstream's iOS 26 Liquid Glass Spotify surfaces (tab bar, now-playing, search, playlists, and lyrics) are **retained**; a shortcut is added in Shrubify settings. These effects are optional/off by default until enabled in the settings, as they were upstream.
@@ -66,9 +66,9 @@ If a new Spotify version is detected without a matching source, the workflow wri
 1. Go to **Actions → Shrubify - Watch, Build, Release and Update Source → Run workflow**.
 2. Paste an authorized **HTTPS direct download URL** for your already-decrypted Spotify IPA into `ipa_url`. A local iPad file must first be stored at a URL the GitHub macOS runner can reach; the GitHub runner cannot access your iPad's Files app.
 3. Leave `force_release` unchecked unless rebuilding an existing exact source revision.
-4. Run. It builds the framework and tweak from **your** code, injects into that IPA, updates the IPA's app display name and numeric build number, and uploads a build artifact.
+4. Run. It builds the framework and tweak from **your** code, injects into that IPA, updates the IPA's app display name, bundle ID (`com.shrubify.client`), and numeric build number, and uploads a build artifact.
 5. If `ALLOW_PUBLIC_IPA_RELEASE=true`, it also publishes the IPA and `.deb` in **GitHub Releases**, then regenerates `docs/repo.json` from actual GitHub Release assets.
-6. The IPA is not pre-signed. Sign it using your own authorized certificate.
+6. The IPA is not pre-signed. Sign it using your own authorized certificate, keeping the custom bundle ID. Changing the bundle ID can affect Spotify sign-in, Keychain, app extensions and other features. The workflow does not claim these have been device-tested.
 
 **No false guarantees:** the workflow validates ZIP structure, matching Spotify bundle/version, and that the tweak binary is in the output. It cannot detect every API/UI change inside Spotify, so a successful Actions build is **not** proof that the new Spotify version behaves correctly. Test it before treating it as a stable public release.
 

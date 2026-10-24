@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Minimal Info.plist-only modification: name + unique AltStore build number.
+"""Modify main app Info.plist: custom bundle ID, name, and build number.
 
-Does not touch Spotify's bundle ID, colors, streaming behavior or icons.
+Does not touch Spotify's colors, streaming behavior or icons.
 The IPA must be re-signed after this operation.
 """
 import argparse
@@ -27,6 +27,7 @@ try:
                 p=plistlib.loads(data)
                 if p.get('CFBundleIdentifier')!='com.spotify.client':
                     raise ValueError('Unexpected bundle: '+str(p.get('CFBundleIdentifier')))
+                p['CFBundleIdentifier']='com.shrubify.client'
                 p['CFBundleName']='Shrubify';p['CFBundleDisplayName']='Shrubify'
                 p['CFBundleVersion']=a.build
                 data=plistlib.dumps(p,fmt=plistlib.FMT_BINARY)
@@ -35,4 +36,4 @@ try:
 except BaseException:
     if os.path.exists(temp):os.unlink(temp)
     raise
-print(f'Branded {source} as Shrubify (build {a.build})')
+print(f'Branded {source} as Shrubify (com.shrubify.client, build {a.build})')
