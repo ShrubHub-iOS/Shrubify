@@ -3,7 +3,6 @@ import UIKit
 
 class EeveeSettingsViewController: SPTPageViewController {
     let settingsView: AnyView
-    private var hasShownSpecialLicense = false
     
     init(_ frame: CGRect, settingsView: AnyView, navigationTitle: String) {
         self.settingsView = settingsView
@@ -41,23 +40,8 @@ class EeveeSettingsViewController: SPTPageViewController {
         becomeFirstResponder()
     }
     
-    override var canBecomeFirstResponder: Bool { true }
-    
-    override func motionEnded(_ motion: UIEvent.EventSubtype, with event: UIEvent?) {
-        super.motionEnded(motion, with: event)
-        guard motion == .motionShake, !hasShownSpecialLicense else { return }
-        hasShownSpecialLicense = true
-        
-        let alert = UIAlertController(
-            title: "Special License Detected",
-            message: "Subscribed to Elsa by Hysan since 2026.",
-            preferredStyle: .alert
-        )
-        alert.addAction(UIAlertAction(title: "Prayers for Hysan 🙏", style: .default))
-        WindowHelper.shared.present(alert)
-    }
     
     @objc func openRepositoryUrl(_ sender: UIButton) {
-        UIApplication.shared.open(URL(string: "https://github.com/jaydenjcpy/EeveeSpotifyReincarnated")!)
+        UIApplication.shared.open(URL(string: "https://github.com/zoinkdoggie94/Shrubify")!)
     }
 }

@@ -19,7 +19,7 @@ enum GlassNowPlayingBar {
         forName: .eeveeNowPlayingBarOptionsChanged, object: nil, queue: .main
     ) { _ in
         options = UserDefaults.nowPlayingBarOptions
-        eeveeLog("[EeveeSpotify][Glass] Now playing bar options changed")
+        eeveeLog("[Shrubify][Glass] Now playing bar options changed")
         if let container { style(container) }
     }
 
@@ -56,7 +56,7 @@ enum GlassNowPlayingBar {
                 AlbumColor.publish(color)
                 if let pane { GlassKit.tint(pane, tint) }
             }
-            eeveeLog("[EeveeSpotify][Glass] Now playing card %@ %@, color %@",
+            eeveeLog("[Shrubify][Glass] Now playing card %@ %@, color %@",
                   NSStringFromClass(type(of: found)), NSCoder.string(for: found.frame), intercepted ? "intercepted" : "FAILED")
         }
         guard let card else { return }

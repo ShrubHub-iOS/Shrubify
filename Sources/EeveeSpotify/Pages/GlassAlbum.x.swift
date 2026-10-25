@@ -98,7 +98,7 @@ enum GlassAlbum {
         let row = controls(around: header, in: template).map { GlassPlaylist.actionRow(host: template, controls: $0, scroll: scroll) } ?? false
         if !logged {
             logged = true
-            eeveeLog("[EeveeSpotify][Glass] Album header styled, action row %@", row ? "on" : "MISSING")
+            eeveeLog("[Shrubify][Glass] Album header styled, action row %@", row ? "on" : "MISSING")
         }
     }
 }

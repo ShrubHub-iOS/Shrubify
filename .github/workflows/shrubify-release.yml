@@ -194,11 +194,11 @@ jobs:
           DEB_PATH="$(cat Outputs/latest_deb_path.txt)"
           test -s "$IPA_PATH"
           cat > "$RUNNER_TEMP/shrubify-notes.md" <<EOF
-          Shrubify fork of EeveeSpotify Reincarnated.
+          Shrubify by shrubbery and the ShrubHub team. Upstream contributors credited in the GPL source repository.
 
           - Spotify: ${SPOTIFY_VERSION}
           - Shrubify tweak: ${TWEAK_VERSION}
-          - iOS 26 native Liquid Glass settings; original Spotify colors preserved
+          - Shrubify icon, developers page, compatibility diagnostics, and iOS 26 Liquid Glass
           - This is an automated build, NOT a device-verified compatibility certification.
           - You must sign the IPA with your own certificate.
           - Unofficial and not affiliated with Spotify.

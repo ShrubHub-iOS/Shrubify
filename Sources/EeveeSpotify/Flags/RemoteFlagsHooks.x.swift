@@ -93,18 +93,18 @@ func activateRemoteFlags() {
     _ = RemoteFlags.launchOverrides
     let flags = RemoteFlags.shared
     guard flags.needsHooks else {
-        eeveeLog("[EeveeSpotify][Flags] Off (no overrides, catalog current)")
+        eeveeLog("[Shrubify][Flags] Off (no overrides, catalog current)")
         return
     }
     guard NSClassFromString(ConfigurationProviderHook.targetName) != nil else {
-        eeveeLog("[EeveeSpotify][Flags] Skipped: provider classes missing")
+        eeveeLog("[Shrubify][Flags] Skipped: provider classes missing")
         return
     }
     let start = CFAbsoluteTimeGetCurrent()
     flags.prepare()
     RemoteFlagsGroup().activate()
     let observable = ObservableProviderSwizzle.install()
-    eeveeLog("[EeveeSpotify][Flags] Active: %d overrides, %d forced, observable %d/3, catalog %@ (%.2f ms)",
+    eeveeLog("[Shrubify][Flags] Active: %d overrides, %d forced, observable %d/3, catalog %@ (%.2f ms)",
           RemoteFlags.overrides.count, flags.forced.count, observable,
           flags.catalogIsCurrent ? "current" : "capturing",
           (CFAbsoluteTimeGetCurrent() - start) * 1000)

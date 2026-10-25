@@ -1,51 +1,28 @@
-import SwiftUI
 import UIKit
+import Combine
 
-class ImageViewModel: ObservableObject {
-    @Published var image: UIImage?
-
-    private var imageCache: NSCache<NSString, UIImage>?
+final class ImageViewModel: ObservableObject {
+    @Published private(set) var image: UIImage?
+    private static let cache = NSCache<NSString, UIImage>()
+    private var task: URLSessionDataTask?
 
     init(urlString: String?) {
-        loadImage(urlString: urlString)
-    }
-
-    private func loadImage(urlString: String?) {
-        guard let urlString = urlString else { return }
-
-        if let imageFromCache = getImageFromCache(from: urlString) {
-            self.image = imageFromCache
+        guard let raw = urlString,
+              let url = URL(string: raw), url.scheme == "https" else { return }
+        if let cached = Self.cache.object(forKey: raw as NSString) {
+            image = cached
             return
         }
-
-        loadImageFromURL(urlString: urlString)
+        task = URLSession.shared.dataTask(with: url) { [weak self] data, response, error in
+            guard error == nil,
+                  let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode),
+                  let data = data, data.count < 3_000_000,
+                  let picture = UIImage(data: data) else { return }
+            Self.cache.setObject(picture, forKey: raw as NSString)
+            DispatchQueue.main.async { [weak self] in self?.image = picture }
+        }
+        task?.resume()
     }
 
-    private func loadImageFromURL(urlString: String) {
-        guard let url = URL(string: urlString) else { return }
-
-        URLSession.shared.dataTask(with: url) { data, response, error in
-            guard error == nil else {
-                return
-            }
-
-            guard let data = data else {
-                return
-            }
-
-            DispatchQueue.main.async { [weak self] in
-                guard let loadedImage = UIImage(data: data) else { return }
-                self?.image = loadedImage
-                self?.setImageCache(image: loadedImage, key: urlString)
-            }
-        }.resume()
-    }
-
-    private func setImageCache(image: UIImage, key: String) {
-        imageCache?.setObject(image, forKey: key as NSString)
-    }
-
-    private func getImageFromCache(from key: String) -> UIImage? {
-        return imageCache?.object(forKey: key as NSString) as? UIImage
-    }
+    deinit { task?.cancel() }
 }

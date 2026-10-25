@@ -6,7 +6,7 @@ import Orion
 import UIKit
 
 private func upsellServiceLog(_ message: String) {
-    eeveeLog("[EeveeSpotify][UpsellService] %@", message)
+    eeveeLog("[Shrubify][UpsellService] %@", message)
 }
 
 struct GeneralUpsellsServiceGroup: HookGroup {}
@@ -141,12 +141,12 @@ func activateUpsellServiceBlocker() {
     for (className, label, activate) in targets {
         guard let cls = NSClassFromString(className),
               class_getInstanceMethod(cls, loadSelector) != nil else {
-            eeveeLog("[EeveeSpotify][UpsellService] %@/load unavailable; skipping", label)
+            eeveeLog("[Shrubify][UpsellService] %@/load unavailable; skipping", label)
             continue
         }
         activate()
         activated += 1
-        eeveeLog("[EeveeSpotify][UpsellService] %@ hook activated", label)
+        eeveeLog("[Shrubify][UpsellService] %@ hook activated", label)
     }
 
     let viewSelector = Selector(("didMoveToSuperview"))
@@ -154,11 +154,11 @@ func activateUpsellServiceBlocker() {
        class_getInstanceMethod(cls, viewSelector) != nil {
         SelfLoadingUpsellBannerViewGroup().activate()
         activated += 1
-        eeveeLog("[EeveeSpotify][UpsellService] Premium banner view fallback activated")
+        eeveeLog("[Shrubify][UpsellService] Premium banner view fallback activated")
     } else {
-        eeveeLog("[EeveeSpotify][UpsellService] Premium banner view unavailable; skipping")
+        eeveeLog("[Shrubify][UpsellService] Premium banner view unavailable; skipping")
     }
 
-    eeveeLog("[EeveeSpotify][UpsellService] activated %d/%d compatible hooks",
+    eeveeLog("[Shrubify][UpsellService] activated %d/%d compatible hooks",
           activated, targets.count + 1)
 }

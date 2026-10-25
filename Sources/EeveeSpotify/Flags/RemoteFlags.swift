@@ -50,7 +50,7 @@ final class RemoteFlags {
 
     private lazy var catalogURL: URL = {
         let dir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("EeveeSpotify", isDirectory: true)
+            .appendingPathComponent("Shrubify", isDirectory: true)
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         return dir.appendingPathComponent("flags.json")
     }()
@@ -84,7 +84,7 @@ final class RemoteFlags {
 
     func force(_ flags: [String: Any], by owner: String) {
         forced.merge(flags) { _, new in new }
-        eeveeLog("[EeveeSpotify][Flags] %@ forces %d flags", owner, flags.count)
+        eeveeLog("[Shrubify][Flags] %@ forces %d flags", owner, flags.count)
     }
 
     var needsHooks: Bool {
@@ -141,7 +141,7 @@ final class RemoteFlags {
         mach_timebase_info(&timebase)
         let ms = Double(ticks) * Double(timebase.numer) / Double(timebase.denom) / 1_000_000
         guard cataloguing else {
-            eeveeLog("[EeveeSpotify][Flags] %d reads, %d overridden, hook cost %.2f ms", reads, applied, ms)
+            eeveeLog("[Shrubify][Flags] %d reads, %d overridden, hook cost %.2f ms", reads, applied, ms)
             return
         }
 
@@ -152,8 +152,8 @@ final class RemoteFlags {
             try JSONEncoder().encode(catalog).write(to: catalogURL, options: .atomic)
             UserDefaults.standard.set(spotifyVersion, forKey: Self.catalogVersionKey)
         } catch {
-            eeveeLog("[EeveeSpotify][Flags] Catalog write failed: %@", "\(error)")
+            eeveeLog("[Shrubify][Flags] Catalog write failed: %@", "\(error)")
         }
-        eeveeLog("[EeveeSpotify][Flags] %d reads, %d seen, %d catalogued, %d overridden, hook cost %.2f ms", reads, fresh.count, catalog.flags.count, applied, ms)
+        eeveeLog("[Shrubify][Flags] %d reads, %d seen, %d catalogued, %d overridden, hook cost %.2f ms", reads, fresh.count, catalog.flags.count, applied, ms)
     }
 }

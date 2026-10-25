@@ -63,7 +63,7 @@ func activateLiquidGlass() {
     func add(_ name: String, _ on: Bool) { if on { active.append(name) } }
     defer {
         if !active.isEmpty || options.enabled {
-            eeveeLog("[EeveeSpotify][Glass] Active: %@; plist %@ (%.2f ms)", active.isEmpty ? "none" : active.joined(separator: ", "),
+            eeveeLog("[Shrubify][Glass] Active: %@; plist %@ (%.2f ms)", active.isEmpty ? "none" : active.joined(separator: ", "),
                      plist ?? "untouched", (CFAbsoluteTimeGetCurrent() - start) * 1000)
         }
     }
@@ -83,7 +83,7 @@ func activateLiquidGlass() {
 
     guard options.enabled else { return }
     guard #available(iOS 26.0, *) else {
-        eeveeLog("[EeveeSpotify][Glass] Skipped: needs iOS 26")
+        eeveeLog("[Shrubify][Glass] Skipped: needs iOS 26")
         return
     }
 
@@ -125,7 +125,7 @@ func activateLiquidGlass() {
 private func activate(_ group: HookGroup, _ classes: String...) -> Bool {
     let missing = classes.filter { NSClassFromString($0) == nil }
     guard missing.isEmpty else {
-        eeveeLog("[EeveeSpotify][Glass] Skipped %@: missing %@", "\(type(of: group))", missing.joined(separator: ", "))
+        eeveeLog("[Shrubify][Glass] Skipped %@: missing %@", "\(type(of: group))", missing.joined(separator: ", "))
         return false
     }
     group.activate()

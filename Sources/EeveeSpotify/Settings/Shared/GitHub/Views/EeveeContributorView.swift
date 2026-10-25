@@ -6,7 +6,7 @@ struct EeveeContributorView: View {
 
     var body: some View {
         VStack {
-            Link(destination: URL(string: githubUser.htmlUrl)!) {
+            Link(destination: URL(string: githubUser.htmlUrl) ?? URL(string: "https://github.com")!) {
                 HStack(spacing: 10) {
                     if contributor.usernames.count > 1 {
                         // Multiple users: inline [pfp] name & [pfp] name at text size
@@ -32,7 +32,7 @@ struct EeveeContributorView: View {
                             .clipShape(Circle())
 
                         VStack(alignment: .leading, spacing: 0) {
-                            Text(contributor.displayName ?? contributor.usernames[0])
+                            Text(contributor.displayName ?? contributor.usernames.first ?? "Contributor")
                                 .foregroundColor(.white)
                                 .font(.headline)
 

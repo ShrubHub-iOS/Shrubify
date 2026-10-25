@@ -40,7 +40,7 @@ class UniversalProfileSettingsSectionHook: ClassHook<NSObject> {
         if row == originalRows {
             let settingsTableCell = Dynamic.SPTSettingsTableViewCell
                 .alloc(interface: SPTSettingsTableViewCell.self)
-                .initWithStyle(3, reuseIdentifier: "EeveeSpotify")
+                .initWithStyle(3, reuseIdentifier: "Shrubify")
             
             let tableViewCell = Dynamic.convert(settingsTableCell, to: UITableViewCell.self)
             
@@ -50,7 +50,7 @@ class UniversalProfileSettingsSectionHook: ClassHook<NSObject> {
             )
             .disclosureAccessoryView()
             
-            tableViewCell.textLabel?.text = "EeveeSpotify"
+            tableViewCell.textLabel?.text = "Shrubify"
             
             return tableViewCell
         }
@@ -72,7 +72,7 @@ class UniversalProfileSettingsSectionHook: ClassHook<NSObject> {
         let eeveeSettingsController = EeveeSettingsViewController(
             rootController.view.bounds,
             settingsView: AnyView(EeveeSettingsView(navigationController: navigationController)),
-            navigationTitle: "EeveeSpotify"
+            navigationTitle: "Shrubify"
         )
         
         let button = UIButton()
@@ -102,17 +102,17 @@ class UniversalProfileSettingsSectionHook: ClassHook<NSObject> {
 // MARK: - Global Helper to avoid Orion Hooking Issues with setupEeveeButton
 // This logic is moved outside the ClassHook so Orion doesn't try to find it as an Obj-C method on the target class.
 func injectEeveeButton(into target: UIViewController) {
-    eeveeLog("[EeveeSpotify] injectEeveeButton called for \(String(describing: type(of: target)))")
+    eeveeLog("[Shrubify] injectEeveeButton called for \(String(describing: type(of: target)))")
     
     // Check if the button already exists in rightBarButtonItems
     if let rightItems = target.navigationItem.rightBarButtonItems {
         if rightItems.contains(where: { $0.tag == 1337 }) {
-             eeveeLog("[EeveeSpotify] Button already exists (tag 1337)")
+             eeveeLog("[Shrubify] Button already exists (tag 1337)")
              return 
         }
     }
 
-    eeveeLog("[EeveeSpotify] Creating and injecting button...")
+    eeveeLog("[Shrubify] Creating and injecting button...")
     
     let button = UIButton(type: .system)
     // Use system image to guarantee visibility and avoid crashes
@@ -122,16 +122,16 @@ func injectEeveeButton(into target: UIViewController) {
     
     let action = UIAction { [weak target] _ in
         guard let target = target, let navigationController = target.navigationController else { 
-            eeveeLog("[EeveeSpotify] Navigation controller not found")
+            eeveeLog("[Shrubify] Navigation controller not found")
             return 
         }
         
-        eeveeLog("[EeveeSpotify] Opening EeveeSettings...")
+        eeveeLog("[Shrubify] Opening Shrubify settings...")
         
         let eeveeSettingsController = EeveeSettingsViewController(
             target.view.bounds,
             settingsView: AnyView(EeveeSettingsView(navigationController: navigationController)),
-            navigationTitle: "EeveeSpotify"
+            navigationTitle: "Shrubify"
         )
         
         // Add GitHub button to the Eevee settings page itself
@@ -172,7 +172,7 @@ func injectEeveeButton(into target: UIViewController) {
     items.insert(item, at: 0) // Prepend instead of append to ensure visibility
     target.navigationItem.rightBarButtonItems = items
     
-    eeveeLog("[EeveeSpotify] Button injected. Items count: \(items.count)")
+    eeveeLog("[Shrubify] Button injected. Items count: \(items.count)")
 }
 
 // MARK: - Fallback: Hook SettingsViewController directly (New UI)
@@ -229,7 +229,7 @@ class SettingsListViewControllerHook: ClassHook<UIViewController> {
 
 private let eeveeInlineRowTag = 1338
 private let eeveeInlineRowHeight: CGFloat = 68
-private let eeveeInlineRowTitle = "EeveeSpotify"
+private let eeveeInlineRowTitle = "Shrubify"
 
 func injectEeveeInlineRow(into vc: UIViewController) {
     // Each Spotify page sits in a MusicAppPageHostingViewController wrapper; the list VC is its child.
@@ -240,7 +240,7 @@ func injectEeveeInlineRow(into vc: UIViewController) {
     let rootSettingsHost = stack.first { subtreeContains($0, ofClass: listClass) }
     guard let enclosing = enclosing, enclosing === rootSettingsHost else { return }
     guard let cv = findFirstCollectionView(in: vc.view) else {
-        eeveeLog("[EeveeSpotify] inlineRow: no UICollectionView in view tree")
+        eeveeLog("[Shrubify] inlineRow: no UICollectionView in view tree")
         return
     }
     if cv.viewWithTag(eeveeInlineRowTag) != nil { return }
@@ -304,7 +304,7 @@ func injectEeveeInlineRow(into vc: UIViewController) {
     cv.verticalScrollIndicatorInsets = indicator
     cv.setContentOffset(CGPoint(x: 0, y: -inset.top), animated: false)
 
-    eeveeLog("[EeveeSpotify] Injected inline EeveeSpotify row into Settings list")
+    eeveeLog("[Shrubify] Injected inline Shrubify row into Settings list")
 }
 
 private func enclosingStackVC(of vc: UIViewController, in stack: [UIViewController]) -> UIViewController? {
@@ -337,7 +337,7 @@ private func pushEeveeSettings(from vc: UIViewController) {
     let host = EeveeSettingsViewController(
         vc.view.bounds,
         settingsView: AnyView(EeveeSettingsView(navigationController: nav)),
-        navigationTitle: "EeveeSpotify"
+        navigationTitle: "Shrubify"
     )
 
     let subButton = UIButton(type: .system)
@@ -458,14 +458,14 @@ class SettingsNavigationStackHook: ClassHook<UINavigationController> {
                 "Configuración", "Preferencias",
             ]
             if let title = targetVC.title, settingsTitles.contains(title) {
-                eeveeLog("[EeveeSpotify] Detected Settings via Title: \(className)")
+                eeveeLog("[Shrubify] Detected Settings via Title: \(className)")
                 injectEeveeButton(into: targetVC)
                 return
             }
             
             // Check class name
             if className.contains("Settings") && !className.contains("Eevee") {
-                eeveeLog("[EeveeSpotify] Detected Settings via Class Name: \(className)")
+                eeveeLog("[Shrubify] Detected Settings via Class Name: \(className)")
                 injectEeveeButton(into: targetVC)
                 return
             }

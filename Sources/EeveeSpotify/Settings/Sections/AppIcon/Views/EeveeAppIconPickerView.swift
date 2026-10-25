@@ -109,12 +109,13 @@ struct EeveeAppIconPickerView: View {
 
         var entries: [AppIconEntry] = [
             AppIconEntry(id: primaryIconKey,
-                         title: "Default",
+                         title: "Shrubify (default)",
                          alternateName: nil,
                          iconFiles: primaryFiles)
         ]
         let alternates = bundleIcons?["CFBundleAlternateIcons"] as? [String: Any] ?? [:]
         for key in alternates.keys.sorted(by: { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }) {
+            if key.localizedCaseInsensitiveContains("eevee") || key.localizedCaseInsensitiveContains("eevify") { continue }
             let info = alternates[key] as? [String: Any]
             let files = info?["CFBundleIconFiles"] as? [String] ?? [key]
             // Use the plist key as the display title but convert underscores,
@@ -155,7 +156,7 @@ struct EeveeAppIconPickerView: View {
         UIApplication.shared.setAlternateIconName(icon.alternateName) { error in
             DispatchQueue.main.async {
                 guard let error = error else { return }
-                eeveeLog("[EeveeSpotify][AppIcon] setAlternateIconName(%@) failed: %@",
+                eeveeLog("[Shrubify][AppIcon] setAlternateIconName(%@) failed: %@",
                       icon.alternateName ?? "nil", error.localizedDescription)
                 selectedKey = previous
                 UserDefaults.standard.set(previous, forKey: selectedKeyDefault)

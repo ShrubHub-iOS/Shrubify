@@ -1,9 +1,9 @@
 Package: com.shrubify.spotify
 Name: Shrubify
-Version: 1.0.0
+Version: 2.0.0
 Architecture: iphoneos-arm
-Description: Shrubify fork of EeveeSpotify Reincarnated with refined settings and Liquid Glass; see upstream credit
-Maintainer: Shrubify contributors
-Author: EeveeSpotify Reincarnated contributors; Shrubify contributors
+Description: Shrubify by shrubbery and ShrubHub team; compatibility controls, native materials, and new app branding; GPL attribution included
+Maintainer: shrubbery / ShrubHub team
+Author: shrubbery and ShrubHub team; upstream authors credited in accompanying license and documentation
 Section: Tweaks
 Depends: ${ORION}, firmware (>= 16.1)

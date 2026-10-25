@@ -75,9 +75,9 @@ func activateKaraokeFooterButton() {
     guard #available(iOS 15.0, *), UserDefaults.lyricsSource.supportsCustomLyricsView else { return }
     let start = CFAbsoluteTimeGetCurrent()
     guard NSClassFromString(KaraokeFooterUnitHook.targetName) != nil else {
-        eeveeLog("[EeveeSpotify][Karaoke] Footer button skipped: footer unit missing")
+        eeveeLog("[Shrubify][Karaoke] Footer button skipped: footer unit missing")
         return
     }
     KaraokeFooterGroup().activate()
-    eeveeLog("[EeveeSpotify][Karaoke] Footer button active (%.2f ms)", (CFAbsoluteTimeGetCurrent() - start) * 1000)
+    eeveeLog("[Shrubify][Karaoke] Footer button active (%.2f ms)", (CFAbsoluteTimeGetCurrent() - start) * 1000)
 }

@@ -49,6 +49,13 @@ def preflight(archive):
             forbidden.append(n)
     if forbidden:
         raise ValueError('Leftover unresignable extensions/signing files: ' + ', '.join(forbidden[:5]))
+    if not any(n == app_prefix + 'Shrubify@2x.png' for n in files):
+        raise ValueError('Shrubify primary icon PNG not found in IPA')
+    for icon_section in ('CFBundleIcons', 'CFBundleIcons~ipad'):
+        icons = p.get(icon_section, {})
+        primary = icons.get('CFBundlePrimaryIcon', {}) if isinstance(icons, dict) else {}
+        if 'Shrubify' not in primary.get('CFBundleIconFiles', []):
+            raise ValueError('Shrubify primary icon not configured in ' + icon_section)
     if not any(n.endswith('/EeveeSpotify.dylib') for n in files):
         raise ValueError('EeveeSpotify.dylib not in IPA')
     bad = archive.testzip()

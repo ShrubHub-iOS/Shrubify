@@ -71,7 +71,7 @@ struct FlagBrowserView: View {
         DispatchQueue.global(qos: .userInitiated).async {
             let start = CFAbsoluteTimeGetCurrent()
             let flags = RemoteFlags.shared.loadCatalog()
-            eeveeLog("[EeveeSpotify][Flags] Browser loaded %d flags in %.1f ms", flags.count, (CFAbsoluteTimeGetCurrent() - start) * 1000)
+            eeveeLog("[Shrubify][Flags] Browser loaded %d flags in %.1f ms", flags.count, (CFAbsoluteTimeGetCurrent() - start) * 1000)
             DispatchQueue.main.async {
                 catalog = flags
                 loaded = true
@@ -82,7 +82,7 @@ struct FlagBrowserView: View {
     private func set(_ key: String, _ value: Any?) {
         overrides[key] = value
         RemoteFlags.overrides = overrides
-        eeveeLog("[EeveeSpotify][Flags] %@ = %@", key, value.map { "\($0)" } ?? "auto")
+        eeveeLog("[Shrubify][Flags] %@ = %@", key, value.map { "\($0)" } ?? "auto")
     }
 }
 

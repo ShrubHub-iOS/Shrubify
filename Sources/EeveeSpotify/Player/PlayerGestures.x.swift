@@ -71,7 +71,7 @@ final class PlayerGestures: NSObject, UIGestureRecognizerDelegate {
         let index = max(0, min(actions.count - 1, Int(x / host.bounds.width * CGFloat(actions.count))))
         let action = actions[index]
         if let failure = perform(action, near: host) {
-            eeveeLog("[EeveeSpotify][Gestures] Double tap %@ FAILED: %@", action.rawValue, failure)
+            eeveeLog("[Shrubify][Gestures] Double tap %@ FAILED: %@", action.rawValue, failure)
         }
         PlayerHaptics.impact()
         showBubble(action, zone: index, in: host)
@@ -165,7 +165,7 @@ func activatePlayerGestures() {
     let required = [PlayerPlaybackControllerHook.targetName, PlayerCoverGestureHook.targetName]
     let missing = required.filter { NSClassFromString($0) == nil }
     guard missing.isEmpty else {
-        eeveeLog("[EeveeSpotify][Gestures] Skipped: missing %@", missing.joined(separator: ", "))
+        eeveeLog("[Shrubify][Gestures] Skipped: missing %@", missing.joined(separator: ", "))
         return
     }
     let playback: AnyClass? = NSClassFromString(PlayerPlaybackControllerHook.targetName)
@@ -173,13 +173,13 @@ func activatePlayerGestures() {
                      "skipToNextWhileDragging:", "skipToPreviousWhileDragging:", "setPaused:", "isPaused", "seekingAllowed"]
     let absent = selectors.filter { class_getInstanceMethod(playback, NSSelectorFromString($0)) == nil }
     guard absent.isEmpty else {
-        eeveeLog("[EeveeSpotify][Gestures] Skipped: controller lacks %@", absent.joined(separator: ", "))
+        eeveeLog("[Shrubify][Gestures] Skipped: controller lacks %@", absent.joined(separator: ", "))
         return
     }
     PlayerGesturesGroup().activate()
     let tilt = NSClassFromString(PlayerTiltSuppressHook.targetName)
     let suppressTilt = class_getInstanceMethod(tilt, NSSelectorFromString("handleTap")) != nil
     if suppressTilt { PlayerTiltSuppressGroup().activate() }
-    eeveeLog("[EeveeSpotify][Gestures] Active: %@, %d zones, tilt %@ (%.2f ms)", options.doubleTap.rawValue,
+    eeveeLog("[Shrubify][Gestures] Active: %@, %d zones, tilt %@ (%.2f ms)", options.doubleTap.rawValue,
              options.threeZones ? 3 : 2, suppressTilt ? "suppressed" : "untouched", (CFAbsoluteTimeGetCurrent() - start) * 1000)
 }

@@ -25,7 +25,7 @@ final class PerfMeter {
         if passes == nextReport {
             nextReport *= 4
             let total = Double(ticks) * Self.msPerTick
-            eeveeLog("[EeveeSpotify][%@] %d passes, %.2f ms total, %.3f ms avg", tag, passes, total, total / Double(passes))
+            eeveeLog("[Shrubify][%@] %d passes, %.2f ms total, %.3f ms avg", tag, passes, total, total / Double(passes))
         }
         return result
     }

@@ -319,7 +319,7 @@ enum PasteboardConcreteSwizzler {
             return CleanShareLinks.cleanPasteboardItems(items) as AnyObject
         }
 
-        eeveeLog("[EeveeSpotify][CleanShareLinks] pasteboard concrete-class swizzles installed on %s",
+        eeveeLog("[Shrubify][CleanShareLinks] pasteboard concrete-class swizzles installed on %s",
               class_getName(concrete))
     }
 
@@ -348,7 +348,7 @@ enum PasteboardConcreteSwizzler {
             unsafeBitCast(origIMP, to: OrigFn.self)(target, sel, clean(value))
         }
         method_setImplementation(own, imp_implementationWithBlock(block as Any))
-        eeveeLog("[EeveeSpotify][CleanShareLinks] swizzled %@ on %s",
+        eeveeLog("[Shrubify][CleanShareLinks] swizzled %@ on %s",
               NSStringFromSelector(sel), class_getName(concrete))
     }
 
@@ -372,7 +372,7 @@ enum PasteboardConcreteSwizzler {
             unsafeBitCast(origIMP, to: OrigFn.self)(target, sel, clean(first, second), second)
         }
         method_setImplementation(own, imp_implementationWithBlock(block as Any))
-        eeveeLog("[EeveeSpotify][CleanShareLinks] swizzled %@ on %s",
+        eeveeLog("[Shrubify][CleanShareLinks] swizzled %@ on %s",
               NSStringFromSelector(sel), class_getName(concrete))
     }
 }

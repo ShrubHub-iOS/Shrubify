@@ -26,7 +26,7 @@ class GlassArtistHook: ClassHook<UIViewController> {
         }
         if !Self.logged, let row {
             Self.logged = true
-            eeveeLog("[EeveeSpotify][Glass] Artist action row %@", row ? "on" : "MISSING")
+            eeveeLog("[Shrubify][Glass] Artist action row %@", row ? "on" : "MISSING")
         }
     }
 }

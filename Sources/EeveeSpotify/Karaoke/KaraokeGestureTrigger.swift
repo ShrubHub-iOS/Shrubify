@@ -26,7 +26,7 @@ final class KaraokeGestureTrigger: NSObject {
         objc_setAssociatedObject(view, &Self.attachedKey, true, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
         if !logged {
             logged = true
-            eeveeLog("[EeveeSpotify][Karaoke] long-press on now playing bar")
+            eeveeLog("[Shrubify][Karaoke] long-press on now playing bar")
         }
     }
 

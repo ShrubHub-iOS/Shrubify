@@ -27,10 +27,8 @@ struct EeveeSettingsView: View {
         PopUpHelper.showPopUp(message: "debug_log_cleared".localized, buttonText: "debug_log_cleared_ok".localized)
     }
 
-    // Ko-fi is where the tweak is funded from. It is the only place we ask for
-    // money, so the button lives with the other "about" style rows near the
-    // bottom of the page rather than up in the feature groups.
-    private static let supportURL = URL(string: "https://ko-fi.com/jaydenjcpy")!
+    // Shrubify project homepage; upstream authors are credited separately.
+    private static let supportURL = URL(string: "https://github.com/zoinkdoggie94/Shrubify")!
 
     private func openSupportPage() {
         UIApplication.shared.open(Self.supportURL)
@@ -61,6 +59,7 @@ struct EeveeSettingsView: View {
             SettingsEntry(key: "flags", icon: "flag.fill", color: Color(hex: "#5E5CE6")) { AnyView(FlagBrowserView()) },
             SettingsEntry(key: "experiments", icon: "sparkle", color: .purple) { AnyView(EeveeExperimentsSettingsView()) },
             SettingsEntry(key: "miscellaneous", icon: "ellipsis.circle.fill", color: .gray) { AnyView(EeveeMiscellaneousSettingsView()) },
+            SettingsEntry(key: "Shrubify diagnostics", icon: "shield.lefthalf.filled", color: .blue) { AnyView(ShrubifyDiagnosticsView()) },
         ]),
     ]
 
@@ -111,10 +110,10 @@ struct EeveeSettingsView: View {
             Section {
                 Button(action: openSupportPage) {
                     SettingsLabel(
-                        title: "support_the_project".localized,
-                        subtitle: "support_the_project_description".localized,
-                        icon: "cup.and.saucer.fill",
-                        color: Color(hex: "#FF5E5B")
+                        title: "Shrubify on GitHub",
+                        subtitle: "Updates, source, issues and releases",
+                        icon: "chevron.left.forwardslash.chevron.right",
+                        color: .gray
                     )
                 }
             }

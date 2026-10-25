@@ -125,7 +125,7 @@ enum PlayerDeclutter {
             part = nil
         }
         if let part, loggedCards.insert(matched ?? part).inserted {
-            eeveeLog("[EeveeSpotify][Player] Collapsed card %@", (matched ?? part).rawValue)
+            eeveeLog("[Shrubify][Player] Collapsed card %@", (matched ?? part).rawValue)
         }
         return (part, matched != nil || names.contains("NowPlaying_ModesImpl"))
     }
@@ -202,7 +202,7 @@ func activatePlayerDeclutter() {
         guard wanted else { return }
         let missing = classes.filter { NSClassFromString($0) == nil }
         guard missing.isEmpty else {
-            eeveeLog("[EeveeSpotify][Player] Skipped %@: missing %@", name, missing.joined(separator: ", "))
+            eeveeLog("[Shrubify][Player] Skipped %@: missing %@", name, missing.joined(separator: ", "))
             return
         }
         group.activate()
@@ -214,7 +214,7 @@ func activatePlayerDeclutter() {
     activate("add to", hidden.contains(.addTo), PlayerAddToDeclutterGroup(), PlayerInfoDeclutterHook.targetName)
     activate("lyrics preview", hidden.contains(.lyricsPreview), PlayerLyricsPreviewDeclutterGroup(), PlayerLyricsPreviewHook.targetName)
     activate("cards", !hidden.isDisjoint(with: PlayerPart.cards), PlayerCardsDeclutterGroup(), PlayerCardCellHook.targetName)
-    eeveeLog("[EeveeSpotify][Player] Declutter: hiding %@; active %@ (%.2f ms)",
+    eeveeLog("[Shrubify][Player] Declutter: hiding %@; active %@ (%.2f ms)",
              hidden.map(\.rawValue).sorted().joined(separator: ", "), active.joined(separator: ", "),
              (CFAbsoluteTimeGetCurrent() - start) * 1000)
 }

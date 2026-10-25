@@ -1,3 +1,8 @@
-Shrubify is a community fork of EeveeSpotify Reincarnated.
+Shrubify — Made by shrubbery & the ShrubHub team.
 
-Design focus: a clean settings experience, native iOS 26 Liquid Glass and an automatic release/source pipeline. This fork retains attribution and the GPL-3.0 source license from the upstream project. Use only Spotify IPA files you are authorized to modify and distribute.
+A cleaner, independent interface and compatibility controls built on established open-source foundations. Spotify colors are left unchanged unless you customize them in Appearance.
+
+Found a crash? Try Stability Mode in Shrubify diagnostics, restart, and export the debug log when reporting it.
+
+Source, releases, issues: https://github.com/zoinkdoggie94/Shrubify
+Upstream contributors and GPL notice: see Credits and README-UPSTREAM.md.

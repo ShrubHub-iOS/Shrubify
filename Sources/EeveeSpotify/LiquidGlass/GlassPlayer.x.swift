@@ -57,7 +57,7 @@ enum PlayerBackdrop {
         view.show(cover)
         backdrop = view
         objc_setAssociatedObject(plane, &backdropKey, view, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
-        if !intercepted { eeveeLog("[EeveeSpotify][Player] Backdrop album color intercept FAILED") }
+        if !intercepted { eeveeLog("[Shrubify][Player] Backdrop album color intercept FAILED") }
         return view
     }
 
@@ -232,7 +232,7 @@ enum GlassLyricsPage {
                 tint = color.withAlphaComponent(0.25)
                 if let pane { GlassKit.tint(pane, tint) }
             }
-            if !intercepted { eeveeLog("[EeveeSpotify][Glass] Lyrics page album color intercept FAILED") }
+            if !intercepted { eeveeLog("[Shrubify][Glass] Lyrics page album color intercept FAILED") }
         }
         // The page is presented over the player; clearing up to the transition view lets the player's backdrop through.
         var ancestor: UIView? = page

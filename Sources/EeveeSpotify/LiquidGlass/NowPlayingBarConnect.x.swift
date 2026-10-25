@@ -42,9 +42,9 @@ enum NowPlayingBarConnect {
 func activateNowPlayingBarConnect() {
     guard UserDefaults.nowPlayingBarOptions.hideConnect else { return }
     guard NSClassFromString(NowPlayingBarConnectHook.targetName) != nil else {
-        eeveeLog("[EeveeSpotify][NowPlayingBar] Skipped hide device: bar class missing")
+        eeveeLog("[Shrubify][NowPlayingBar] Skipped hide device: bar class missing")
         return
     }
     NowPlayingBarConnectGroup().activate()
-    eeveeLog("[EeveeSpotify][NowPlayingBar] Device button hidden")
+    eeveeLog("[Shrubify][NowPlayingBar] Device button hidden")
 }

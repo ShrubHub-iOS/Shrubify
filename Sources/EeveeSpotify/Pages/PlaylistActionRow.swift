@@ -151,7 +151,7 @@ final class PlaylistActionRow: UIView {
         guard let source else { return }
         let control = (source as? UIControl) ?? source.eeveeFirst(UIControl.self)
         let fired = control.map { EeveeFireTap($0) } ?? false
-        if !fired { eeveeLog("[EeveeSpotify][Glass] Playlist %@ tap FAILED", name) }
+        if !fired { eeveeLog("[Shrubify][Glass] Playlist %@ tap FAILED", name) }
         for delay in [0.4, 1.2, 2.5] { DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in self?.sync() } }
     }
 

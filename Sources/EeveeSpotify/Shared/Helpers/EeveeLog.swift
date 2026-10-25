@@ -2,9 +2,9 @@ import Foundation
 
 // Console + the exportable debug log file (Settings → Troubleshooting → Export debug log).
 enum EeveeLog {
-    static let path = NSTemporaryDirectory() + "eeveespotify_debug.log"
+    static let path = NSTemporaryDirectory() + "shrubify_debug.log"
     private static let limit: UInt64 = 2 << 20
-    private static let queue = DispatchQueue(label: "EeveeSpotify.log", qos: .utility)
+    private static let queue = DispatchQueue(label: "Shrubify.log", qos: .utility)
     private static var handle: FileHandle?
     private static var headerWritten = false
 
@@ -46,7 +46,7 @@ enum EeveeLog {
         handle = file
         if !headerWritten {
             headerWritten = true
-            let header = "\n===== launch · EeveeSpotify \(EeveeSpotify.version) · Spotify \(EeveeSpotify.spotifyVersion) · iOS \(ProcessInfo.processInfo.operatingSystemVersionString) =====\n"
+            let header = "\n===== launch · Shrubify \(EeveeSpotify.version) · Spotify \(EeveeSpotify.spotifyVersion) · iOS \(ProcessInfo.processInfo.operatingSystemVersionString) =====\n"
             if let data = header.data(using: .utf8) { try? file.write(contentsOf: data) }
         }
         return file

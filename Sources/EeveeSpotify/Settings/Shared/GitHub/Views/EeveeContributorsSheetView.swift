@@ -1,197 +1,119 @@
 import SwiftUI
 
-struct ContributorRow: View {
-    let contributor: EeveeContributor
+// Shrubify is proudly maintained by shrubbery and the ShrubHub team.
+// Original authorship and GPL notices remain with the project and linked upstream work.
+private struct ShrubifyCredit: Identifiable {
+    let username: String
+    let title: String
+    let role: String
+    var id: String { username }
+}
+
+private struct ShrubifyCreditRow: View {
+    let credit: ShrubifyCredit
+    var prominent = false
 
     var body: some View {
-        if contributor.usernames.count > 1 {
-            // Multiple main contributors: inline [pfp] name & [pfp] name
-            VStack(alignment: .leading, spacing: 6) {
-                HStack(spacing: 8) {
-                    ForEach(Array(contributor.usernames.enumerated()), id: \.offset) { index, username in
-                        if index > 0 {
-                            Text("&")
-                                .font(.title3).bold()
-                                .foregroundColor(.white)
-                        }
-                        HStack(spacing: 6) {
-                            // Bigger pfp for multi-contributor
-                            ImageView(urlString: "https://github.com/\(username).png")
-                                .frame(width: 36, height: 36)
-                                .clipShape(Circle())
-                            Text(nameFor(index: index, username: username))
-                                .font(.title3).bold()
-                                .foregroundColor(.white)
-                        }
-                    }
-                }
-                Text(contributor.roles.joined(separator: ", "))
-                    .font(.body)
-                    .foregroundColor(.gray)
-            }
-            .padding(.vertical, 10)
-            .padding(.horizontal, 16)
-        } else {
-            // Single contributor: pfp on left, name + roles on right
-            HStack(alignment: .center, spacing: 14) {
-                // Bigger pfp for single contributor
-                ImageView(urlString: "https://github.com/\(contributor.usernames[0]).png")
-                    .frame(width: 52, height: 52)
+        Link(destination: URL(string: "https://github.com/\(credit.username)")!) {
+            HStack(spacing: 14) {
+                ImageView(urlString: "https://github.com/\(credit.username).png?size=160")
+                    .frame(width: prominent ? 62 : 44, height: prominent ? 62 : 44)
                     .clipShape(Circle())
-
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(contributor.displayName ?? contributor.usernames[0])
-                        .font(.title3).bold()
-                        .foregroundColor(.white)
-
-                    if let richRoles = contributor.richRoles {
-                        ForEach(richRoles, id: \.name) { role in
-                            HStack(spacing: 6) {
-                                Text(role.name)
-                                    .font(.body)
-                                    .foregroundColor(.gray)
-
-                                // Co-contributor: dot separator + bigger pfp + white name matching contributor style
-                                if let coUsernames = role.coUsernames, !coUsernames.isEmpty {
-                                    ForEach(Array(coUsernames.enumerated()), id: \.offset) { index, username in
-                                        HStack(spacing: 6) {
-                                            Text("·")
-                                                .font(.body).bold()
-                                                .foregroundColor(.white)
-                                            ImageView(urlString: "https://github.com/\(username).png")
-                                                .frame(width: 22, height: 22)
-                                                .clipShape(Circle())
-                                            Text(role.coDisplayNames?[safe: index] ?? username)
-                                                .font(.body).bold()
-                                                .foregroundColor(.white)
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    } else {
-                        HStack(spacing: 0) {
-                            ForEach(Array(contributor.roles.enumerated()), id: \.offset) { index, role in
-                                if index > 0 {
-                                    Text(", ")
-                                        .font(.body)
-                                        .foregroundColor(.gray)
-                                }
-                                Text(role)
-                                    .font(.body)
-                                    .foregroundColor(.gray)
-                            }
-                        }
-                    }
+                    .overlay(Circle().stroke(Color.primary.opacity(0.12), lineWidth: 1))
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(credit.title)
+                        .font(prominent ? .headline : .body)
+                        .fontWeight(prominent ? .bold : .semibold)
+                        .foregroundColor(.primary)
+                    Text(credit.role)
+                        .font(.footnote)
+                        .foregroundColor(.secondary)
                 }
+                Spacer(minLength: 6)
+                Image(systemName: "arrow.up.right")
+                    .font(.caption.weight(.medium))
+                    .foregroundColor(.secondary)
             }
-            .padding(.vertical, 10)
-            .padding(.horizontal, 16)
-        }
-    }
-
-    private func nameFor(index: Int, username: String) -> String {
-        guard let displayName = contributor.displayName else { return username }
-        if contributor.usernames.count == 1 { return displayName }
-        let parts = displayName.components(separatedBy: " & ")
-        return index < parts.count ? parts[index] : username
-    }
-}
-
-extension Array {
-    subscript(safe index: Int) -> Element? {
-        indices.contains(index) ? self[index] : nil
-    }
-}
-
-private struct FullWidthSeparatorModifier: ViewModifier {
-    func body(content: Content) -> some View {
-        if #available(iOS 16.0, *) {
-            content.alignmentGuide(.listRowSeparatorLeading) { _ in 0 }
-        } else {
-            content
+            .padding(.vertical, prominent ? 6 : 3)
+            .contentShape(Rectangle())
         }
     }
 }
 
 struct EeveeContributorsSheetView: View {
-    @State private var sections: [EeveeContributorSection] = []
-    @State private var isLoading = true
-    @State private var errorMessage: String? = nil
+    @Environment(\.presentationMode) private var presentationMode
+
+    private let upstream: [ShrubifyCredit] = [
+        .init(username: "whoeevee", title: "whoeevee", role: "Original creator"),
+        .init(username: "jaydenjcpy", title: "jaydenjcpy", role: "Upstream maintainer & developer"),
+        .init(username: "estrogencat", title: "estrogencat", role: "Upstream artwork & fixes"),
+        .init(username: "faroukbmiled", title: "faroukbmiled", role: "Upstream maintainer & developer"),
+        .init(username: "M0d-4", title: "Mod4", role: "Upstream maintainer & developer"),
+        .init(username: "Meeep1", title: "Meeep1", role: "Upstream contributions"),
+        .init(username: "Spikerko", title: "Spikerko", role: "Spicy Lyrics developer")
+    ]
 
     var body: some View {
         NavigationView {
-            contentView
-                .navigationTitle("contributors".localized)
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
-                    Button {
-                        WindowHelper.shared.dismissCurrentViewController()
-                    } label: {
-                        Text("Done".uiKitLocalized)
-                            .font(.headline)
+            List {
+                Section {
+                    VStack(spacing: 8) {
+                        if let logo = BundleHelper.shared.uiImage("ShrubifyLogo") {
+                            Image(uiImage: logo)
+                                .resizable()
+                                .aspectRatio(contentMode: .fit)
+                                .frame(width: 76, height: 76)
+                                .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                        }
+                        Text("Shrubify")
+                            .font(.system(size: 28, weight: .bold, design: .rounded))
+                        Text("Made by shrubbery & the ShrubHub team")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
                     }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .listRowBackground(Color.clear)
                 }
-                .onAppear {
-                    loadContributors()
-                }
-        }
-    }
 
-    @ViewBuilder
-    private var contentView: some View {
-        if isLoading {
-            ProgressView("Loading".uiKitLocalized)
-        } else if let error = errorMessage {
-            VStack(spacing: 12) {
-                Image(systemName: "exclamationmark.triangle")
-                    .font(.largeTitle)
-                    .foregroundColor(.orange)
-                Text("Failed to load contributors")
-                    .font(.headline)
-                Text(error)
-                    .font(.caption)
-                    .foregroundColor(.gray)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal)
-                Button("Retry") {
-                    isLoading = true
-                    errorMessage = nil
-                    loadContributors()
+                Section(header: Text("Shrubify development")) {
+                    ShrubifyCreditRow(
+                        credit: .init(username: "zoinkdoggie94", title: "shrubbery", role: "Creator, Shrubify lead developer"),
+                        prominent: true
+                    )
+                    HStack(spacing: 12) {
+                        Image(systemName: "person.3.fill")
+                            .font(.title3)
+                            .foregroundColor(.secondary)
+                            .frame(width: 44, height: 44)
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("ShrubHub team").fontWeight(.semibold)
+                            Text("Shrubify development and project support")
+                                .font(.footnote).foregroundColor(.secondary)
+                        }
+                    }
+                    .padding(.vertical, 5)
                 }
-            }
-        } else if sections.isEmpty {
-            Text("No contributors found")
-                .foregroundColor(.gray)
-        } else {
-            contributorsList
-        }
-    }
 
-    private var contributorsList: some View {
-        List {
-            ForEach(sections, id: \.title) { section in
-                Section(header: Text(section.title)) {
-                    let contributors = section.shuffled ? section.contributors.shuffled() : section.contributors
-                    ForEach(contributors, id: \.usernames) { contributor in
-                        ContributorRow(contributor: contributor)
-                            .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))
-                            .modifier(FullWidthSeparatorModifier())
+                Section(header: Text("Upstream contributors"), footer: Text("Shrubify builds on open-source contributions. Original authors and licenses remain credited; the names above do not imply endorsement of Shrubify.")) {
+                    ForEach(upstream) { credit in
+                        ShrubifyCreditRow(credit: credit)
+                    }
+                    Link(destination: URL(string: "https://github.com/zoinkdoggie94/Shrubify/blob/Master/contributors.json")!) {
+                        HStack {
+                            Text("All upstream contributors")
+                            Spacer()
+                            Image(systemName: "arrow.up.right").font(.caption)
+                        }
                     }
                 }
             }
-        }
-    }
-
-    private func loadContributors() {
-        Task {
-            do {
-                sections = try await GitHubHelper.shared.getEeveeContributorSections()
-            } catch {
-                print("Failed to load contributors: \(error)")
-                errorMessage = error.localizedDescription
+            .listStyle(InsetGroupedListStyle())
+            .navigationTitle("Developers & credits")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                Button("Done") { presentationMode.wrappedValue.dismiss() }
             }
-            isLoading = false
         }
     }
 }

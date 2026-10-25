@@ -88,7 +88,7 @@ enum GlassPlaylist {
         let row = actionRow(host: root, controls: header, scroll: list(in: root))
         if !logged {
             logged = true
-            eeveeLog("[EeveeSpotify][Glass] Playlist header styled, sort %@, action row %@", sort != nil ? "glass" : "absent", row ? "on" : "MISSING")
+            eeveeLog("[Shrubify][Glass] Playlist header styled, sort %@, action row %@", sort != nil ? "glass" : "absent", row ? "on" : "MISSING")
         }
     }
 }
@@ -466,7 +466,7 @@ enum PlaylistChips {
         if GlassKit.glassBlur(in: button) {
             if !logged {
                 logged = true
-                eeveeLog("[EeveeSpotify][Glass] Playlist pills on glass")
+                eeveeLog("[Shrubify][Glass] Playlist pills on glass")
             }
         }
     }

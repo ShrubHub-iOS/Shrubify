@@ -69,6 +69,21 @@ def main():
             original['CFBundleName'] = 'Shrubify'
             original['CFBundleDisplayName'] = 'Shrubify'
             original['CFBundleVersion'] = args.build
+            # Force actual SpringBoard primary icon to bundled Shrubify PNG assets.
+            # CFBundleIconName often points to Spotify's original Assets.car; remove it.
+            original.pop('CFBundleIconName', None)
+            for key in ('CFBundleIcons', 'CFBundleIcons~ipad'):
+                icon_config = original.get(key)
+                if not isinstance(icon_config, dict):
+                    icon_config = {}
+                else:
+                    icon_config = dict(icon_config)
+                primary = dict(icon_config.get('CFBundlePrimaryIcon') or {})
+                primary.pop('CFBundleIconName', None)
+                primary['CFBundleIconFiles'] = ['Shrubify']
+                primary['UIPrerenderedIcon'] = True
+                icon_config['CFBundlePrimaryIcon'] = primary
+                original[key] = icon_config
             # Sideload tools must not inherit device restrictions from App Store IPA.
             original.pop('UISupportedDevices', None)
             replacement = plistlib.dumps(original, fmt=plistlib.FMT_BINARY)

@@ -15,16 +15,17 @@ class ProfileSettingsSectionHook: ClassHook<NSObject> {
 
     func didSelectRow(_ row: Int) {
         if row == 1 {
-            let rootSettingsController = WindowHelper.shared.findFirstViewController(
+            guard let rootSettingsController = WindowHelper.shared.findFirstViewController(
                 "RootSettingsViewController"
-            )!
-            
-            let navigationController = rootSettingsController.navigationController!
+            ), let navigationController = rootSettingsController.navigationController else {
+                eeveeLog("[Shrubify] Settings controller unavailable; skipping presentation")
+                return
+            }
 
             let eeveeSettingsController = EeveeSettingsViewController(
                 rootSettingsController.view.bounds,
                 settingsView: AnyView(EeveeSettingsView(navigationController: navigationController)),
-                navigationTitle: "EeveeSpotify"
+                navigationTitle: "Shrubify"
             )
             
             //
@@ -67,7 +68,7 @@ class ProfileSettingsSectionHook: ClassHook<NSObject> {
         if row == 1 {
             let settingsTableCell = Dynamic.SPTSettingsTableViewCell
                 .alloc(interface: SPTSettingsTableViewCell.self)
-                .initWithStyle(3, reuseIdentifier: "EeveeSpotify")
+                .initWithStyle(3, reuseIdentifier: "Shrubify")
             
             let tableViewCell = Dynamic.convert(settingsTableCell, to: UITableViewCell.self)
 
@@ -77,7 +78,7 @@ class ProfileSettingsSectionHook: ClassHook<NSObject> {
             )
             .disclosureAccessoryView()
             
-            tableViewCell.textLabel?.text = "EeveeSpotify"
+            tableViewCell.textLabel?.text = "Shrubify"
             return tableViewCell
         }
 

@@ -81,30 +81,29 @@ struct SettingsToggle: View {
 struct SettingsHero: View {
 
     @ViewBuilder private var logo: some View {
-        if let image = BundleHelper.shared.uiImage("EeveeLogo") {
+        if let image = BundleHelper.shared.uiImage("ShrubifyLogo") {
             Image(uiImage: image).resizable()
         } else {
-            Image(systemName: "sparkles")
+            Image(systemName: "music.note")
                 .font(.system(size: 30, weight: .semibold))
-                .foregroundColor(.black)
+                .foregroundColor(.primary)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(EeveeTheme.accent)
         }
     }
 
     var body: some View {
         VStack(spacing: 10) {
-            Image(systemName: "waveform")
-                .font(.system(size: 27, weight: .medium, design: .rounded))
-                .foregroundColor(.primary)
-                .frame(width: 64, height: 64)
-                .modifier(ShrubifyIconMaterial())
+            logo
+                .aspectRatio(contentMode: .fit)
+                .frame(width: 84, height: 84)
+                .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(Color.primary.opacity(0.08), lineWidth: 1))
                 .accessibilityHidden(true)
             Text("Shrubify")
                 .font(.system(size: 27, weight: .bold, design: .rounded))
                 .tracking(-0.6)
                 .foregroundColor(.primary)
-            Text("Clean. Fluid. Yours.")
+            Text("Made by shrubbery & the ShrubHub team")
                 .font(.subheadline)
                 .foregroundColor(.secondary)
             Text("v\(EeveeSpotify.version) · Spotify \(EeveeSpotify.spotifyVersion)")
@@ -148,8 +147,10 @@ struct SettingsGroupSection: View {
                     open(entry)
                 } label: {
                     SettingsLabel(
-                        title: entry.key.localized,
-                        subtitle: entry.key == "liquid_glass"
+                        title: entry.key == "Shrubify diagnostics" ? "Shrubify diagnostics" : entry.key.localized,
+                        subtitle: entry.key == "Shrubify diagnostics"
+                            ? "Compatibility, crash reports & build information"
+                            : entry.key == "liquid_glass"
                             ? (LiquidGlassSettingsView.supported ? "Native iOS 26 glass surfaces" : "Requires iOS 26")
                             : "\(entry.key)_subtitle".localized,
                         icon: entry.icon,

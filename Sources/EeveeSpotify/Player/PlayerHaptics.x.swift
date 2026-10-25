@@ -105,11 +105,11 @@ func activatePlayerHaptics() {
     guard UserDefaults.playerExtrasOptions.haptics else { return }
     let start = CFAbsoluteTimeGetCurrent()
     guard NSClassFromString(PlayerHapticsSliderHook.targetName) != nil else {
-        eeveeLog("[EeveeSpotify][Haptics] Skipped: missing %@", PlayerHapticsSliderHook.targetName)
+        eeveeLog("[Shrubify][Haptics] Skipped: missing %@", PlayerHapticsSliderHook.targetName)
         return
     }
     PlayerHapticsGroup().activate()
     PlayerHaptics.activate()
-    eeveeLog("[EeveeSpotify][Haptics] Active: %d controls + scrubber (%.2f ms)", PlayerHaptics.controlIds.count,
+    eeveeLog("[Shrubify][Haptics] Active: %d controls + scrubber (%.2f ms)", PlayerHaptics.controlIds.count,
              (CFAbsoluteTimeGetCurrent() - start) * 1000)
 }

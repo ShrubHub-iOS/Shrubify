@@ -32,7 +32,7 @@ enum GlassTransition {
 
         if logged < 4 {
             logged += 1
-            eeveeLog("[EeveeSpotify][Glass] Transition %@ snapshot got %d glass panes", what, panes.count)
+            eeveeLog("[Shrubify][Glass] Transition %@ snapshot got %d glass panes", what, panes.count)
         }
     }
 

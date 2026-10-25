@@ -26,13 +26,13 @@ func activateTheme() {
     guard Theme.launchAmoled || Theme.launchAccent >= 0 else { return }
     let start = CFAbsoluteTimeGetCurrent()
     let swaps = EeveeInstallColorSwaps(Theme.launchAmoled, Theme.launchAccent)
-    eeveeLog("[EeveeSpotify][Theme] AMOLED %d, accent %@, %d swaps (%.2f ms)", Theme.launchAmoled,
+    eeveeLog("[Shrubify][Theme] AMOLED %d, accent %@, %d swaps (%.2f ms)", Theme.launchAmoled,
           Theme.launchAccent >= 0 ? String(format: "#%06X", Theme.launchAccent) : "default", swaps,
           (CFAbsoluteTimeGetCurrent() - start) * 1000)
     DispatchQueue.main.asyncAfter(deadline: .now() + 30) {
         var grey = 0, green = 0, uiColor = 0
         EeveeColorSwapStats(&grey, &green, &uiColor)
-        eeveeLog("[EeveeSpotify][Theme] First 30 s: %d surfaces to black, %d layer greens and %d UIColor greens to accent", grey, green, uiColor)
+        eeveeLog("[Shrubify][Theme] First 30 s: %d surfaces to black, %d layer greens and %d UIColor greens to accent", grey, green, uiColor)
     }
 }
 

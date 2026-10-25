@@ -42,8 +42,8 @@ enum TelemetryBlock {
         total += 1
         let summary = total % 25 == 0 ? counts.map { "\($0.key) \($0.value)" }.sorted().joined(separator: ", ") : nil
         lock.unlock()
-        if first { eeveeLog("[EeveeSpotify][Privacy] Blocked %@ %@%@", label, url.host ?? "", url.path) }
-        if let summary { eeveeLog("[EeveeSpotify][Privacy] %d blocked: %@", total, summary) }
+        if first { eeveeLog("[Shrubify][Privacy] Blocked %@ %@%@", label, url.host ?? "", url.path) }
+        if let summary { eeveeLog("[Shrubify][Privacy] %d blocked: %@", total, summary) }
     }
 
     static func install(into configuration: URLSessionConfiguration) -> URLSessionConfiguration {
@@ -103,5 +103,5 @@ func activateTelemetryBlock() {
     let start = CFAbsoluteTimeGetCurrent()
     URLProtocol.registerClass(TelemetryBlockProtocol.self)
     TelemetryBlockGroup().activate()
-    eeveeLog("[EeveeSpotify][Privacy] Telemetry block on (%.2f ms)", (CFAbsoluteTimeGetCurrent() - start) * 1000)
+    eeveeLog("[Shrubify][Privacy] Telemetry block on (%.2f ms)", (CFAbsoluteTimeGetCurrent() - start) * 1000)
 }

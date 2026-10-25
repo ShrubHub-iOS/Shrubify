@@ -16,16 +16,16 @@ class BundleHelper {
         if let path = Bundle.main.path(forResource: bundleName, ofType: "bundle"),
            let b = Bundle(path: path) {
             self.bundle = b
-            eeveeLog("[EeveeSpotify] Loaded bundle from main bundle: \(path)")
+            eeveeLog("[Shrubify] Loaded bundle from main bundle: \(path)")
         } 
         // If not found, try locating in file system (jailbreak path)
         else {
             let jbPath = EeveeJBRootPath("/Library/Application Support/\(bundleName).bundle")
             if let b = Bundle(path: jbPath) {
                 self.bundle = b
-                eeveeLog("[EeveeSpotify] Loaded bundle from filesystem: \(jbPath)")
+                eeveeLog("[Shrubify] Loaded bundle from filesystem: \(jbPath)")
             } else {
-                eeveeLog("[EeveeSpotify] ERROR: Could not find EeveeSpotify.bundle!")
+                eeveeLog("[Shrubify] ERROR: Could not find tweak resources bundle!")
                 self.bundle = nil
             }
         }
@@ -35,7 +35,7 @@ class BundleHelper {
            let enB = Bundle(path: enPath) {
             self.enBundle = enB
         } else {
-            eeveeLog("[EeveeSpotify] WARNING: Could not load en.lproj from bundle")
+            eeveeLog("[Shrubify] WARNING: Could not load en.lproj from bundle")
             self.enBundle = nil
         }
     }
@@ -69,7 +69,7 @@ class BundleHelper {
 
         guard let bundle = self.bundle,
               let url = bundle.url(forResource: resourceName, withExtension: "bnk") else {
-            throw NSError(domain: "EeveeSpotify", code: 404, userInfo: [NSLocalizedDescriptionKey: "Configuration not found"])
+            throw NSError(domain: "Shrubify", code: 404, userInfo: [NSLocalizedDescriptionKey: "Configuration not found"])
         }
 
         writeDebugLog("[CONFIG] Using \(resourceName).bnk for Spotify \(spotifyVersion)")

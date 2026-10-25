@@ -131,7 +131,7 @@ enum HomeGradient {
         guard wash.view.transform != transform else { return }
         wash.view.transform = transform
         if scrolled > 0, followLogged.insert(wash.page).inserted {
-            eeveeLog("[EeveeSpotify][HomeGradient] %@: wash follows scroll (%.0f pt)", wash.page.rawValue, scrolled)
+            eeveeLog("[Shrubify][HomeGradient] %@: wash follows scroll (%.0f pt)", wash.page.rawValue, scrolled)
         }
     }
 
@@ -223,7 +223,7 @@ enum HomeGradient {
 
         if !logged.contains(page) {
             logged.insert(page)
-            eeveeLog("[EeveeSpotify][HomeGradient] %@: %@ behind %@ (%.0fx%.0f), span %.0f, %@", page.rawValue, fill ? "solid" : "gradient",
+            eeveeLog("[Shrubify][HomeGradient] %@: %@ behind %@ (%.0fx%.0f), span %.0f, %@", page.rawValue, fill ? "solid" : "gradient",
                      NSStringFromClass(type(of: list)), list.bounds.width, list.bounds.height, span,
                      root == nil ? "scrolls inside list" : "page-level, follows scroll")
         }
@@ -290,7 +290,7 @@ enum HomeGradient {
         if #available(iOS 26.0, *), !list.topEdgeEffect.isHidden { list.topEdgeEffect.isHidden = true; scrims += 1 }
         cleared += scrims
         if cleared > 0, chromeLogged.insert(page).inserted {
-            eeveeLog("[EeveeSpotify][HomeGradient] %@: cleared %d header fills", page.rawValue, cleared)
+            eeveeLog("[Shrubify][HomeGradient] %@: cleared %d header fills", page.rawValue, cleared)
         }
     }
 
@@ -306,7 +306,7 @@ enum HomeGradient {
                 view.isHidden = true
                 if !loggedScrim {
                     loggedScrim = true
-                    eeveeLog("[EeveeSpotify][HomeGradient] Hid header scrim %@", NSStringFromClass(type(of: view)))
+                    eeveeLog("[Shrubify][HomeGradient] Hid header scrim %@", NSStringFromClass(type(of: view)))
                 }
             }
         }
@@ -382,7 +382,7 @@ func activateHomeGradient() {
         let start = CFAbsoluteTimeGetCurrent()
         let missing = targets.filter { NSClassFromString($0) == nil }
         if missing.isEmpty { activate() }
-        eeveeLog("[EeveeSpotify][HomeGradient] %@ %@ (%.2f ms)", page.rawValue,
+        eeveeLog("[Shrubify][HomeGradient] %@ %@ (%.2f ms)", page.rawValue,
                  missing.isEmpty ? "active" : "skipped, missing " + missing.joined(separator: ", "),
                  (CFAbsoluteTimeGetCurrent() - start) * 1000)
     }

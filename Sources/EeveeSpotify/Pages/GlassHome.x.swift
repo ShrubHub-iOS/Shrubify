@@ -17,7 +17,7 @@ enum GlassHomeShortcuts {
             let intercepted = fills.filter { EeveeInterceptBackground($0) { _ in } }.count
             if !logged {
                 logged = true
-                eeveeLog("[EeveeSpotify][Glass] Home shortcut tile: %d of %d fills intercepted", intercepted, fills.count)
+                eeveeLog("[Shrubify][Glass] Home shortcut tile: %d of %d fills intercepted", intercepted, fills.count)
             }
         }
         let pane = GlassKit.pane(in: tile, key: &paneKey)

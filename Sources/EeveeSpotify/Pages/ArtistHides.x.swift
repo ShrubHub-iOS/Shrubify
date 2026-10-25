@@ -31,7 +31,7 @@ enum ArtistHides {
         view.alpha = 0
         view.isUserInteractionEnabled = false
         view.accessibilityElementsHidden = true
-        if logged.insert(part).inserted { eeveeLog("[EeveeSpotify][Artist] Hid %@", part.rawValue) }
+        if logged.insert(part).inserted { eeveeLog("[Shrubify][Artist] Hid %@", part.rawValue) }
     }
 
     static func styleHeader(_ header: UIView) {
@@ -95,6 +95,6 @@ func activateArtistHides() {
         ArtistTabsHideGroup().activate()
         active.append("tabs")
     }
-    eeveeLog("[EeveeSpotify][Artist] Hiding %@, hooks %@ (%.2f ms)", hidden.map(\.rawValue).sorted().joined(separator: ", "),
+    eeveeLog("[Shrubify][Artist] Hiding %@, hooks %@ (%.2f ms)", hidden.map(\.rawValue).sorted().joined(separator: ", "),
              active.isEmpty ? "MISSING" : active.joined(separator: "+"), (CFAbsoluteTimeGetCurrent() - start) * 1000)
 }

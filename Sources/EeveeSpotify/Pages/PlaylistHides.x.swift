@@ -41,7 +41,7 @@ enum PlaylistHides {
         for (part, row) in rows(in: layout) where wanted.contains(part) {
             fresh.rows[part] = PageLookup.WeakView(row)
             hide(row)
-            if logged.insert(part).inserted { eeveeLog("[EeveeSpotify][Playlist] Hid %@", part.rawValue) }
+            if logged.insert(part).inserted { eeveeLog("[Shrubify][Playlist] Hid %@", part.rawValue) }
         }
     }
 
@@ -69,7 +69,7 @@ enum PlaylistHides {
         guard anchors.count >= 2, let column = commonAncestor(anchors), column !== layout, column.isDescendant(of: layout) else {
             if !columnLogged {
                 columnLogged = true
-                eeveeLog("[EeveeSpotify][Playlist] Header column not found (%d anchors)", anchors.count)
+                eeveeLog("[Shrubify][Playlist] Header column not found (%d anchors)", anchors.count)
             }
             return [:]
         }
@@ -117,7 +117,7 @@ enum PlaylistHides {
         }
         let hit = PageLookup.find("PlaylistCuration.Row.CurationActionsToolbar", in: cell) != nil
         objc_setAssociatedObject(cell, &pillsKey, Verdict(content: content, hit: hit), .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
-        if hit, logged.insert(.pills).inserted { eeveeLog("[EeveeSpotify][Playlist] Collapsed pills") }
+        if hit, logged.insert(.pills).inserted { eeveeLog("[Shrubify][Playlist] Collapsed pills") }
         return hit
     }
 }
@@ -158,6 +158,6 @@ func activatePlaylistHides() {
         PlaylistPillsHideGroup().activate()
         active.append("pills")
     }
-    eeveeLog("[EeveeSpotify][Playlist] Hiding %@, hooks %@ (%.2f ms)", hidden.map(\.rawValue).sorted().joined(separator: ", "),
+    eeveeLog("[Shrubify][Playlist] Hiding %@, hooks %@ (%.2f ms)", hidden.map(\.rawValue).sorted().joined(separator: ", "),
              active.isEmpty ? "MISSING" : active.joined(separator: "+"), (CFAbsoluteTimeGetCurrent() - start) * 1000)
 }

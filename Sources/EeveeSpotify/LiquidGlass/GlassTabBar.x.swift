@@ -16,7 +16,7 @@ final class GlassSystemTabBar: UITabBar, UITabBarDelegate {
         case .stock(let source):
             CustomTabs.deselect()
             if !EeveeFireTap(source) {
-                eeveeLog("[EeveeSpotify][Glass] Tab %d '%@' tap FAILED", index, item.title ?? "")
+                eeveeLog("[Shrubify][Glass] Tab %d '%@' tap FAILED", index, item.title ?? "")
             }
         case .custom(let tab):
             CustomTabs.open(tab)
@@ -157,7 +157,7 @@ enum GlassTabBar {
         if let selected, selected < fresh.count { bar.selectedItem = fresh[selected] }
         bar.layoutIfNeeded()
         UIView.animate(withDuration: 0.2) { bar.alpha = 1 }
-        eeveeLog("[EeveeSpotify][Glass] Tab bar revealed after %d retries", retries)
+        eeveeLog("[Shrubify][Glass] Tab bar revealed after %d retries", retries)
     }
 
     private static func applyTint(_ bar: GlassSystemTabBar) {
@@ -165,7 +165,7 @@ enum GlassTabBar {
         guard let platter = platter(in: bar) else {
             if !platterLogged, color != nil {
                 platterLogged = true
-                eeveeLog("[EeveeSpotify][Glass] Tab bar platter not found, tint skipped")
+                eeveeLog("[Shrubify][Glass] Tab bar platter not found, tint skipped")
             }
             return
         }
@@ -208,7 +208,7 @@ enum GlassTabBar {
               let tab = tabs.first(where: { title($0) == wanted }),
               !isActive(tab, label: label(tab)) else { return }
         let fired = EeveeFireTap(tab)
-        eeveeLog("[EeveeSpotify][Glass] Launch tab '%@' %@", wanted, fired ? "opened" : "FAILED")
+        eeveeLog("[Shrubify][Glass] Launch tab '%@' %@", wanted, fired ? "opened" : "FAILED")
     }
 
     private static func isActive(_ tab: UIView, label: UILabel?) -> Bool {
@@ -334,11 +334,11 @@ enum CustomTabs {
     // Spotify's own link dispatcher keeps the URI in-app; the system route would ask to open the other Spotify install.
     static func open(_ tab: CustomTab) {
         guard let url = URL(string: tab.uri) else {
-            eeveeLog("[EeveeSpotify][CustomTabs] '%@' has an invalid URI %@", tab.title, tab.uri)
+            eeveeLog("[Shrubify][CustomTabs] '%@' has an invalid URI %@", tab.title, tab.uri)
             return
         }
         guard let dispatcher, dispatcher.responds(to: navigate) else {
-            eeveeLog("[EeveeSpotify][CustomTabs] '%@' not opened: link dispatcher not captured yet", tab.title)
+            eeveeLog("[Shrubify][CustomTabs] '%@' not opened: link dispatcher not captured yet", tab.title)
             return
         }
         typealias Navigate = @convention(c) (NSObject, Selector, NSURL, Int64, AnyObject?) -> Void
@@ -393,7 +393,7 @@ enum CustomTabs {
     static func capture(_ object: NSObject, _ via: String) {
         guard dispatcher !== object else { return }
         dispatcher = object
-        eeveeLog("[EeveeSpotify][CustomTabs] Link dispatcher captured via %@", via)
+        eeveeLog("[Shrubify][CustomTabs] Link dispatcher captured via %@", via)
     }
 }
 
@@ -424,6 +424,6 @@ func activateGlassCustomTabs() {
         CustomTabsGroup().activate()
         CustomTabs.available = true
     }
-    eeveeLog("[EeveeSpotify][CustomTabs] %d tabs, link dispatcher %@ (%.2f ms)", count, found ? "hooked" : "MISSING, custom tabs hidden",
+    eeveeLog("[Shrubify][CustomTabs] %d tabs, link dispatcher %@ (%.2f ms)", count, found ? "hooked" : "MISSING, custom tabs hidden",
              (CFAbsoluteTimeGetCurrent() - start) * 1000)
 }

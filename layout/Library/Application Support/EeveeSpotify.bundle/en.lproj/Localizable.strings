@@ -23,7 +23,7 @@ restart_is_required_description = "App restart is required after changing.";
 // Patching
 
 do_not_patch_premium = "Do Not Patch Premium";
-patching_description = "EeveeSpotify intercepts requests to load user data, deserializes it, and modifies the parameters in real-time.
+patching_description = "Shrubify intercepts requests to load user data, deserializes it, and modifies the parameters in real-time.
 
 If you have an active Premium subscription, you can turn on Do Not Patch Premium. The tweak won't patch the data or restrict the use of Premium server-sided features.
 
@@ -46,7 +46,7 @@ Genius: Offers the best quality lyrics, provides the most songs, and updates lyr
 LRCLIB: The most open service, offering time-synced lyrics. However, it lacks lyrics for many songs.
 
 Musixmatch: The service Spotify uses. Provides time-synced lyrics for many songs, but you'll need a user token to use this source.";
-lyrics_additional_info = "If EeveeSpotify is unable to find a song or process the lyrics, you'll see a \"Couldn't load the lyrics for this song\" message. The lyrics might be wrong for some songs when using Genius due to how the tweak searches songs. I've made it work in most cases.";
+lyrics_additional_info = "If Shrubify is unable to find a song or process the lyrics, you'll see a \"Couldn't load the lyrics for this song\" message. The lyrics might be wrong for some songs when using Genius due to how the tweak searches songs. I've made it work in most cases.";
 spicylyrics_description = "SpicyLyrics provides word-by-word karaoke lyrics. A built-in key is used by default. If you want to use your own key, go to Spicy ESR template, then press the Sign in button. After you sign in, agree to the ToS of Spicy and press Add ESR to my account. After it's added, copy the generated key, paste it into the Eevee lyrics section, then go back to Spicy and click I have stored it. Go to the apps page.";
 petitlyrics_description = "PetitLyrics: Offers plenty of time-synced Japanese and some international lyrics.";
 
@@ -105,7 +105,7 @@ clean_share_links_description = "Removes tracking parameters from shared links."
 
 /* MARK: Premium PopUps */
 
-have_premium_popup = "It looks like you have an active Premium subscription, so the tweak won't patch the data or restrict the use of Premium server-sided features. You can manage this in the EeveeSpotify settings.";
+have_premium_popup = "It looks like you have an active Premium subscription, so the tweak won't patch the data or restrict the use of Premium server-sided features. You can manage this in the Shrubify settings.";
 
 high_audio_quality_popup = "Very high audio quality is server-sided and is not available with this tweak.";
 playlist_downloading_popup = "Native playlist downloading is server-sided and is not available with this tweak. You can download podcast episodes and local playlists though.";
@@ -158,7 +158,7 @@ ad_free_music_listening = "Ad-free music listening";
 play_songs_in_any_order = "Play songs in any order";
 organize_listening_queue = "Organize listening queue";
 
-payment_notice = "EeveeSpotify applies patches to unlock certain Premium features. It's free.";
+payment_notice = "Shrubify applies patches to unlock certain Premium features. It's free.";
 
 // Debug
 

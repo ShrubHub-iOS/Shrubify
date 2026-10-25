@@ -29,7 +29,7 @@ enum GlassSearchField {
             }
             if !logged {
                 logged = true
-                eeveeLog("[EeveeSpotify][Glass] Search field: background %@, %d parts pinned white", intercepted ? "intercepted" : "FAILED", pinned)
+                eeveeLog("[Shrubify][Glass] Search field: background %@, %d parts pinned white", intercepted ? "intercepted" : "FAILED", pinned)
             }
         }
         let pane = GlassKit.pane(in: button, key: UnsafeRawPointer(&paneKey))
@@ -66,7 +66,7 @@ enum GlassFindField {
             let intercepted = EeveeInterceptBackground(field) { _ in }
             if !logged {
                 logged = true
-                eeveeLog("[EeveeSpotify][Glass] Find bars on glass, background %@", intercepted ? "intercepted" : "FAILED")
+                eeveeLog("[Shrubify][Glass] Find bars on glass, background %@", intercepted ? "intercepted" : "FAILED")
             }
         }
         let pane = GlassKit.pane(in: field, key: UnsafeRawPointer(&paneKey))
@@ -149,7 +149,7 @@ enum GlassSearchCards {
 
         if !logged {
             logged = true
-            eeveeLog("[EeveeSpotify][Glass] Search cards styled")
+            eeveeLog("[Shrubify][Glass] Search cards styled")
         }
     }
 

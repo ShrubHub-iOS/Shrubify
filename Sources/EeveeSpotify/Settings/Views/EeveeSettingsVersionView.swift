@@ -21,7 +21,7 @@ struct EeveeSettingsVersionView: View {
             Button {
                 isPresentingContributorsSheet = true
             } label: {
-                SettingsLabel(title: "Upstream contributors", icon: "person.2.fill", color: .gray, chevron: true)
+                SettingsLabel(title: "Developers & credits", subtitle: "Shrubbery, ShrubHub team and upstream creators", icon: "person.2.fill", color: .gray, chevron: true)
             }
         }
         .sheet(isPresented: $isPresentingContributorsSheet) {

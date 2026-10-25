@@ -50,7 +50,7 @@ private func isUpsellText(_ text: String?) -> Bool {
 // Premium upsells and must remain visible even if their localized body happens
 // to contain one of the generic keywords above.
 private func isEeveePopupTitle(_ title: String?) -> Bool {
-    title == "EeveeSpotify"
+    title == "Shrubify"
 }
 
 private func markAsUpsell(_ object: AnyObject) {
@@ -130,7 +130,7 @@ class SPTEncorePopUpPresenterHook: ClassHook<NSObject> {
 
     func presentPopUp(_ popUp: NSObject) {
         if isMarkedAsUpsell(popUp) {
-            eeveeLog("[EeveeSpotify][UpsellBlock] Blocked popup captured from model")
+            eeveeLog("[Shrubify][UpsellBlock] Blocked popup captured from model")
             return
         }
 
@@ -153,7 +153,7 @@ class SPTEncorePopUpPresenterHook: ClassHook<NSObject> {
         }
 
         if isUpsellText(title) || isUpsellText(desc) {
-            eeveeLog("[EeveeSpotify][UpsellBlock] Blocked popup — title=%@ desc=%@",
+            eeveeLog("[Shrubify][UpsellBlock] Blocked popup — title=%@ desc=%@",
                   title ?? "(nil)", desc ?? "(nil)")
             return
         }
@@ -188,14 +188,14 @@ func activateUpsellPopupBlocker() {
     for (className, selectors, label, activate) in targets {
         guard let cls = NSClassFromString(className),
               selectors.allSatisfy({ class_getInstanceMethod(cls, $0) != nil }) else {
-            eeveeLog("[EeveeSpotify][UpsellBlock] %@ unavailable; skipping", label)
+            eeveeLog("[Shrubify][UpsellBlock] %@ unavailable; skipping", label)
             continue
         }
         activate()
         activated += 1
-        eeveeLog("[EeveeSpotify][UpsellBlock] %@ activated", label)
+        eeveeLog("[Shrubify][UpsellBlock] %@ activated", label)
     }
 
-    eeveeLog("[EeveeSpotify][UpsellBlock] activated %d/%d compatible hooks",
+    eeveeLog("[Shrubify][UpsellBlock] activated %d/%d compatible hooks",
           activated, targets.count)
 }

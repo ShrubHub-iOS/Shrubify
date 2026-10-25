@@ -21,7 +21,7 @@ enum RatingPromptBlock {
 
     static func blocked(_ method: String) {
         count += 1
-        eeveeLog("[EeveeSpotify][Privacy] Blocked rating prompt (%@, %d total)", method, count)
+        eeveeLog("[Shrubify][Privacy] Blocked rating prompt (%@, %d total)", method, count)
     }
 }
 
@@ -36,5 +36,5 @@ func activateRatingPromptBlock() {
     guard RatingPromptBlock.launchEnabled else { return }
     let start = CFAbsoluteTimeGetCurrent()
     RatingPromptBlockGroup().activate()
-    eeveeLog("[EeveeSpotify][Privacy] Rating prompt block on (%.2f ms)", (CFAbsoluteTimeGetCurrent() - start) * 1000)
+    eeveeLog("[Shrubify][Privacy] Rating prompt block on (%.2f ms)", (CFAbsoluteTimeGetCurrent() - start) * 1000)
 }

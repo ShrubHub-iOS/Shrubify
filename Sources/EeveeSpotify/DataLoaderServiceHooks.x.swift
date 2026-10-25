@@ -17,7 +17,7 @@ func captureAccessToken(from request: URLRequest?) {
     if storedAccessToken != token { storedAccessToken = token }
     accessTokenLock.unlock()
     if first {
-        eeveeLog("[EeveeSpotify][TokenCapture] First token, len %d from %@%@", token.count, request?.url?.host ?? "?", request?.url?.path ?? "")
+        eeveeLog("[Shrubify][TokenCapture] First token, len %d from %@%@", token.count, request?.url?.host ?? "?", request?.url?.path ?? "")
     }
 }
 

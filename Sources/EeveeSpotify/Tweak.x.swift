@@ -5,7 +5,7 @@ import Foundation
 import ObjectiveC.runtime
 
 func writeDebugLog(_ message: String) {
-    EeveeLog.write("[EeveeSpotify] " + message)
+    EeveeLog.write("[Shrubify] " + message)
 }
 
 // Kept in the environment so Orion reinits in the same process don't restart the 30s auth window.
@@ -84,7 +84,7 @@ func activatePremiumPatchingGroup() {
 // MARK: - Session protection activation
 func activateSessionLogoutProtection(minimal: Bool) {
     func log(_ msg: String) {
-        eeveeLog("[EeveeSpotify][SessionProtect] %@", msg)
+        eeveeLog("[Shrubify][SessionProtect] %@", msg)
     }
 
     @inline(__always)
@@ -185,7 +185,7 @@ func eeveeEnvFlag(_ name: String) -> Bool {
 }
 
 struct EeveeSpotify: Tweak {
-    static let version = "1.0.0"
+    static let version = "2.0.0"
     static let buildNumber = "1"
     static let spotifyVersion = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "?"
     static let repoSlug = GeneratedConfig.repoSlug
@@ -193,7 +193,7 @@ struct EeveeSpotify: Tweak {
     static var hookTarget: VersionHookTarget {
         let version = spotifyVersion
         
-        eeveeLog("[EeveeSpotify] Detected Spotify version: \(version)")
+        eeveeLog("[Shrubify] Detected Spotify version: \(version)")
         
         switch version {
         case "9.0.48":
@@ -211,7 +211,7 @@ struct EeveeSpotify: Tweak {
     // Orion's default fatalErrors on any failed hook, including DefaultGroup hooks activated before init().
     static func handleError(_ error: OrionHookError) {
         let description = error.description
-        eeveeLog("[EeveeSpotify][OrionError] Hook activation failed (non-fatal): %@", description)
+        eeveeLog("[Shrubify][OrionError] Hook activation failed (non-fatal): %@", description)
         writeDebugLog("[ORION ERROR] \(description)")
         eeveeBreadcrumb("Orion hook activation failed (continuing): \(description)")
     }
@@ -226,24 +226,31 @@ struct EeveeSpotify: Tweak {
             return
         }
 
+        // Compatibility mode: disable hooks that commonly drift with Spotify UI changes.
+        // Keep base settings and core initialization active so users can turn it off.
+        let stabilityMode = UserDefaults.standard.bool(forKey: "ShrubifyStabilityMode")
+        if stabilityMode { writeDebugLog("[STABILITY] Optional interface hooks disabled") }
+
         // Local-only premium force; independent of patching, so premium UI survives everything else being off.
         activateEeveePremiumForce()
 
         activateTelemetryBlock()
         activateTheme()
-        activateLiquidGlass()
-        activatePlayerGestures()
-        activatePlayerHaptics()
-        activateHomeDeclutter()
-        activateGlassCustomTabs()
-        activateHomeGradient()
-        activateArtistHides()
-        activatePlaylistHides()
-        HideJam.activate()
-        activateRemoteFlags()
+        if !stabilityMode {
+            activateLiquidGlass()
+            activatePlayerGestures()
+            activatePlayerHaptics()
+            activateHomeDeclutter()
+            activateGlassCustomTabs()
+            activateHomeGradient()
+            activateArtistHides()
+            activatePlaylistHides()
+            HideJam.activate()
+            activateRemoteFlags()
+        }
         activateRatingPromptBlock()
 
-        activateEeveeCrossfadeForce()
+        if !stabilityMode { activateEeveeCrossfadeForce() }
         activateEeveeAdBlockerExtended()
         activateUpsellPopupBlocker()
         activateUpsellServiceBlocker()
@@ -251,7 +258,7 @@ struct EeveeSpotify: Tweak {
 
         if NSClassFromString("HUBViewModelBuilderImplementation") != nil {
             AdBlockerGroup().activate()
-            eeveeLog("[EeveeSpotify] AdBlockerGroup activated")
+            eeveeLog("[Shrubify] AdBlockerGroup activated")
         }
 
         // UIPasteboard.general is a private subclass whose setters bypass the base-class hooks.
@@ -268,7 +275,7 @@ struct EeveeSpotify: Tweak {
         let iosVersion = UIDevice.current.systemVersion
         let deviceModel = UIDevice.current.model
 
-        writeDebugLog("=== EeveeSpotify \(EeveeSpotify.version) (build \(EeveeSpotify.buildNumber)) starting ===")
+        writeDebugLog("=== Shrubify \(EeveeSpotify.version) (build \(EeveeSpotify.buildNumber)) starting ===")
         writeDebugLog("[INIT] Spotify: \(EeveeSpotify.spotifyVersion) (build \(spotifyBuild))")
         writeDebugLog("[INIT] iOS: \(iosVersion), Device: \(deviceModel)")
         writeDebugLog("[INIT] Hook target: \(EeveeSpotify.hookTarget)")
@@ -374,11 +381,13 @@ struct EeveeSpotify: Tweak {
             } else {
                 writeDebugLog("[INIT] Settings_PlatformImpl.SettingsListViewController missing")
             }
-            eeveeLog("[EeveeSpotify] Initialization complete for 9.1.x")
-            TrueShuffleHook.install()
-            activateEeveeProbes()
-            activateSponsorBlock()
-            activateKaraokeHooks()
+            eeveeLog("[Shrubify] Initialization complete for 9.1.x")
+            if !stabilityMode {
+                TrueShuffleHook.install()
+                activateEeveeProbes()
+                activateSponsorBlock()
+                activateKaraokeHooks()
+            }
             return
         }
 

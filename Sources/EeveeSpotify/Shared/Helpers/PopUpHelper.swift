@@ -26,7 +26,7 @@ struct PopUpHelper {
             let model = Dynamic.SPTEncorePopUpDialogModel
                 .alloc(interface: SPTEncorePopUpDialogModel.self)
                 .initWithTitle(
-                    "EeveeSpotify",
+                    "Shrubify",
                     description: message,
                     image: nil,
                     primaryButtonTitle: buttonText,

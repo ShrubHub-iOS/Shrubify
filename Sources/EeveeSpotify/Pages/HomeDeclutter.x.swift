@@ -67,7 +67,7 @@ enum HomeDeclutter {
         let all = names.joined()
         guard all.contains("Home_EvoPageImpl") else { return (nil, true) }
         let part = HomePart.allCases.first { hidden.contains($0) && $0.marker.map(all.contains) == true }
-        if let part, logged.insert(part).inserted { eeveeLog("[EeveeSpotify][Home] Collapsed %@", part.rawValue) }
+        if let part, logged.insert(part).inserted { eeveeLog("[Shrubify][Home] Collapsed %@", part.rawValue) }
         // Sections fill in after their first pass, so a visible verdict is only final once content has settled.
         return (part, part != nil || queue.count > 40)
     }
@@ -109,6 +109,6 @@ func activateHomeDeclutter() {
         HomeSectionsGroup().activate()
         active.append("sections")
     }
-    eeveeLog("[EeveeSpotify][Home] Declutter: hiding %@, hooks %@ (%.2f ms)", hidden.map(\.rawValue).sorted().joined(separator: ", "),
+    eeveeLog("[Shrubify][Home] Declutter: hiding %@, hooks %@ (%.2f ms)", hidden.map(\.rawValue).sorted().joined(separator: ", "),
              active.isEmpty ? "MISSING" : active.joined(separator: "+"), (CFAbsoluteTimeGetCurrent() - start) * 1000)
 }

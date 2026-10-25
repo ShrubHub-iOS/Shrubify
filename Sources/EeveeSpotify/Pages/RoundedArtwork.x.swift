@@ -40,9 +40,9 @@ func activateRoundedArtwork() {
     guard UserDefaults.roundedArtwork else { return }
     let start = CFAbsoluteTimeGetCurrent()
     guard NSClassFromString(LibraryRowArtworkHook.targetName) != nil, NSClassFromString(TrackRowArtworkHook.targetName) != nil else {
-        eeveeLog("[EeveeSpotify][Artwork] Skipped: artwork classes missing")
+        eeveeLog("[Shrubify][Artwork] Skipped: artwork classes missing")
         return
     }
     RoundedArtworkGroup().activate()
-    eeveeLog("[EeveeSpotify][Artwork] Rounded artwork on (%.2f ms)", (CFAbsoluteTimeGetCurrent() - start) * 1000)
+    eeveeLog("[Shrubify][Artwork] Rounded artwork on (%.2f ms)", (CFAbsoluteTimeGetCurrent() - start) * 1000)
 }

@@ -27,13 +27,13 @@ class SpicyLyricsRepository: LyricsRepository {
     private func performQuery(trackId: String, apiKey: String) throws -> (Data, Int) {
         for (attempt, delay) in ([0.0] + SpicyLyricsRepository.queuedRetryDelays).enumerated() {
             if delay > 0 {
-                eeveeLog("[EeveeSpotify][SpicyLyrics] %@ queued (503), retrying in %.1fs (attempt %d)", trackId, delay, attempt + 1)
+                eeveeLog("[Shrubify][SpicyLyrics] %@ queued (503), retrying in %.1fs (attempt %d)", trackId, delay, attempt + 1)
                 Thread.sleep(forTimeInterval: delay)
             }
             let (data, httpStatus) = try performRequest(trackId: trackId, apiKey: apiKey)
             if httpStatus != 503 { return (data, httpStatus) }
         }
-        eeveeLog("[EeveeSpotify][SpicyLyrics] %@ still queued after all retries", trackId)
+        eeveeLog("[Shrubify][SpicyLyrics] %@ still queued after all retries", trackId)
         throw LyricsError.noSuchSong
     }
 
@@ -46,7 +46,7 @@ class SpicyLyricsRepository: LyricsRepository {
         request.httpMethod = "GET"
         request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Accept")
-        request.setValue("EeveeSpotify", forHTTPHeaderField: "User-Agent")
+        request.setValue("Shrubify", forHTTPHeaderField: "User-Agent")
 
         let semaphore = DispatchSemaphore(value: 0)
         var responseData: Data?
@@ -63,11 +63,11 @@ class SpicyLyricsRepository: LyricsRepository {
         semaphore.wait()
 
         if let error = responseError {
-            eeveeLog("[EeveeSpotify][SpicyLyrics] %@ network error: %@", trackId, String(describing: error))
+            eeveeLog("[Shrubify][SpicyLyrics] %@ network error: %@", trackId, String(describing: error))
             throw error
         }
         guard let data = responseData else {
-            eeveeLog("[EeveeSpotify][SpicyLyrics] %@ returned no data", trackId)
+            eeveeLog("[Shrubify][SpicyLyrics] %@ returned no data", trackId)
             throw LyricsError.decodingError
         }
         return (data, responseStatus)
@@ -80,26 +80,26 @@ class SpicyLyricsRepository: LyricsRepository {
         case 200:
             break
         case 401, 403:
-            eeveeLog("[EeveeSpotify][SpicyLyrics] %@ key rejected (HTTP %d)", trackId, httpStatus)
+            eeveeLog("[Shrubify][SpicyLyrics] %@ key rejected (HTTP %d)", trackId, httpStatus)
             throw LyricsError.invalidSpicyKey
         case 404:
-            eeveeLog("[EeveeSpotify][SpicyLyrics] %@: HTTP 404, no lyrics (%.0f ms)", trackId, (CFAbsoluteTimeGetCurrent() - start) * 1000)
+            eeveeLog("[Shrubify][SpicyLyrics] %@: HTTP 404, no lyrics (%.0f ms)", trackId, (CFAbsoluteTimeGetCurrent() - start) * 1000)
             throw LyricsError.noSuchSong
         default:
             let rawBody = String(data: data, encoding: .utf8).map { String($0.prefix(200)) } ?? "<non-utf8 \(data.count) bytes>"
-            eeveeLog("[EeveeSpotify][SpicyLyrics] %@ unexpected HTTP %d: %@", trackId, httpStatus, rawBody)
+            eeveeLog("[Shrubify][SpicyLyrics] %@ unexpected HTTP %d: %@", trackId, httpStatus, rawBody)
             throw LyricsError.noSuchSong
         }
 
         guard let json = try? JSONSerialization.jsonObject(with: data) else {
-            eeveeLog("[EeveeSpotify][SpicyLyrics] %@ invalid JSON", trackId)
+            eeveeLog("[Shrubify][SpicyLyrics] %@ invalid JSON", trackId)
             throw LyricsError.decodingError
         }
 
         let root = SpicyLyricsJSON((json as? [String: Any])?["Body"] ?? json)
 
         guard let type = root["Type"]?.stringValue else {
-            eeveeLog("[EeveeSpotify][SpicyLyrics] %@ missing Type", trackId)
+            eeveeLog("[Shrubify][SpicyLyrics] %@ missing Type", trackId)
             throw LyricsError.decodingError
         }
 
@@ -109,10 +109,10 @@ class SpicyLyricsRepository: LyricsRepository {
         case "Line":     dto = parseLineLyrics(root, trackId: trackId, query: query, options: options)
         case "Static":   dto = parseStaticLyrics(root)
         default:
-            eeveeLog("[EeveeSpotify][SpicyLyrics] %@ unknown type '%@'", trackId, type)
+            eeveeLog("[Shrubify][SpicyLyrics] %@ unknown type '%@'", trackId, type)
             throw LyricsError.decodingError
         }
-        eeveeLog("[EeveeSpotify][SpicyLyrics] %@: HTTP %d, %@, %d lines (%.0f ms)",
+        eeveeLog("[Shrubify][SpicyLyrics] %@: HTTP %d, %@, %d lines (%.0f ms)",
                  trackId, httpStatus, type, dto.lines.count, (CFAbsoluteTimeGetCurrent() - start) * 1000)
         return dto
     }
@@ -356,7 +356,7 @@ class SpicyLyricsRepository: LyricsRepository {
     func getLyrics(_ query: LyricsSearchQuery, options: LyricsOptions) throws -> LyricsDto {
         let trackId = query.spotifyTrackId
         guard trackId.range(of: "^[A-Za-z0-9]{22}$", options: .regularExpression) != nil else {
-            eeveeLog("[EeveeSpotify][SpicyLyrics] Not a Spotify track id: '%@'", trackId)
+            eeveeLog("[Shrubify][SpicyLyrics] Not a Spotify track id: '%@'", trackId)
             throw LyricsError.noSuchSong
         }
 
