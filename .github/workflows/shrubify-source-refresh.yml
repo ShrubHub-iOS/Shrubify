@@ -1,0 +1,49 @@
+name: Shrubify - Refresh AltStore Source
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: shrubify-repo-json
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    name: Regenerate repo.json without rebuilding IPA
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 1
+      - name: Update repo.json from published GitHub Releases
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          BRANCH="${{ github.event.repository.default_branch }}"
+          python3 scripts/generate_source.py \
+            --repo "$GITHUB_REPOSITORY" --token "$GH_TOKEN" \
+            --branch "$BRANCH" --output docs/repo.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          source = json.loads(Path('docs/repo.json').read_text())
+          count = sum(len(app.get('versions', [])) for app in source.get('apps', []))
+          print(f'Found {count} eligible published IPA version(s).')
+          if not count:
+              print('::warning::No matching public Shrubify IPA releases were found. Verify the release tag, IPA asset and altstore-build field in the release notes.')
+          PY
+          git config user.name 'shrubify-release-bot'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/repo.json
+          if ! git diff --cached --quiet; then
+            git commit -m 'Update Shrubify AltStore source [skip ci]'
+            git push origin "HEAD:$BRANCH"
+          else
+            echo 'AltStore source is already up to date.'
+          fi
+          echo "Source: https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/${BRANCH}/docs/repo.json" >> "$GITHUB_STEP_SUMMARY"

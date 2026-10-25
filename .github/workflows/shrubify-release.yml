@@ -215,16 +215,24 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          set -euo pipefail
           BRANCH="${{ github.event.repository.default_branch }}"
-          git pull --rebase origin "$BRANCH"
-          python3 scripts/generate_source.py \
+          # Compilation modifies files in the main checkout. Never rebase it.
+          # Make a separate clean working tree for the AltStore source commit.
+          git fetch origin "+refs/heads/${BRANCH}:refs/remotes/origin/${BRANCH}"
+          SOURCE_TREE="${RUNNER_TEMP}/shrubify-source-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          git worktree add --detach "$SOURCE_TREE" "refs/remotes/origin/${BRANCH}"
+          python3 "$SOURCE_TREE/scripts/generate_source.py" \
             --repo "$GITHUB_REPOSITORY" --token "$GH_TOKEN" \
-            --branch "$BRANCH" --output docs/repo.json
-          git config user.name 'shrubify-release-bot'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add docs/repo.json
-          if ! git diff --cached --quiet; then
-            git commit -m "Update Shrubify AltStore source [skip ci]"
-            git push origin "HEAD:$BRANCH"
+            --branch "$BRANCH" --output "$SOURCE_TREE/docs/repo.json"
+          git -C "$SOURCE_TREE" config user.name 'shrubify-release-bot'
+          git -C "$SOURCE_TREE" config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git -C "$SOURCE_TREE" add docs/repo.json
+          if ! git -C "$SOURCE_TREE" diff --cached --quiet; then
+            git -C "$SOURCE_TREE" commit -m "Update Shrubify AltStore source [skip ci]"
+            git -C "$SOURCE_TREE" push origin "HEAD:$BRANCH"
+          else
+            echo 'AltStore source is already up to date.'
           fi
+          git worktree remove "$SOURCE_TREE"
           echo "Source: https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/${BRANCH}/docs/repo.json" >> "$GITHUB_STEP_SUMMARY"
