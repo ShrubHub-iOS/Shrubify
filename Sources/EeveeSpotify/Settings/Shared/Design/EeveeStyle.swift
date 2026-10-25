@@ -98,7 +98,7 @@ struct SettingsHero: View {
                 .font(.system(size: 27, weight: .medium, design: .rounded))
                 .foregroundColor(.primary)
                 .frame(width: 64, height: 64)
-                .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                .modifier(ShrubifyIconMaterial())
                 .accessibilityHidden(true)
             Text("Shrubify")
                 .font(.system(size: 27, weight: .bold, design: .rounded))
@@ -229,14 +229,33 @@ func confirmDestructive(title: String, message: String? = nil, confirm: String, 
     WindowHelper.shared.present(alert)
 }
 
+// Preserve native material on iOS 15+ with an iOS 14-compatible fallback.
+struct ShrubifyIconMaterial: ViewModifier {
+    @ViewBuilder func body(content: Content) -> some View {
+        if #available(iOS 15.0, *) {
+            content.background(.thinMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        } else {
+            content.background(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .fill(Color(UIColor.secondarySystemGroupedBackground))
+            )
+        }
+    }
+}
+
 // Native Liquid Glass on iOS 26, quiet material on earlier iOS releases.
 // No forced tint: the app keeps its Spotify/user-selected accent color.
 struct ShrubifyGlassSurface: ViewModifier {
     @ViewBuilder func body(content: Content) -> some View {
         if #available(iOS 26.0, *) {
             content.glassEffect(.regular, in: .rect(cornerRadius: 26))
-        } else {
+        } else if #available(iOS 15.0, *) {
             content.background(.regularMaterial, in: RoundedRectangle(cornerRadius: 26, style: .continuous))
+        } else {
+            content.background(
+                RoundedRectangle(cornerRadius: 26, style: .continuous)
+                    .fill(Color(UIColor.secondarySystemGroupedBackground))
+            )
         }
     }
 }
