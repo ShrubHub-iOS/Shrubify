@@ -33,10 +33,11 @@ PYVERSION
 TWEAK_VERSION="$(awk '$1=="Version:"{print $2}' control)"
 mkdir -p Outputs/IPAS
 OUT="Outputs/IPAS/Shrubify-Spotify-${SPOT_VERSION}-v${TWEAK_VERSION}-b${BUILD}.ipa"
-cyan -i "$SOURCE_IPA" -o "$OUT" -f "${INJECT[@]}" -c 9 -m 15.0 -du
+cyan -i "$SOURCE_IPA" -o "$OUT" -f "${INJECT[@]}" -c 9 -m 15.0 -duw
 ipapatch --input "$OUT" --inplace --noconfirm --dylib packages/zxPluginsInject.dylib
 Tools/alt-icons.sh "$OUT"
 python3 scripts/brand_ipa.py "$OUT" --build "$BUILD"
+# Catch stale extensions/signing files and malformed IPA payloads before upload.
 python3 scripts/inspect_ipa.py "$OUT" --expected "$SPOT_VERSION" --require-shrubify
 printf '%s\n' "$OUT" > Outputs/latest_ipa_path.txt
 printf '%s\n' "$DEB_PATH" > Outputs/latest_deb_path.txt
