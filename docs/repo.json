@@ -1,8 +1,32 @@
 {
   "name": "Shrubify",
   "subtitle": "A refined Spotify tweak fork",
-  "description": "A community fork of EeveeSpotify Reincarnated. Liquid Glass settings on iOS 26, with Spotify\u2019s original colors preserved. Unofficial, not affiliated with Spotify.",
+  "description": "A community fork of EeveeSpotify Reincarnated. Liquid Glass settings on iOS 26, with Spotify’s original colors preserved. Unofficial, not affiliated with Spotify.",
   "iconURL": "https://raw.githubusercontent.com/zoinkdoggie94/Shrubify/Master/docs/icon.png",
   "website": "https://github.com/zoinkdoggie94/Shrubify",
-  "apps": []
+  "apps": [
+    {
+      "name": "Shrubify",
+      "bundleIdentifier": "com.shrubify.client",
+      "developerName": "Shrubify contributors",
+      "subtitle": "Clean Spotify customization",
+      "localizedDescription": "Shrubify is an unofficial EeveeSpotify Reincarnated fork, with a polished interface and iOS 26 Liquid Glass options.",
+      "iconURL": "https://raw.githubusercontent.com/zoinkdoggie94/Shrubify/Master/docs/icon.png",
+      "versions": [
+        {
+          "version": "9.1.94",
+          "buildVersion": "6",
+          "date": "2026-10-25",
+          "localizedDescription": "Shrubify v1.0.0 for Spotify 9.1.94. iOS 26 Liquid Glass settings; compatibility depends on Spotify version.",
+          "downloadURL": "https://github.com/zoinkdoggie94/Shrubify/releases/download/shrubify-s9.1.94-v1.0.0-g1a9183a/Shrubify-Spotify-9.1.94-v1.0.0-b6.ipa",
+          "size": 131382817,
+          "minOSVersion": "16.1"
+        }
+      ],
+      "appPermissions": {
+        "entitlements": [],
+        "privacy": []
+      }
+    }
+  ]
 }
