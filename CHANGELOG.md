@@ -1,3 +1,14 @@
+## Shrubify 3.0.2 — iOS 14 compatibility and faster builds
+
+- Fixed four distinct Swift compiler errors confirmed by the 3.0.1 GitHub Actions log: iOS 15-only `.monospacedDigit()`, iOS 16-only `.bold()`, and iOS 16-only `Button.fontWeight()` calls in the new 3.0 views.
+- Replaced affected UI modifiers with iOS 14-compatible font styles while retaining Studio, Replay, ShrubPanel and ShrubQueue.
+- Moved fast source/preflight tests to the very start of the macOS job, before the IPA download, Xcode selection and dependency installation.
+- Added an iOS 14 SwiftUI API regression check and automated fixture tests for the precise patterns that broke the build.
+- Cache the precompiled SwiftProtobuf dependency and save it immediately after a successful dependency build; future builds can skip recompiling it even when a later tweak build previously failed.
+- The full IPA build still needs a macOS Actions runner, and cache misses or changes to the dependency script/Xcode version will require an initial rebuild.
+
+**Verification:** Swift syntax parsing, shell checks, YAML parse, Python regression tests, and applied-patch testing. No complete iOS compile or device test was available in the current environment.
+
 ## Shrubify 3.0.1 — Source reliability update
 
 - Split the complex Studio SwiftUI builder into smaller views to improve compilation and maintainability.

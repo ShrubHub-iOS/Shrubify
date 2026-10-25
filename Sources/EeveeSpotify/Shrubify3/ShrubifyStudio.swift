@@ -144,7 +144,9 @@ struct ShrubifyStudioView: View {
     @ViewBuilder private var restartSection: some View {
         if showRestart {
             Section {
-                Button("Restart to apply changes", action: exitApplication).fontWeight(.semibold)
+                Button(action: exitApplication) {
+                    Text("Restart to apply changes").fontWeight(.semibold)
+                }
             }
         }
     }

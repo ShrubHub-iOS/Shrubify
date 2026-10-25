@@ -7,7 +7,18 @@ BUILD="${2:?Missing build number}"
 export THEOS="${THEOS:-$PWD/theos}"
 
 chmod +x Tools/SwiftProtobufBuild/build-eeveeswiftprotobuf.sh Tools/build-zxpi.sh Tools/alt-icons.sh
-Tools/SwiftProtobufBuild/build-eeveeswiftprotobuf.sh
+# The workflow prebuilds/caches the protobuf framework. Avoid recompiling
+# two architectures on every IPA release when that framework is valid.
+PROTO_FRAMEWORK="$THEOS/lib/iphone/rootless/EeveeSwiftProtobuf.framework"
+PROTO_BINARY="$PROTO_FRAMEWORK/EeveeSwiftProtobuf"
+if [[ -s "$PROTO_BINARY" && -d "$PROTO_FRAMEWORK/Modules/EeveeSwiftProtobuf.swiftmodule" ]] &&
+   lipo -archs "$PROTO_BINARY" | grep -q 'arm64e' &&
+   lipo -archs "$PROTO_BINARY" | grep -q 'arm64'; then
+  echo 'Using prebuilt EeveeSwiftProtobuf framework (cached when available).'
+else
+  echo 'EeveeSwiftProtobuf framework missing or incomplete; compiling it now.'
+  THEOS_PACKAGE_SCHEME=rootless Tools/SwiftProtobufBuild/build-eeveeswiftprotobuf.sh
+fi
 THEOS_PACKAGE_SCHEME=rootless make package FINALPACKAGE=1
 DEB_PATH="$(find packages -maxdepth 1 -name 'com.shrubify.spotify_*.deb' -type f | sort | tail -1)"
 [[ -n "$DEB_PATH" && -f "$DEB_PATH" ]] || { echo '::error::Shrubify deb not found'; exit 1; }

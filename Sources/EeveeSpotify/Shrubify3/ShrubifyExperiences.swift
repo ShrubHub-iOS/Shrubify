@@ -42,7 +42,7 @@ struct ShrubifyReplayView: View {
                         }
                         Spacer(minLength: 8)
                         VStack(alignment: .trailing) {
-                            Text(shrubTime(entry.seconds)).monospacedDigit().font(.footnote)
+                            Text(shrubTime(entry.seconds)).font(.system(.footnote, design: .monospaced))
                             Text("\(entry.plays) plays").font(.caption).foregroundColor(.secondary)
                         }
                     }
@@ -63,7 +63,7 @@ struct ShrubifyReplayView: View {
                 ForEach(history.recentDays()) { day in
                     HStack(spacing: 10) {
                         Text(String(day.day.suffix(5)))
-                            .font(.caption.monospacedDigit())
+                            .font(.system(.caption, design: .monospaced))
                             .foregroundColor(.secondary)
                             .frame(width: 48, alignment: .leading)
                         GeometryReader { geo in
@@ -74,7 +74,7 @@ struct ShrubifyReplayView: View {
                         }
                         .frame(height: 22)
                         Text(shrubTime(day.seconds))
-                            .font(.caption.monospacedDigit())
+                            .font(.system(.caption, design: .monospaced))
                             .foregroundColor(.secondary)
                             .frame(width: 45, alignment: .trailing)
                     }
@@ -112,7 +112,7 @@ struct ShrubifyReplayView: View {
 
     private func replayMetric(_ label: String, _ value: String) -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(value).font(.title3).bold().monospacedDigit()
+            Text(value).font(.system(size: 20, weight: .bold, design: .monospaced))
             Text(label).font(.caption).foregroundColor(.secondary)
         }
     }

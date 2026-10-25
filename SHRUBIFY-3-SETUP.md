@@ -53,3 +53,17 @@ real build command fails; a green syntax preflight is not proof of compilation.
 The 3.0.1 source reliability pass simplifies SwiftUI view builders and makes
 Replay start its timer only when listening history is enabled. Actual iOS/macOS
 compilation and device compatibility must still be tested.
+
+
+## Shrubify 3.0.2: build performance and availability checks
+
+This maintenance update replaces SwiftUI modifiers rejected by the iOS 14 deployment target. The build workflow now checks common source errors before downloading your IPA or installing dependencies. The expensive SwiftProtobuf framework is cached by macOS architecture, selected Xcode version, protobuf version and dependency-build script contents. **The first run builds that framework normally**; subsequent runs reuse it when the cache key matches. If the tweak compilation fails, the framework cache still survives. GitHub's caches can expire and runners may change, so rebuild time is not guaranteed.
+
+You can check the compatibility guard in Codespaces without starting a macOS IPA build:
+
+```bash
+python3 scripts/check_ios14_swiftui.py
+python3 -m unittest discover -s scripts/tests -p 'test_*.py'
+```
+
+The checker covers known Shrubify 3.0 modifier mistakes, not every possible SwiftUI API availability issue; the actual macOS iOS SDK compilation remains the authoritative check.
