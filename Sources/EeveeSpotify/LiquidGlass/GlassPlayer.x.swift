@@ -30,7 +30,11 @@ enum PlayerPlacement {
 
 enum PlayerBackdrop {
     static let meter = PerfMeter("Player][Backdrop")
-    private static let artworkRadius: CGFloat = 12
+    private static var artworkRadius: CGFloat {
+        let defaults = UserDefaults.standard
+        return CGFloat(defaults.object(forKey: "ShrubifyArtworkRadius3") == nil ? 12 : defaults.double(forKey: "ShrubifyArtworkRadius3"))
+    }
+    private static var artworkRadiusKey: UInt8 = 0
     private static var backdropKey: UInt8 = 0
     private static var strippedKey: UInt8 = 0
     private static var timesKey: UInt8 = 0
@@ -90,7 +94,9 @@ enum PlayerBackdrop {
             view.layer.cornerCurve = .continuous
             view.clipsToBounds = true
         }
-        guard tilt.layer.shadowPath?.boundingBox != tilt.bounds else { return }
+        let previous = objc_getAssociatedObject(tilt, &artworkRadiusKey) as? NSNumber
+        guard previous?.doubleValue != Double(artworkRadius) || tilt.layer.shadowPath?.boundingBox != tilt.bounds else { return }
+        objc_setAssociatedObject(tilt, &artworkRadiusKey, NSNumber(value: Double(artworkRadius)), .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
         tilt.layer.shadowColor = UIColor.black.cgColor
         tilt.layer.shadowOpacity = 0.45
         tilt.layer.shadowRadius = 32

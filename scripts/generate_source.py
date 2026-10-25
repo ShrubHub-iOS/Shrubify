@@ -28,7 +28,7 @@ def source_for(repo, releases, branch="main"):
         versions.append({
            'version':version,'buildVersion':build,
            'date':(release.get('published_at') or datetime.now(timezone.utc).isoformat())[:10],
-           'localizedDescription':f'Shrubify v{matched["tweak"]} for Spotify {version}. iOS 26 Liquid Glass settings; compatibility depends on Spotify version.',
+           'localizedDescription':f'Shrubify v{matched["tweak"]} for Spotify {version}. Studio presets, ShrubPanel, opt-in Replay, queue shortcuts and supported Liquid Glass. Compatibility depends on Spotify version.',
            'downloadURL':asset['browser_download_url'],'size':int(asset['size']),
            'minOSVersion':'16.1'
         })
@@ -38,8 +38,8 @@ def source_for(repo, releases, branch="main"):
        'iconURL':icon,'website':f'https://github.com/{repo}',
        'apps': ([{'name':'Shrubify','bundleIdentifier':'com.shrubify.client',
                   'developerName':'shrubbery & ShrubHub team',
-                  'subtitle':'Clean Spotify customization',
-                  'localizedDescription':'Shrubify provides its own clean settings, app icon, developers page and stability diagnostics. Open-source upstream contributions are credited in the source repository.',
+                  'subtitle':'Listening is easy with Shrubify!',
+                  'localizedDescription':'Shrubify 3.0 adds Studio with saved player layouts, a quick-access ShrubPanel, opt-in local Replay and ShrubQueue bookmarks and snapshots. Source credits and GPL notices are in the repository.',
                   'iconURL':icon,'versions':versions,'appPermissions':{'entitlements':[],'privacy':[]}}]
                  if versions else [])}
 

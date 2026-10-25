@@ -1,0 +1,43 @@
+# Shrubify 3.0 — Codespaces upgrade
+
+## Replace source with this ZIP in Codespaces
+
+1. Commit or back up **your own** existing edits before overwriting the working tree.
+2. Upload `Shrubify-3.0-FULL.zip` in `/workspaces/Shrubify`.
+3. Run the commands below. `rsync` updates files from the ZIP but preserves `.git` and your existing generated `docs/repo.json`.
+
+```bash
+cd /workspaces/Shrubify
+# Start from the latest remote branch before copying the update.
+# Stop if this reports a conflict; do not force-push.
+git pull --ff-only origin Master
+unzip -oq Shrubify-3.0-FULL.zip -d /tmp/shrubify3
+# Keep Git history and the repo.json your release workflow already generated.
+rsync -a --exclude='.git/' --exclude='docs/repo.json' /tmp/shrubify3/Shrubify-Master/ ./
+rm -f Shrubify-3.0-FULL.zip
+bash -n scripts/build_shrubify.sh
+python3 -m py_compile scripts/*.py
+
+# Stage tracked source/document changes plus the NEW 3.0 files.
+# Avoid accidentally committing older ZIP uploads, IPA files or log archives.
+git add -u
+git add Sources/EeveeSpotify/Shrubify3 scripts/tests CHANGELOG.md TESTING.md SHRUBIFY-3-SETUP.md
+git commit -m "Shrubify 3.0 major update [skip ci]"
+git push origin HEAD:Master
+```
+
+If rebase reports conflicts, **stop and resolve them**, particularly `docs/repo.json` or workflow edits; do not force push. Run the GitHub build action manually from the `Master` branch.
+
+## GitHub Actions settings
+
+- Set Actions **Workflow permissions** to `Read and write` for release/source update workflows.
+- `SPOTIFY_IPA_URL` secret is an optional direct HTTPS URL to your own authorized compatible IPA. Updating a secret does **not** start a workflow; press *Run workflow* to start one.
+- For scheduled version checks, supply a matching IPA catalog or update `config/ipa-sources.json` as documented in `SHRUBIFY-SETUP.md`.
+- `ALLOW_PUBLIC_IPA_RELEASE=true` is a **repository variable** (not a secret); it enables public IPA release publishing only where you have redistribution permission. With it off, a successful build produces a private Actions artifact but will not add an app to `repo.json`.
+- A new Spotify version may require compatibility fixes; detecting a version is not proof that its IPA will build or run.
+
+## Using the new features
+
+In Spotify's settings, open the **Shrubify 3.0 · Listening is easy** section. Studio's changes that affect hook activation need an app restart. Replay is opt-in and stores records on-device. In ShrubQueue, **listening snapshots aren't the real Spotify queue**; they preserve a selection of your recorded listening history. The mini-player long-press panel relies on the supported player observer and may not show up with Stability Mode or incompatible Spotify versions.
+
+See [TESTING.md](TESTING.md) to validate your actual device before publishing any claims about crash-free behavior.

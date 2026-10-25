@@ -1,3 +1,5 @@
+**For Shrubify 3.0 new features and installation, also see [SHRUBIFY-3-SETUP.md](SHRUBIFY-3-SETUP.md) and [TESTING.md](TESTING.md).**
+
 # Shrubify — full fork + release automation
 
 This fork is built from the EeveeSpotify Reincarnated source in the ZIP you provided. It keeps the original implementation filenames (`EeveeSpotify.dylib`, `EeveeSpotify.bundle`) because the hook and injection system expects them. The tweak package is `com.shrubify.spotify`; the version in `control` and `Sources/EeveeSpotify/Tweak.x.swift` is `1.0.0`.

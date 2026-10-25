@@ -31,8 +31,12 @@ final class KaraokeGestureTrigger: NSObject {
     }
 
     @objc private func handleLongPress(_ sender: UILongPressGestureRecognizer) {
-        guard sender.state == .began, KaraokeOverlayPresenter.isAvailableForCurrentTrack() else { return }
-        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-        KaraokeOverlayPresenter.present()
+        guard sender.state == .began else { return }
+        if UserDefaults.standard.object(forKey: "ShrubifyPanelLongPress3") as? Bool ?? true {
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            ShrubifyPanelPresenter.present()
+        } else if KaraokeOverlayPresenter.isAvailableForCurrentTrack() {
+            KaraokeOverlayPresenter.present()
+        }
     }
 }

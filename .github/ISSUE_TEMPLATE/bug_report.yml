@@ -1,14 +1,14 @@
 name: Bug Report
-description: Report something that doesn't work as expected in EeveeSpotify
+description: Report something that doesn't work as expected in Shrubify
 labels: ["bug"]
 body:
   - type: markdown
     attributes:
       value: |
         **Before you submit:**
-        - Check the [Common Issues / FAQ](https://github.com/jaydenjcpy/EeveeSpotifyReincarnated/blob/Master/common_issues.md) — most premium, logout, lyrics, and download questions are answered there.
+        - Check the [Common Issues / FAQ](https://github.com/zoinkdoggie94/Shrubify/blob/Master/common_issues.md) — most premium, logout, lyrics, and download questions are answered there.
         - Issues about server-sided features (Very High audio quality, native playlist downloading, Jam hosting, AI DJ/Playlist, Spotify Connect, homescreen/podcast ads) will be closed without further discussion.
-        - If you can, update to the latest EeveeSpotify and Spotify versions and check whether the bug still happens.
+        - If you can, update to the latest Shrubify and Spotify versions and check whether the bug still happens.
 
   - type: dropdown
     id: install-type
@@ -32,11 +32,11 @@ body:
       required: true
 
   - type: input
-    id: eevee-version
+    id: shrubify-version
     attributes:
-      label: EeveeSpotify version
-      description: Found in EeveeSpotify settings, e.g. 5.x.x
-      placeholder: e.g. 5.1.0
+      label: Shrubify version
+      description: Found in Shrubify settings, e.g. 3.0.0
+      placeholder: e.g. 3.0.0
     validations:
       required: true
 
@@ -53,9 +53,9 @@ body:
     attributes:
       label: Pre-submit checks
       options:
-        - label: I have read the [Common Issues / FAQ](https://github.com/jaydenjcpy/EeveeSpotifyReincarnated/blob/Master/common_issues.md)
+        - label: I have read the [Common Issues / FAQ](https://github.com/zoinkdoggie94/Shrubify/blob/Master/common_issues.md)
         - label: This is not a server-sided feature listed in the FAQ or README
-        - label: I am on the latest EeveeSpotify release (or this also happens on it)
+        - label: I am on the latest Shrubify release (or this also happens on it)
     validations:
       required: true
 
@@ -92,6 +92,10 @@ body:
         - Login / session
         - CarPlay / Siri / lock screen
         - Build or installation
+        - Shrubify Studio / presets
+        - ShrubPanel / mini-player gesture
+        - Shrubify Replay statistics
+        - ShrubQueue / snapshots
         - Other
     validations:
       required: true
@@ -101,7 +105,7 @@ body:
     attributes:
       label: Debug log
       description: |
-        Export the debug log from EeveeSpotify settings and paste it below.
+        Export the debug log from Shrubify settings and paste it below.
         Remove any tokens or account details if present.
       render: text
 

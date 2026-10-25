@@ -147,9 +147,13 @@ struct SettingsGroupSection: View {
                     open(entry)
                 } label: {
                     SettingsLabel(
-                        title: entry.key == "Shrubify diagnostics" ? "Shrubify diagnostics" : entry.key.localized,
+                        title: entry.key.hasPrefix("Shrub") ? entry.key : entry.key.localized,
                         subtitle: entry.key == "Shrubify diagnostics"
                             ? "Compatibility, crash reports & build information"
+                            : entry.key == "Shrubify Studio" ? "Personalize your Now Playing layout"
+                            : entry.key == "Shrubify Replay" ? "On-device listening history and stats"
+                            : entry.key == "ShrubQueue" ? "In-app queue and saved listening snapshots"
+                            : entry.key == "ShrubPanel" ? "Quick access to Shrubify tools"
                             : entry.key == "liquid_glass"
                             ? (LiquidGlassSettingsView.supported ? "Native iOS 26 glass surfaces" : "Requires iOS 26")
                             : "\(entry.key)_subtitle".localized,

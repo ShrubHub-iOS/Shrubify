@@ -1,5 +1,5 @@
 name: Feature Request
-description: Suggest an idea or improvement for EeveeSpotify
+description: Suggest an idea or improvement for Shrubify
 labels: ["enhancement"]
 body:
   - type: markdown
@@ -15,9 +15,7 @@ body:
         - Spotify Connect playback (server-side streaming; the device acts only as a remote)
         - Anything that requires actually having a Premium subscription on Spotify's servers
 
-        Also not accepted:
-        - **Free feature requests in general.** EeveeSpotify is maintained by volunteers. If you need something, feel free to implement it yourself and submit a pull request — or open an issue to discuss paid opportunities.
-        - "Make it work on Android / Windows / etc." — iOS/iPadOS only by design.
+        Please provide a clear use case and expected behavior. Contributions and test reports are welcome. Shrubify is for iOS/iPadOS only.
 
   - type: checkboxes
     id: rules-check

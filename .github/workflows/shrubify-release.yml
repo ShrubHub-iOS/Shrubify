@@ -166,13 +166,20 @@ jobs:
             -o /usr/local/bin/ipapatch
           sudo chmod +x /usr/local/bin/ipapatch
           ipapatch --help >/dev/null
+      - name: Fast Shrubify source preflight
+        if: ${{ steps.metadata.outputs.already_exists == 'false' }}
+        run: |
+          bash -n scripts/build_shrubify.sh
+          python3 -m py_compile scripts/*.py
+          python3 -m unittest discover -s scripts/tests -p 'test_*.py'
+          swiftc -frontend -parse Sources/EeveeSpotify/Shrubify3/*.swift
       - name: Compile tweak and inject IPA
         if: ${{ steps.metadata.outputs.already_exists == 'false' }}
         env:
           REPO_SLUG: ${{ github.repository }}
           BRANCH_NAME: ${{ github.event.repository.default_branch }}
         run: |
-          scripts/build_shrubify.sh "$GITHUB_WORKSPACE/spotify.ipa" "$GITHUB_RUN_NUMBER"
+          bash scripts/build_shrubify.sh "$GITHUB_WORKSPACE/spotify.ipa" "$GITHUB_RUN_NUMBER"
       - name: Upload build as private Actions artifact
         if: ${{ steps.metadata.outputs.already_exists == 'false' }}
         uses: actions/upload-artifact@v4
@@ -198,7 +205,9 @@ jobs:
 
           - Spotify: ${SPOTIFY_VERSION}
           - Shrubify tweak: ${TWEAK_VERSION}
-          - Shrubify icon, developers page, compatibility diagnostics, and iOS 26 Liquid Glass
+          - Shrubify Studio layouts, ShrubPanel quick access, local-only Replay and ShrubQueue shortcuts
+          - Preserves Spotify's color palette; existing iOS 26 Liquid Glass hooks remain supported
+          - Listening snapshots are not Spotify's actual playback queue
           - This is an automated build, NOT a device-verified compatibility certification.
           - You must sign the IPA with your own certificate.
           - Unofficial and not affiliated with Spotify.

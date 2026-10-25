@@ -4,6 +4,7 @@ import UIKit
 struct ShrubifyDiagnosticsView: View {
     @State private var stabilityMode = UserDefaults.standard.bool(forKey: "ShrubifyStabilityMode")
     @State private var showRestartNotice = false
+    @State private var panelGesture = UserDefaults.standard.object(forKey: "ShrubifyPanelLongPress3") as? Bool ?? true
 
     var body: some View {
         List {
@@ -20,6 +21,10 @@ struct ShrubifyDiagnosticsView: View {
                         .font(.footnote)
                         .foregroundColor(.secondary)
                 }
+            }
+            Section(header: Text("ShrubPanel shortcut"), footer: Text("Long-pressing the mini-player opens ShrubPanel where the player observer is available. Turn this off to use the previous karaoke shortcut.")) {
+                Toggle("Long-press for ShrubPanel", isOn: $panelGesture)
+                    .onChange(of: panelGesture) { UserDefaults.standard.set($0, forKey: "ShrubifyPanelLongPress3") }
             }
             Section(header: Text("Installation")) {
                 info("App", Bundle.main.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String ?? "Shrubify")
