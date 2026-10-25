@@ -1,3 +1,14 @@
+## Shrubify 3.0.1 — Source reliability update
+
+- Split the complex Studio SwiftUI builder into smaller views to improve compilation and maintainability.
+- Simplified the Replay history graph’s sizing and date rendering expressions.
+- Stopped the Replay timer and its observers when listening tracking is disabled.
+- Added automatic compiler-error summaries to GitHub Actions and a small diagnostics artifact when compilation fails.
+- Added regression tests for parsing both ordinary and ANSI-encoded Swift build errors.
+- Preserves the Spotify palette, Shrubify identity, and the existing Studio, Panel, Replay, and Queue features.
+
+**Verification:** Swift syntax parsing, YAML parsing, shell/Python checks and automated source-generator/diagnostics tests. This does not substitute for a real macOS compilation and device test.
+
 # Shrubify Changelog
 
 ## 3.0.0 — Listening is easy with Shrubify! (source release)

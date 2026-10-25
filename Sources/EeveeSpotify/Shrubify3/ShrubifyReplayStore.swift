@@ -74,7 +74,8 @@ final class ShrubifyReplayStore: ObservableObject {
 
     func start() {
         if !Thread.isMainThread { DispatchQueue.main.async { self.start() }; return }
-        guard timer == nil else { return }
+        // No timer or notification observers until tracking is explicitly enabled.
+        guard enabled, timer == nil else { return }
         isActive = UIApplication.shared.applicationState == .active
         observers.append(NotificationCenter.default.addObserver(forName: UIApplication.didEnterBackgroundNotification, object: nil, queue: .main) { [weak self] _ in
             self?.isActive = false
@@ -94,7 +95,14 @@ final class ShrubifyReplayStore: ObservableObject {
     func setEnabled(_ value: Bool) {
         assert(Thread.isMainThread)
         enabled = value
-        if value { start() }
+        if value {
+            start()
+        } else {
+            timer?.invalidate()
+            timer = nil
+            for observer in observers { NotificationCenter.default.removeObserver(observer) }
+            observers.removeAll()
+        }
         UserDefaults.standard.set(value, forKey: Self.enabledKey)
         previousStamp = nil
         previousKey = nil

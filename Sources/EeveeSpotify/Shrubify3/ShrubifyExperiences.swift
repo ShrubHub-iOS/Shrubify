@@ -69,7 +69,7 @@ struct ShrubifyReplayView: View {
                         GeometryReader { geo in
                             RoundedRectangle(cornerRadius: 4, style: .continuous)
                                 .fill(EeveeTheme.accent.opacity(0.7))
-                                .frame(width: day.seconds > 0 ? max(2, geo.size.width * CGFloat(day.seconds / max(1, history.recentDays().map(\.seconds).max() ?? 1))) : 0, height: 8)
+                                .frame(width: dayBarWidth(seconds: day.seconds, containerWidth: geo.size.width), height: 8)
                                 .frame(maxHeight: .infinity, alignment: .center)
                         }
                         .frame(height: 22)
@@ -99,6 +99,15 @@ struct ShrubifyReplayView: View {
             SpacerView()
         }
         .eeveeSettingsStyle()
+    }
+
+    // Keep view-builder expressions small and use one well-defined CGFloat
+    // calculation; SwiftUI's generic type-checker handles this reliably.
+    private func dayBarWidth(seconds: Double, containerWidth: CGFloat) -> CGFloat {
+        guard seconds > 0, containerWidth > 0 else { return 0 }
+        let maximum = max(1.0, history.recentDays().map { $0.seconds }.max() ?? 0)
+        let ratio = min(1.0, max(0.0, seconds / maximum))
+        return min(containerWidth, max(2, containerWidth * CGFloat(ratio)))
     }
 
     private func replayMetric(_ label: String, _ value: String) -> some View {
@@ -138,7 +147,10 @@ struct ShrubifyQueueView: View {
                     NavigationLink(destination: ShrubifySessionView(session: session)) {
                         VStack(alignment: .leading, spacing: 3) {
                             Text(session.title).fontWeight(.medium)
-                            Text("\(session.tracks.count) songs · \(session.savedAt, style: .date)")
+                            HStack(spacing: 4) {
+                                Text("\(session.tracks.count) songs ·")
+                                Text(session.savedAt, style: .date)
+                            }
                                 .font(.footnote).foregroundColor(.secondary)
                         }
                         .padding(.vertical, 3)
@@ -170,7 +182,7 @@ struct ShrubifySessionView: View {
 
     var body: some View {
         List {
-            Section(header: Text("Saved on \(session.savedAt, style: .date)"), footer: Text("A snapshot is a list of songs, not a restored Spotify playback queue. A song opens only if a valid Spotify track URI was captured.")) {
+            Section(header: Text("Saved listening snapshot"), footer: Text("A snapshot is a list of songs, not a restored Spotify playback queue. A song opens only if a valid Spotify track URI was captured.")) {
                 ForEach(session.tracks) { track in
                     Button {
                         guard let uri = track.spotifyURI, CustomTabs.available, CustomTabs.dispatcher != nil else {

@@ -41,3 +41,15 @@ If rebase reports conflicts, **stop and resolve them**, particularly `docs/repo.
 In Spotify's settings, open the **Shrubify 3.0 · Listening is easy** section. Studio's changes that affect hook activation need an app restart. Replay is opt-in and stores records on-device. In ShrubQueue, **listening snapshots aren't the real Spotify queue**; they preserve a selection of your recorded listening history. The mini-player long-press panel relies on the supported player observer and may not show up with Stability Mode or incompatible Spotify versions.
 
 See [TESTING.md](TESTING.md) to validate your actual device before publishing any claims about crash-free behavior.
+
+
+## Compiler failures
+
+The build workflow now writes compiler errors directly into its GitHub Actions
+**Summary** and uploads a small `Shrubify-Compiler-Errors-<run>` text artifact.
+You do not need to copy thousands of Swift warnings. This only runs when the
+real build command fails; a green syntax preflight is not proof of compilation.
+
+The 3.0.1 source reliability pass simplifies SwiftUI view builders and makes
+Replay start its timer only when listening history is enabled. Actual iOS/macOS
+compilation and device compatibility must still be tested.

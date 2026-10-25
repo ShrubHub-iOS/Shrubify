@@ -46,76 +46,11 @@ struct ShrubifyStudioView: View {
 
     var body: some View {
         List {
-            Section(header: Text("Shrubify Studio"), footer: Text("Presets reuse Spotify's player controls and existing Shrubify effects. Restart to apply layout changes.")) {
-                ForEach(ShrubifyPreset.allCases) { mode in
-                    Button { apply(mode) } label: {
-                        HStack(spacing: 12) {
-                            Image(systemName: mode.symbol).frame(width: 26)
-                            VStack(alignment: .leading, spacing: 3) {
-                                Text(mode.rawValue).foregroundColor(.primary).fontWeight(.semibold)
-                                Text(mode.summary).font(.footnote).foregroundColor(.secondary).fixedSize(horizontal: false, vertical: true)
-                            }
-                            Spacer()
-                            if preset == mode { Image(systemName: "checkmark.circle.fill").foregroundColor(EeveeTheme.accent) }
-                        }
-                        .padding(.vertical, 5)
-                    }
-                }
-            }
-            Section(header: Text("Player details")) {
-                Toggle("Artwork backdrop", isOn: $player.backdrop)
-                Toggle("Glass lyrics card", isOn: $player.glassLyricsCard)
-                Toggle("Round mini-player artwork", isOn: $bar.roundArtwork)
-                Toggle("Hide mini-player Connect button", isOn: $bar.hideConnect)
-                Toggle("Modern player layout", isOn: $glass.newPlayerDesign)
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack {
-                        Text("Artwork corner radius")
-                        Spacer()
-                        Text("\(Int(artworkRadius)) pt").font(.footnote).foregroundColor(.secondary)
-                    }
-                    Slider(value: $artworkRadius, in: 0...30, step: 2)
-                    Text("Affects the Now Playing artwork only when the backdrop hook is active.")
-                        .font(.caption).foregroundColor(.secondary)
-                }
-                NavigationLink(destination: PlayerHideSettingsView()) {
-                    SettingsLabel(title: "Player elements", subtitle: "Choose visible buttons and cards", icon: "eye", color: .gray)
-                }
-            }
-            Section(header: Text("Appearance")) {
-                Text("Shrubify follows Spotify's existing light/dark palette and your chosen accent. Liquid Glass is only enabled on supported versions of iOS.")
-                    .font(.footnote).foregroundColor(.secondary)
-                NavigationLink(destination: LiquidGlassSettingsView()) {
-                    SettingsLabel(title: "Liquid Glass", icon: "circle.hexagongrid.fill", color: .gray)
-                }
-            }
-            Section(header: Text("Your saved layouts"), footer: Text("Saved layouts are stored on this device. Delete or restore them any time.")) {
-                HStack {
-                    TextField("Layout name", text: $newLayoutName)
-                        .autocapitalization(.words)
-                    Button("Save") { saveLayout() }
-                        .disabled(newLayoutName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || savedLayouts.count >= 12)
-                }
-                ForEach(savedLayouts) { item in
-                    HStack {
-                        Button { restore(item) } label: {
-                            VStack(alignment: .leading, spacing: 3) {
-                                Text(item.name).foregroundColor(.primary)
-                                Text("Tap to restore").font(.caption).foregroundColor(.secondary)
-                            }
-                        }
-                        Spacer()
-                        Button { deleteLayout(item.id) } label: {
-                            Image(systemName: "trash").foregroundColor(.red)
-                        }
-                    }
-                }
-            }
-            if showRestart {
-                Section {
-                    Button("Restart to apply changes", action: exitApplication).fontWeight(.semibold)
-                }
-            }
+            presetSection
+            playerDetailsSection
+            appearanceSection
+            savedLayoutsSection
+            restartSection
             SpacerView()
         }
         .eeveeSettingsStyle()
@@ -127,6 +62,93 @@ struct ShrubifyStudioView: View {
         .onChange(of: glass) { saveCustom(); UserDefaults.liquidGlassOptions = $0 }
         .onChange(of: bar) { saveCustom(); UserDefaults.nowPlayingBarOptions = $0; NotificationCenter.default.post(name: .eeveeNowPlayingBarOptionsChanged, object: nil) }
     }
+
+    // Splitting the SwiftUI builder keeps compile-time generic inference bounded.
+    @ViewBuilder private var presetSection: some View {
+        Section(header: Text("Shrubify Studio"), footer: Text("Presets reuse Spotify's player controls and existing Shrubify effects. Restart to apply layout changes.")) {
+            ForEach(ShrubifyPreset.allCases) { mode in
+                Button { apply(mode) } label: {
+                    HStack(spacing: 12) {
+                        Image(systemName: mode.symbol).frame(width: 26)
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(mode.rawValue).foregroundColor(.primary).fontWeight(.semibold)
+                            Text(mode.summary).font(.footnote).foregroundColor(.secondary).fixedSize(horizontal: false, vertical: true)
+                        }
+                        Spacer()
+                        if preset == mode { Image(systemName: "checkmark.circle.fill").foregroundColor(EeveeTheme.accent) }
+                    }
+                    .padding(.vertical, 5)
+                }
+            }
+        }
+    }
+
+    @ViewBuilder private var playerDetailsSection: some View {
+        Section(header: Text("Player details")) {
+            Toggle("Artwork backdrop", isOn: $player.backdrop)
+            Toggle("Glass lyrics card", isOn: $player.glassLyricsCard)
+            Toggle("Round mini-player artwork", isOn: $bar.roundArtwork)
+            Toggle("Hide mini-player Connect button", isOn: $bar.hideConnect)
+            Toggle("Modern player layout", isOn: $glass.newPlayerDesign)
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text("Artwork corner radius")
+                    Spacer()
+                    Text("\(Int(artworkRadius)) pt").font(.footnote).foregroundColor(.secondary)
+                }
+                Slider(value: $artworkRadius, in: 0...30, step: 2)
+                Text("Affects the Now Playing artwork only when the backdrop hook is active.")
+                    .font(.caption).foregroundColor(.secondary)
+            }
+            NavigationLink(destination: PlayerHideSettingsView()) {
+                SettingsLabel(title: "Player elements", subtitle: "Choose visible buttons and cards", icon: "eye", color: .gray)
+            }
+        }
+    }
+
+    @ViewBuilder private var appearanceSection: some View {
+        Section(header: Text("Appearance")) {
+            Text("Shrubify follows Spotify's existing light/dark palette and your chosen accent. Liquid Glass is only enabled on supported versions of iOS.")
+                .font(.footnote).foregroundColor(.secondary)
+            NavigationLink(destination: LiquidGlassSettingsView()) {
+                SettingsLabel(title: "Liquid Glass", icon: "circle.hexagongrid.fill", color: .gray)
+            }
+        }
+    }
+
+    @ViewBuilder private var savedLayoutsSection: some View {
+        Section(header: Text("Your saved layouts"), footer: Text("Saved layouts are stored on this device. Delete or restore them any time.")) {
+            HStack {
+                TextField("Layout name", text: $newLayoutName)
+                    .autocapitalization(.words)
+                Button("Save") { saveLayout() }
+                    .disabled(newLayoutName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || savedLayouts.count >= 12)
+            }
+            ForEach(savedLayouts) { item in
+                HStack {
+                    Button { restore(item) } label: {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(item.name).foregroundColor(.primary)
+                            Text("Tap to restore").font(.caption).foregroundColor(.secondary)
+                        }
+                    }
+                    Spacer()
+                    Button { deleteLayout(item.id) } label: {
+                        Image(systemName: "trash").foregroundColor(.red)
+                    }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder private var restartSection: some View {
+        if showRestart {
+            Section {
+                Button("Restart to apply changes", action: exitApplication).fontWeight(.semibold)
+            }
+        }
+    }
+
 
     private func persistLayouts() {
         if let data = try? JSONEncoder().encode(savedLayouts) {

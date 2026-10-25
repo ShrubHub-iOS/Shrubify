@@ -179,7 +179,29 @@ jobs:
           REPO_SLUG: ${{ github.repository }}
           BRANCH_NAME: ${{ github.event.repository.default_branch }}
         run: |
-          bash scripts/build_shrubify.sh "$GITHUB_WORKSPACE/spotify.ipa" "$GITHUB_RUN_NUMBER"
+          # Keep the raw build log and summarize actual errors automatically.
+          # Bash's exit code, not tee's, determines whether the build succeeded.
+          set -o pipefail
+          if bash scripts/build_shrubify.sh "$GITHUB_WORKSPACE/spotify.ipa" "$GITHUB_RUN_NUMBER" 2>&1 | tee "$RUNNER_TEMP/shrubify-full-build.log"; then
+            echo 'Shrubify IPA build completed successfully.' >> "$GITHUB_STEP_SUMMARY"
+          else
+            python3 scripts/extract_build_errors.py "$RUNNER_TEMP/shrubify-full-build.log" --output Outputs/Shrubify-build-errors.txt
+            {
+              echo '## Shrubify build failed'
+              echo 'The compiler errors are below and also attached as a text artifact.'
+              echo '```text'
+              head -90 Outputs/Shrubify-build-errors.txt
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+      - name: Upload diagnostics if compilation fails
+        if: ${{ failure() && steps.metadata.outputs.already_exists == 'false' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: Shrubify-Compiler-Errors-${{ github.run_number }}
+          path: Outputs/Shrubify-build-errors.txt
+          if-no-files-found: ignore
       - name: Upload build as private Actions artifact
         if: ${{ steps.metadata.outputs.already_exists == 'false' }}
         uses: actions/upload-artifact@v4
