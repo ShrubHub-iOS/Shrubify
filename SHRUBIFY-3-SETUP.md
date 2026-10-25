@@ -67,3 +67,9 @@ python3 -m unittest discover -s scripts/tests -p 'test_*.py'
 ```
 
 The checker covers known Shrubify 3.0 modifier mistakes, not every possible SwiftUI API availability issue; the actual macOS iOS SDK compilation remains the authoritative check.
+
+## Shrubify 3.0.3 build-speed notes
+
+The first 3.0.3 build will compile the modified tweak and create a reusable compiled-package cache. The next build with identical tweak sources can skip that native compilation and only inject/brand/validate the new Spotify IPA. Inspect the GitHub Actions step **Restore matching compiled tweak package and injector** to see the cache hit or miss. A source change or cache expiration requires a full compile. The workflow retains source checks and IPA validation; it does not skip safety-critical package checks or signing requirements.
+
+The on-screen tweak version is generated from the `Version:` field of `control`, not hardcoded in Swift. That is independent of the Spotify version displayed beside it. The cached compiled package is accepted only if its Debian package identity and version match the current source.

@@ -9,7 +9,7 @@ Please use the issue templates.
 - **Bug reports** go through the bug report template. It will ask for:
   - installation type (jailbreak / TrollStore / sideloaded IPA, etc.)
   - Spotify version
-  - EeveeSpotify version
+  - Shrubify version
   - iOS / iPadOS version
   - affected area
   - a debug log from the tweak settings if relevant
@@ -31,7 +31,7 @@ If you are just tweaking logic and do not need a full IPA right away, the most i
 
 ## Version sensitivity
 
-EeveeSpotify hooks private classes, selectors, and response shapes that can change between Spotify releases. That means:
+Shrubify hooks private classes, selectors, and response shapes that can change between Spotify releases. That means:
 
 - A change that works on one Spotify version may not be safe on another.
 - When you contribute something that touches hooking, patching, or response parsing, say which Spotify version(s) you tested on.

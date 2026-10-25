@@ -1,4 +1,4 @@
-# Shrubify 3.0 — Listening is easy with Shrubify!
+# Shrubify 3.0.3 — Listening is easy with Shrubify!
 
 **Created and maintained by shrubbery and the ShrubHub team.**
 
@@ -38,3 +38,11 @@ New UI additions use the existing SwiftUI settings navigation and Spotify's in-a
 **Project and current development:** [shrubbery](https://github.com/zoinkdoggie94) and the ShrubHub team.
 
 **Upstream work:** whoeevee, jaydenjcpy, estrogencat and the contributors documented in [contributors.json](contributors.json) and [README-UPSTREAM.md](README-UPSTREAM.md). Their contributions are substantial and remain acknowledged. The upstream GPL-3.0 obligations, original author notices, and the complete [LICENSE](LICENSE) remain in place. Shrubify is a fork, **not** a claim of authorship over the upstream codebase.
+
+## Faster GitHub Actions builds
+
+The first run for a **changed tweak source** still compiles the Swift tweak, the injector and possibly the renamed SwiftProtobuf framework. Once the build succeeds, GitHub Actions caches the complete compiled tweak package and injector, keyed to source files, tools, Xcode version, architecture and package version. Builds that only change the **input Spotify IPA** can reuse the compiled components. Cache hits are validated against the declared package identity/version; an invalid cache fails instead of silently shipping outdated code. The workflow also retains its preflight source checks and IPA packaging inspection.
+
+IPA repacking uses normal ZIP compression level 3 instead of 9 to reduce CPU time, while keeping full ZIP validation. This can increase the output IPA's file size. **Build time is not guaranteed**, especially on the first run after a source change, a cache eviction, or when downloading a large input IPA. The completed Actions run shows cache hit/miss status so performance can be diagnosed.
+
+The displayed Shrubify tweak version comes from [`control`](control), via generated Swift build configuration. Update that one version number when releasing new tweak code. Spotify's app version remains separate.

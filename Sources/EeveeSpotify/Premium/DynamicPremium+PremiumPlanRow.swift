@@ -2,7 +2,7 @@ import Foundation
 
 func getPremiumPlanBadge() throws -> Data {
     let badge = YourPremiumBadge.with {
-        $0.name = "Eevee"
+        $0.name = "Shrubify"
         $0.version = 2
         $0.colorCode = "#FFD2D7"
     }
@@ -14,7 +14,7 @@ func getPremiumPlanRowData(originalPremiumPlanRow: PremiumPlanRow) throws -> Dat
     var premiumPlanRow = originalPremiumPlanRow
     
     premiumPlanRow.planName = "Shrubify"
-    premiumPlanRow.planIdentifier = "Eevee"
+    premiumPlanRow.planIdentifier = "Shrubify"
     premiumPlanRow.colorCode = "#FFD2D7"
     
     return try premiumPlanRow.serializedData()
@@ -29,7 +29,7 @@ func getPlanOverviewData() throws -> Data {
         $0.subscription = SpotifyPlan.SubscriptionInfo.with {
             $0.planVariant = 2
             $0.planName = "Shrubify"
-            $0.planCategory = "Eevee"
+            $0.planCategory = "Shrubify"
             $0.colorCode = "#FFD2D7"
             $0.features = [
                 SpotifyPlan.Feature.with {

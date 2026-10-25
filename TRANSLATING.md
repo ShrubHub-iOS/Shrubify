@@ -1,6 +1,6 @@
-# Translating EeveeSpotify
+# Translating Shrubify
 
-Thank you for helping translate EeveeSpotify! All UI strings live in `.strings` files inside the tweak's bundle, and every locale is community-maintained. This guide explains the layout, the rules, and how to check your work before opening a PR.
+Thank you for helping translate Shrubify! All UI strings live in `.strings` files inside the tweak's bundle, and every locale is community-maintained. This guide explains the layout, the rules, and how to check your work before opening a PR.
 
 ---
 
@@ -77,7 +77,7 @@ If the English value contains `\n`, `\t`, or similar, your translation must too.
 
 ### 5. Don't translate brand names or proper nouns
 
-Keep these as-is: `EeveeSpotify`, `Spotify`, `Musixmatch`, `PetitLyrics`, `LRCLIB`, `Genius`, `SponsorBlock`, `TrollStore`, `SideStore`, `CarPlay`, `Siri`, `Jam`, `SpicyLyrics` `AI DJ`.
+Keep technical internal names as-is (including `EeveeSpotify`, which remains an internal bundle/module name for compatibility). Also preserve: `Spotify`, `Musixmatch`, `PetitLyrics`, `LRCLIB`, `Genius`, `SponsorBlock`, `TrollStore`, `SideStore`, `CarPlay`, `Siri`, `Jam`, `SpicyLyrics` `AI DJ`.
 
 ### 6. Delete nothing, reorder nothing
 

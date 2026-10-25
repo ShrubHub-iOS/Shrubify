@@ -105,6 +105,7 @@ jobs:
           python3 -m py_compile scripts/*.py
           python3 -m unittest discover -s scripts/tests -p 'test_*.py'
           python3 scripts/check_ios14_swiftui.py
+          python3 scripts/check_shrubify_branding.py
           swiftc -frontend -parse Sources/EeveeSpotify/Shrubify3/*.swift
       - uses: maxim-lobanov/setup-xcode@v1
         with:
@@ -154,8 +155,31 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SPOT_VERSION: ${{ steps.ipa.outputs.version }}
           FORCE: ${{ inputs.force_release }}
-      - name: Checkout Theos
+      # Calculate the hash once from tracked inputs BEFORE Makefile generates
+      # Sources/EeveeSpotify/Generated/RepoSlug.swift. Using hashFiles(Sources/**)
+      # twice would change the cache key after compilation and cause misses.
+      - name: Fingerprint compiled tweak inputs
         if: ${{ steps.metadata.outputs.already_exists == 'false' }}
+        id: compiled-inputs
+        run: |
+          set -euo pipefail
+          HASH=$(git ls-files -z -- Sources Makefile control layout Tools modules Scripts Package.swift EeveeSpotify.plist scripts/build_shrubify.sh \
+            | xargs -0 shasum -a 256 | shasum -a 256 | awk '{print $1}')
+          test -n "$HASH"
+          echo "sha=$HASH" >> "$GITHUB_OUTPUT"
+      # Same tweak and injector can be reused for multiple Spotify IPA updates.
+      # Every compiled input (including package version) is part of the key.
+      - name: Restore matching compiled tweak package and injector
+        if: ${{ steps.metadata.outputs.already_exists == 'false' }}
+        id: compiled-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            packages/com.shrubify.spotify_*.deb
+            packages/zxPluginsInject.dylib
+          key: shrubify-package-${{ runner.os }}-${{ runner.arch }}-xcode26.1.1-${{ steps.compiled-inputs.outputs.sha }}
+      - name: Checkout Theos
+        if: ${{ steps.metadata.outputs.already_exists == 'false' && steps.compiled-cache.outputs.cache-hit != 'true' }}
         uses: actions/checkout@v4
         with:
           repository: theos/theos
@@ -165,21 +189,21 @@ jobs:
       # Cache its validated, complete framework between builds. Separate
       # restore/save steps ensure the cache is saved EVEN IF the tweak fails.
       - name: Restore SwiftProtobuf framework cache
-        if: ${{ steps.metadata.outputs.already_exists == 'false' }}
+        if: ${{ steps.metadata.outputs.already_exists == 'false' && steps.compiled-cache.outputs.cache-hit != 'true' }}
         id: proto-cache
         uses: actions/cache/restore@v4
         with:
           path: theos/lib/iphone/rootless/EeveeSwiftProtobuf.framework
           key: shrink-proto-${{ runner.os }}-${{ runner.arch }}-xcode26.1.1-ios14-1.29.0-${{ hashFiles('Tools/SwiftProtobufBuild/build-eeveeswiftprotobuf.sh') }}
       - name: Build SwiftProtobuf only on cache miss
-        if: ${{ steps.metadata.outputs.already_exists == 'false' && steps.proto-cache.outputs.cache-hit != 'true' }}
+        if: ${{ steps.metadata.outputs.already_exists == 'false' && steps.compiled-cache.outputs.cache-hit != 'true' && steps.proto-cache.outputs.cache-hit != 'true' }}
         run: |
           set -euo pipefail
           THEOS_PACKAGE_SCHEME=rootless bash Tools/SwiftProtobufBuild/build-eeveeswiftprotobuf.sh
           test -s "$THEOS/lib/iphone/rootless/EeveeSwiftProtobuf.framework/EeveeSwiftProtobuf"
           lipo -archs "$THEOS/lib/iphone/rootless/EeveeSwiftProtobuf.framework/EeveeSwiftProtobuf" | grep -q 'arm64e'
       - name: Save SwiftProtobuf framework cache immediately
-        if: ${{ steps.metadata.outputs.already_exists == 'false' && steps.proto-cache.outputs.cache-hit != 'true' }}
+        if: ${{ steps.metadata.outputs.already_exists == 'false' && steps.compiled-cache.outputs.cache-hit != 'true' && steps.proto-cache.outputs.cache-hit != 'true' }}
         uses: actions/cache/save@v4
         with:
           path: theos/lib/iphone/rootless/EeveeSwiftProtobuf.framework
@@ -187,8 +211,14 @@ jobs:
       - name: Install build tools
         if: ${{ steps.metadata.outputs.already_exists == 'false' }}
         run: |
-          brew install make dpkg ldid wget
-          echo "$(brew --prefix make)/libexec/gnubin" >> "$GITHUB_PATH"
+          if [[ "${{ steps.compiled-cache.outputs.cache-hit }}" == "true" ]]; then
+            # The tweak and injector are already compiled; only dpkg extraction
+            # and IPA injection are needed. Do not install build toolchains.
+            if ! command -v dpkg-deb >/dev/null 2>&1; then brew install dpkg; fi
+          else
+            brew install make dpkg ldid wget
+            echo "$(brew --prefix make)/libexec/gnubin" >> "$GITHUB_PATH"
+          fi
           python3 -m pip install --upgrade --break-system-packages \
             git+https://github.com/asdfzxcvbn/pyzule-rw.git
           ARCH=$(uname -m)
@@ -202,6 +232,7 @@ jobs:
         env:
           REPO_SLUG: ${{ github.repository }}
           BRANCH_NAME: ${{ github.event.repository.default_branch }}
+          SHRUBIFY_PACKAGE_CACHE_HIT: ${{ steps.compiled-cache.outputs.cache-hit }}
         run: |
           # Keep the raw build log and summarize actual errors automatically.
           # Bash's exit code, not tee's, determines whether the build succeeded.
@@ -219,6 +250,14 @@ jobs:
             } >> "$GITHUB_STEP_SUMMARY"
             exit 1
           fi
+      - name: Cache successfully compiled tweak for future Spotify IPA updates
+        if: ${{ steps.metadata.outputs.already_exists == 'false' && steps.compiled-cache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            packages/com.shrubify.spotify_*.deb
+            packages/zxPluginsInject.dylib
+          key: shrubify-package-${{ runner.os }}-${{ runner.arch }}-xcode26.1.1-${{ steps.compiled-inputs.outputs.sha }}
       - name: Upload diagnostics if compilation fails
         if: ${{ failure() && steps.metadata.outputs.already_exists == 'false' }}
         uses: actions/upload-artifact@v4

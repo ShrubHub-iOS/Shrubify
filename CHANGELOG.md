@@ -1,3 +1,16 @@
+## Shrubify 3.0.3 — Identity and incremental-build patch
+
+- Fixed visible **Eevee** subscription and Premium badge labels; the app now shows Shrubify in those positions.
+- Replaced the hardcoded 2.0.0 in-app version with a build-time version generated from `control`.
+- Added preflight branding/version checks to prevent these exact regressions.
+- Cache the compiled tweak package **and** custom injector by source/toolchain hash; when only the compatible base IPA changes, re-inject without rebuilding the same tweak. The first build after source changes still compiles normally.
+- Reduced `cyan` IPA ZIP compression from level 9 to level 3. This reduces compression work at the cost of a potentially larger IPA; ZIP format and injection validation are unchanged.
+- Reduced Homebrew tool installation when cached compiled components are restored.
+- Replaced stale upstream-facing troubleshooting and contribution docs with Shrubify-specific instructions. Kept upstream license, credits and original README under `README-UPSTREAM.md`.
+- No new experimental player hooks, color scheme changes or signing changes.
+
+**Build status:** Sources and workflow are statically checked; a macOS Actions build and actual device tests are still required. Runtime varies with the runner, cache availability, network download, and size of the IPA.
+
 ## Shrubify 3.0.2 — iOS 14 compatibility and faster builds
 
 - Fixed four distinct Swift compiler errors confirmed by the 3.0.1 GitHub Actions log: iOS 15-only `.monospacedDigit()`, iOS 16-only `.bold()`, and iOS 16-only `Button.fontWeight()` calls in the new 3.0 views.

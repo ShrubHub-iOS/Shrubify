@@ -12,8 +12,11 @@ REPO_SLUG_FINAL := $(if $(REPO_SLUG),$(REPO_SLUG),zoinkdoggie94/Shrubify)
 BRANCH_NAME ?= $(shell git rev-parse --abbrev-ref HEAD 2>/dev/null)
 BRANCH_NAME_FINAL := $(if $(BRANCH_NAME),$(BRANCH_NAME),main)
 
+# Keep the in-app version in sync with the package instead of hardcoding it.
+SHRUBIFY_VERSION := $(shell sed -n 's/^Version: //p' control | head -n 1)
+
 $(shell mkdir -p Sources/EeveeSpotify/Generated)
-$(shell printf 'enum GeneratedConfig {\n    static let repoSlug = "%s"\n    static let branchName = "%s"\n}\n' "$(REPO_SLUG_FINAL)" "$(BRANCH_NAME_FINAL)" > Sources/EeveeSpotify/Generated/RepoSlug.swift)
+$(shell printf 'enum GeneratedConfig {\n    static let repoSlug = "%s"\n    static let branchName = "%s"\n    static let tweakVersion = "%s"\n}\n' "$(REPO_SLUG_FINAL)" "$(BRANCH_NAME_FINAL)" "$(SHRUBIFY_VERSION)" > Sources/EeveeSpotify/Generated/RepoSlug.swift)
 
 EeveeSpotify_FILES = $(shell find Sources/EeveeSpotify -name '*.swift') $(shell find Sources/EeveeSpotifyC -name '*.m' -o -name '*.c' -o -name '*.mm' -o -name '*.cpp')
 EeveeSpotify_SWIFTFLAGS = -ISources/EeveeSpotifyC/include -Osize

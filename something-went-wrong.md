@@ -1,8 +1,10 @@
-In recent Spotify versions, the new reCAPTCHA SDK was integrated. It uses Apple's App Attest as part of its detection engine, generating keys within the Secure Enclave. The attestationObject includes the app's bundle and team IDs, which can be validated by Spotify's backend. When you sideload an app by any method, the teamID inevitably changes, resulting in App Attest failure.
+# Shrubify — Sign-in or "Something went wrong"
 
-However, this check is not strictly required at the moment. If Spotify chooses to enforce reCAPTCHA with App Attest in the future, you will no longer be able to log in with sideloaded EeveeSpotify. There are some potential workarounds, such as spoofing a previous version without reCAPTCHA integration, or creating a server that runs on a jailbroken device to generate signatures and attestation objects for App Attest. Regardless, I won't implement any login fixes in EeveeSpotify. If someone is interested in developing a solution, they are welcome to submit a pull request.
+A login error alone does not prove a tweak malfunction. Authentication can be affected by Spotify account/server changes, network conditions, app signing, and whether your installed Spotify version is compatible with the tweak.
 
-Currently, there are two workarounds if you see the “Something went wrong” message during login:
+1. Check that Spotify is reachable on your network and verify whether your account works through an official supported Spotify client.
+2. Confirm your Shrubify IPA is signed for its actual bundle ID (`com.shrubify.client`) with valid provisioning and entitlements.
+3. If you updated Spotify or Shrubify, verify the supported version and enable Shrubify's Stability Mode if experimental hooks are involved.
+4. Report the exact iPadOS version, Spotify build number, Shrubify version, signing method, and redacted debug logs through [Shrubify Issues](https://github.com/zoinkdoggie94/Shrubify/issues/new/choose).
 
-- Go to accounts.spotify.com, navigate to Account Overview > Edit Login Methods, and connect your Apple or Google Account. Logging in with Apple or Google has consistently worked so far.
-- Install a previous version of EeveeSpotify and log in. You can update to the latest version and remain logged in after.
+Never post account credentials, session tokens, provisioning secrets or private signing keys in public logs. Shrubify is unofficial and cannot guarantee access when Spotify changes server-side authentication rules.
