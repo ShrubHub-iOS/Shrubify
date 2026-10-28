@@ -1,0 +1,2556 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#000000">
+<meta name="color-scheme" content="dark">
+
+<title>Shrubify — Listening is easy with Shrubify</title>
+
+<meta name="description" content="Shrubify is a customized iOS music experience featuring Shrubify Studio, Replay, ShrubPanel, queue tools, Liquid Glass, and more. Listening is easy with Shrubify.">
+<meta name="keywords" content="Shrubify, ShrubHub, shrubbery, iOS, music, Spotify customization, Shrubify Studio, Shrubify Replay, Liquid Glass, music player, iOS sideloading">
+<meta name="author" content="shrubbery & the ShrubHub team">
+<meta name="robots" content="index, follow">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="Shrubify">
+
+<link rel="canonical" href="https://shrubify.pages.dev/">
+
+<link rel="icon" type="image/png" href="https://raw.githubusercontent.com/ShrubHub-iOS/Shrubify/Master/docs/icon.png">
+<link rel="apple-touch-icon" href="https://raw.githubusercontent.com/ShrubHub-iOS/Shrubify/Master/docs/icon.png">
+
+<meta property="og:type" content="website">
+<meta property="og:title" content="Shrubify — Listening is easy with Shrubify">
+<meta property="og:description" content="Your music, your way. Discover Shrubify Studio, Replay, ShrubPanel, and more.">
+<meta property="og:url" content="https://shrubify.pages.dev/">
+<meta property="og:site_name" content="Shrubify">
+<meta property="og:image" content="https://raw.githubusercontent.com/ShrubHub-iOS/Shrubify/Master/docs/icon.png">
+<meta property="og:image:alt" content="Shrubify's official green leaf music icon">
+
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Shrubify — Listening is easy with Shrubify">
+<meta name="twitter:description" content="A more personal iOS music experience. Customize your player, explore listening stats, and make music yours.">
+<meta name="twitter:image" content="https://raw.githubusercontent.com/ShrubHub-iOS/Shrubify/Master/docs/icon.png">
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "Shrubify",
+  "url": "https://shrubify.pages.dev/",
+  "image": "https://raw.githubusercontent.com/ShrubHub-iOS/Shrubify/Master/docs/icon.png",
+  "description": "Shrubify is a customized iOS music experience with player layouts, listening statistics, quick-access tools, and native interface enhancements.",
+  "applicationCategory": "MusicApplication",
+  "operatingSystem": "iOS",
+  "author": {
+    "@type": "Organization",
+    "name": "shrubbery & the ShrubHub team"
+  },
+  "isAccessibleForFree": true
+}
+</script>
+
+<style>
+/* ==========================================
+   SHRUBIFY — SHRUBUI STYLE
+   Inspired by the ShrubLibrary interface
+   ========================================== */
+
+*,*::before,*::after{
+  box-sizing:border-box;
+}
+
+*{
+  margin:0;
+  padding:0;
+  -webkit-tap-highlight-color:transparent;
+}
+
+:root{
+  --bg:#000000;
+  --card:#0d0d0d;
+  --card-subtle:#121212;
+  --border:#1a1a1a;
+  --border-hover:#2a2a2a;
+  --text:#e5e5e5;
+  --text-bright:#ffffff;
+  --dim:#888888;
+  --accent:#4a9eff;
+  --accent-glow:rgba(74,158,255,.18);
+  --hover:#141414;
+  --radius:10px;
+  --radius-sm:6px;
+  --radius-lg:14px;
+  --ease:cubic-bezier(.16,1,.3,1);
+}
+
+html{
+  scroll-behavior:smooth;
+  scroll-padding-top:90px;
+  background:var(--bg);
+  -webkit-text-size-adjust:100%;
+  overflow-x:hidden;
+}
+
+body{
+  background:var(--bg);
+  color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","SF Pro Text","Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  font-size:15px;
+  line-height:1.6;
+  min-height:100vh;
+  overflow-x:hidden;
+  -webkit-font-smoothing:antialiased;
+  padding-bottom:env(safe-area-inset-bottom);
+}
+
+body,button{
+  font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","SF Pro Text","Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+}
+
+a{
+  color:var(--accent);
+  text-decoration:none;
+  transition:color .2s ease,opacity .2s ease;
+}
+
+a:hover{
+  text-decoration:none;
+  color:#87baff;
+}
+
+button{
+  cursor:pointer;
+  font:inherit;
+}
+
+button:focus-visible,
+a:focus-visible,
+summary:focus-visible{
+  outline:2px solid var(--accent);
+  outline-offset:4px;
+}
+
+img{
+  display:block;
+  max-width:100%;
+}
+
+svg{
+  flex-shrink:0;
+  width:18px;
+  height:18px;
+}
+
+[hidden]{
+  display:none!important;
+}
+
+.container{
+  width:100%;
+  max-width:1050px;
+  margin:0 auto;
+  padding:0 22px;
+}
+
+.muted{
+  color:var(--dim);
+}
+
+.text-accent{
+  color:var(--accent);
+}
+
+/* HEADER */
+
+.site-header{
+  position:sticky;
+  top:0;
+  z-index:100;
+  background:rgba(0,0,0,.88);
+  border-bottom:1px solid var(--border);
+  backdrop-filter:blur(18px);
+  -webkit-backdrop-filter:blur(18px);
+}
+
+.header-inner{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  min-height:70px;
+  gap:16px;
+}
+
+.brand{
+  display:inline-flex;
+  align-items:center;
+  gap:11px;
+  color:var(--text-bright);
+  font-weight:700;
+  font-size:1.12rem;
+  letter-spacing:-.025em;
+  flex-shrink:0;
+}
+
+.brand:hover{
+  color:var(--text-bright);
+}
+
+.brand-icon{
+  width:38px;
+  height:38px;
+  border-radius:10px;
+  object-fit:cover;
+  background:#050505;
+  border:1px solid #222;
+}
+
+.header-nav{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:6px;
+}
+
+.header-nav a{
+  display:inline-flex;
+  align-items:center;
+  padding:8px 11px;
+  color:var(--dim);
+  font-size:.84rem;
+  font-weight:500;
+  border:1px solid transparent;
+  border-radius:var(--radius-sm);
+  white-space:nowrap;
+}
+
+.header-nav a:hover{
+  color:var(--text-bright);
+  background:var(--card);
+  border-color:var(--border);
+}
+
+.header-actions{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  flex-shrink:0;
+}
+
+/* BUTTONS */
+
+.btn{
+  display:inline-flex;
+  justify-content:center;
+  align-items:center;
+  gap:9px;
+  padding:11px 17px;
+  min-height:44px;
+  border-radius:var(--radius-sm);
+  border:1px solid var(--border-hover);
+  background:var(--card);
+  color:var(--text);
+  font-size:.85rem;
+  font-weight:600;
+  line-height:1.2;
+  white-space:nowrap;
+  transition:
+    background .2s var(--ease),
+    border-color .2s var(--ease),
+    transform .2s var(--ease),
+    opacity .2s ease;
+}
+
+.btn:hover{
+  color:#fff;
+  background:var(--hover);
+  border-color:#444;
+  transform:translateY(-1px);
+}
+
+.btn:active{
+  transform:translateY(0) scale(.98);
+}
+
+.btn-primary{
+  background:var(--accent);
+  border-color:var(--accent);
+  color:#000;
+}
+
+.btn-primary:hover{
+  background:#67adff;
+  border-color:#67adff;
+  color:#000;
+}
+
+.btn-small{
+  min-height:37px;
+  padding:8px 13px;
+  font-size:.8rem;
+}
+
+.btn svg{
+  width:17px;
+  height:17px;
+}
+
+/* SECTION STYLES */
+
+section{
+  scroll-margin-top:90px;
+}
+
+.section{
+  padding:55px 0;
+  border-top:1px solid var(--border);
+}
+
+.section-heading{
+  margin-bottom:27px;
+}
+
+.eyebrow{
+  display:inline-flex;
+  align-items:center;
+  gap:7px;
+  color:var(--accent);
+  font-size:.74rem;
+  font-weight:700;
+  letter-spacing:.075em;
+  text-transform:uppercase;
+}
+
+.section-heading h2{
+  font-size:clamp(1.65rem,3vw,2.2rem);
+  font-weight:700;
+  letter-spacing:-.045em;
+  line-height:1.2;
+  color:var(--text-bright);
+  margin:8px 0 10px;
+}
+
+.section-heading p{
+  color:var(--dim);
+  max-width:670px;
+  font-size:.93rem;
+}
+
+.card{
+  background:var(--card);
+  border:1px solid var(--border);
+  border-radius:var(--radius-lg);
+  padding:23px;
+  min-width:0;
+  transition:border-color .2s ease,background .2s ease;
+}
+
+.card:hover{
+  border-color:var(--border-hover);
+}
+
+/* HERO */
+
+.hero{
+  padding:80px 0 75px;
+}
+
+.hero-grid{
+  display:grid;
+  grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr);
+  align-items:center;
+  gap:52px;
+}
+
+.hero-label{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  padding:5px 11px;
+  border:1px solid var(--border-hover);
+  border-radius:100px;
+  background:var(--card);
+  color:#bdbdbd;
+  font-size:.75rem;
+  font-weight:600;
+  margin-bottom:24px;
+}
+
+.hero-label .dot{
+  width:7px;
+  height:7px;
+  border-radius:50%;
+  background:#55c775;
+}
+
+.hero h1{
+  color:var(--text-bright);
+  font-size:clamp(2.7rem,5.7vw,4.25rem);
+  letter-spacing:-.065em;
+  line-height:1.07;
+  font-weight:750;
+  margin-bottom:22px;
+}
+
+.hero h1 span{
+  color:var(--accent);
+}
+
+.hero-description{
+  color:#aaa;
+  font-size:1rem;
+  line-height:1.75;
+  max-width:530px;
+  margin-bottom:26px;
+}
+
+.hero-actions{
+  display:flex;
+  align-items:center;
+  flex-wrap:wrap;
+  gap:10px;
+}
+
+.hero-note{
+  margin-top:17px;
+  font-size:.77rem;
+  color:var(--dim);
+}
+
+.hero-note span{
+  color:#b5b5b5;
+}
+
+.hero-divider{
+  height:1px;
+  background:var(--border);
+  margin:28px 0 21px;
+  max-width:450px;
+}
+
+.hero-mini{
+  display:flex;
+  gap:24px;
+  flex-wrap:wrap;
+}
+
+.hero-mini-item{
+  display:flex;
+  flex-direction:column;
+  gap:2px;
+}
+
+.hero-mini-item strong{
+  color:#eee;
+  font-size:.85rem;
+  font-weight:600;
+}
+
+.hero-mini-item span{
+  font-size:.72rem;
+  color:var(--dim);
+}
+
+/* PLAYER PREVIEW */
+
+.preview-shell{
+  background:#080808;
+  border:1px solid #252525;
+  border-radius:18px;
+  padding:15px;
+  box-shadow:0 12px 38px rgba(0,0,0,.35);
+}
+
+.preview-heading{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  padding:3px 5px 14px;
+  border-bottom:1px solid var(--border);
+}
+
+.preview-heading strong{
+  font-size:.82rem;
+  color:#eee;
+}
+
+.preview-heading span{
+  font-size:.7rem;
+  color:var(--dim);
+}
+
+.player-preview{
+  background:#101010;
+  border:1px solid #242424;
+  border-radius:13px;
+  padding:24px;
+  margin-top:15px;
+  transition:background .25s ease;
+}
+
+.player-preview[data-mode="immersive"]{
+  background:linear-gradient(180deg,#1c1f24 0%,#101010 72%);
+}
+
+.player-top{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  font-size:.72rem;
+  color:#a8a8a8;
+  margin-bottom:19px;
+}
+
+.player-top strong{
+  color:#eee;
+  font-size:.75rem;
+}
+
+.player-top .indicator{
+  display:flex;
+  gap:4px;
+}
+
+.player-top .indicator span{
+  width:4px;
+  height:4px;
+  background:#555;
+  border-radius:50%;
+}
+
+.player-cover{
+  width:min(100%,240px);
+  aspect-ratio:1;
+  margin:0 auto 23px;
+  border-radius:12px;
+  background:#000;
+  overflow:hidden;
+  border:1px solid #292929;
+  transition:
+    width .25s ease,
+    border-radius .25s ease,
+    transform .25s ease;
+}
+
+.player-cover img{
+  width:100%;
+  height:100%;
+  object-fit:cover;
+}
+
+.player-preview[data-mode="minimal"] .player-cover{
+  width:min(100%,200px);
+  border-radius:8px;
+}
+
+.player-preview[data-mode="immersive"] .player-cover{
+  width:min(100%,270px);
+  border-radius:18px;
+}
+
+.player-meta{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+}
+
+.player-meta h3{
+  font-size:1.05rem;
+  letter-spacing:-.025em;
+  font-weight:700;
+  color:#fff;
+}
+
+.player-meta p{
+  color:var(--dim);
+  font-size:.77rem;
+  margin-top:1px;
+}
+
+.player-meta .favorite{
+  color:#a0a0a0;
+  font-size:1.3rem;
+}
+
+.player-progress{
+  height:4px;
+  background:#363636;
+  border-radius:100px;
+  margin:22px 0 6px;
+  overflow:hidden;
+}
+
+.player-progress span{
+  display:block;
+  width:39%;
+  height:100%;
+  border-radius:100px;
+  background:#efefef;
+}
+
+.player-times{
+  display:flex;
+  justify-content:space-between;
+  font-size:.65rem;
+  color:#888;
+}
+
+.player-controls{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:36px;
+  color:#eee;
+  margin:20px 0 12px;
+}
+
+.player-controls .previous,
+.player-controls .next{
+  font-size:1.45rem;
+  font-weight:600;
+  line-height:1;
+}
+
+.play-circle{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  width:48px;
+  height:48px;
+  border-radius:50%;
+  background:white;
+  color:#000;
+}
+
+.play-triangle{
+  display:block;
+  width:0;
+  height:0;
+  border-left:13px solid #000;
+  border-top:9px solid transparent;
+  border-bottom:9px solid transparent;
+  margin-left:4px;
+}
+
+.player-bottom{
+  border-top:1px solid #292929;
+  margin-top:18px;
+  padding-top:13px;
+  color:#aaa;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  font-size:.7rem;
+  gap:10px;
+}
+
+.player-preview[data-mode="minimal"] .player-bottom{
+  display:none;
+}
+
+.preview-footer{
+  padding:18px 5px 4px;
+}
+
+.preview-footer p{
+  color:var(--dim);
+  font-size:.75rem;
+  margin-bottom:11px;
+}
+
+.preset-buttons{
+  display:flex;
+  flex-wrap:wrap;
+  gap:6px;
+}
+
+.preset{
+  border:1px solid var(--border-hover);
+  border-radius:6px;
+  background:#121212;
+  color:#aaa;
+  padding:7px 12px;
+  font-size:.75rem;
+  font-weight:600;
+  transition:background .18s ease,border-color .18s ease,color .18s ease;
+}
+
+.preset:hover{
+  background:#1a1a1a;
+  color:#fff;
+}
+
+.preset[aria-pressed="true"]{
+  color:var(--accent);
+  border-color:rgba(74,158,255,.5);
+  background:rgba(74,158,255,.09);
+}
+
+/* FEATURE CARDS */
+
+.features-grid{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:12px;
+}
+
+.feature{
+  min-height:203px;
+}
+
+.feature-number{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  width:37px;
+  height:37px;
+  border-radius:9px;
+  color:#a2caff;
+  background:rgba(74,158,255,.08);
+  border:1px solid rgba(74,158,255,.17);
+  font-size:.73rem;
+  font-weight:700;
+  font-variant-numeric:tabular-nums;
+  margin-bottom:17px;
+}
+
+.feature h3{
+  color:#fff;
+  font-size:1.04rem;
+  letter-spacing:-.022em;
+  margin-bottom:8px;
+}
+
+.feature p{
+  color:var(--dim);
+  font-size:.83rem;
+  line-height:1.65;
+}
+
+/* SHOWCASE */
+
+.showcase-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:14px;
+}
+
+.showcase-panel{
+  min-width:0;
+  border:1px solid var(--border);
+  background:var(--card);
+  border-radius:var(--radius-lg);
+  overflow:hidden;
+}
+
+.showcase-content{
+  padding:23px;
+}
+
+.showcase-content .eyebrow{
+  margin-bottom:7px;
+}
+
+.showcase-content h3{
+  font-size:1.25rem;
+  letter-spacing:-.035em;
+  color:#fff;
+  margin-bottom:8px;
+}
+
+.showcase-content p{
+  color:var(--dim);
+  font-size:.85rem;
+}
+
+.showcase-visual{
+  margin:0 20px 20px;
+  background:#080808;
+  border:1px solid #222;
+  border-radius:10px;
+  padding:15px;
+  min-height:166px;
+}
+
+.stat-head{
+  color:#aaa;
+  font-size:.75rem;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  margin-bottom:15px;
+}
+
+.stat-head strong{
+  color:#fff;
+  font-size:.8rem;
+}
+
+.stat-bars{
+  height:86px;
+  display:grid;
+  grid-template-columns:repeat(7,minmax(0,1fr));
+  gap:9px;
+  align-items:end;
+}
+
+.stat-bar{
+  position:relative;
+  width:100%;
+  border-radius:4px 4px 2px 2px;
+  background:#343434;
+}
+
+.stat-bar:nth-child(1){height:37%}
+.stat-bar:nth-child(2){height:69%}
+.stat-bar:nth-child(3){height:48%}
+.stat-bar:nth-child(4){height:83%}
+.stat-bar:nth-child(5){height:60%}
+.stat-bar:nth-child(6){height:100%;background:var(--accent)}
+.stat-bar:nth-child(7){height:76%}
+
+.stat-days{
+  display:grid;
+  grid-template-columns:repeat(7,1fr);
+  gap:9px;
+  margin-top:9px;
+  color:#777;
+  font-size:.62rem;
+  text-align:center;
+}
+
+.panel-list{
+  display:flex;
+  flex-direction:column;
+  gap:7px;
+}
+
+.panel-item{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  border:1px solid #242424;
+  border-radius:7px;
+  background:#111;
+  padding:10px 13px;
+}
+
+.panel-item strong{
+  font-size:.78rem;
+  color:#e5e5e5;
+  font-weight:600;
+}
+
+.panel-item span{
+  font-size:.7rem;
+  color:#888;
+}
+
+.panel-item .panel-chevron{
+  color:#aaa;
+  font-size:1rem;
+}
+
+/* RELEASE */
+
+.release-layout{
+  display:grid;
+  grid-template-columns:minmax(0,1.2fr) minmax(270px,.8fr);
+  gap:14px;
+  align-items:stretch;
+}
+
+.release-card{
+  display:flex;
+  flex-direction:column;
+  gap:18px;
+}
+
+.release-top{
+  display:flex;
+  align-items:center;
+  gap:15px;
+}
+
+.release-icon{
+  width:65px;
+  height:65px;
+  border-radius:14px;
+  border:1px solid #292929;
+  flex-shrink:0;
+}
+
+.release-top h3{
+  color:#fff;
+  font-size:1.26rem;
+  letter-spacing:-.035em;
+  line-height:1.25;
+}
+
+.release-top p{
+  color:var(--dim);
+  font-size:.8rem;
+  margin-top:4px;
+}
+
+.release-badge{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  width:fit-content;
+  background:rgba(74,158,255,.07);
+  color:#a0caff;
+  border:1px solid rgba(74,158,255,.2);
+  border-radius:5px;
+  padding:4px 9px;
+  font-size:.7rem;
+  font-weight:600;
+}
+
+.release-description{
+  font-size:.85rem;
+  color:#aaa;
+  line-height:1.7;
+}
+
+.release-metadata{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  border:1px solid #222;
+  border-radius:8px;
+  overflow:hidden;
+}
+
+.release-metadata div{
+  padding:13px 11px;
+  border-right:1px solid #222;
+  min-width:0;
+}
+
+.release-metadata div:last-child{
+  border-right:none;
+}
+
+.release-metadata small{
+  display:block;
+  color:var(--dim);
+  font-size:.69rem;
+  margin-bottom:3px;
+}
+
+.release-metadata strong{
+  font-size:.79rem;
+  color:#eee;
+  font-weight:600;
+  overflow-wrap:anywhere;
+}
+
+.release-actions{
+  display:flex;
+  gap:9px;
+  flex-wrap:wrap;
+  margin-top:auto;
+}
+
+.release-info{
+  display:flex;
+  flex-direction:column;
+  justify-content:space-between;
+  gap:18px;
+}
+
+.release-info h3{
+  font-size:1rem;
+  color:#fff;
+  margin-bottom:9px;
+}
+
+.release-info p{
+  color:var(--dim);
+  font-size:.84rem;
+  line-height:1.7;
+}
+
+.info-divider{
+  height:1px;
+  background:var(--border);
+}
+
+/* STEPS */
+
+.steps{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:13px;
+}
+
+.step{
+  position:relative;
+}
+
+.step-num{
+  color:var(--accent);
+  font-size:.75rem;
+  font-weight:700;
+  margin-bottom:15px;
+}
+
+.step h3{
+  color:#fff;
+  font-size:1rem;
+  margin-bottom:8px;
+}
+
+.step p{
+  color:var(--dim);
+  font-size:.83rem;
+}
+
+/* FAQ */
+
+.faq-container{
+  max-width:800px;
+}
+
+.faq-item{
+  background:var(--card);
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  margin-bottom:9px;
+  overflow:hidden;
+}
+
+.faq-item[open]{
+  border-color:var(--border-hover);
+}
+
+.faq-item summary{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:14px;
+  padding:18px 20px;
+  cursor:pointer;
+  list-style:none;
+  color:#e9e9e9;
+  font-size:.87rem;
+  font-weight:600;
+}
+
+.faq-item summary::-webkit-details-marker{
+  display:none;
+}
+
+.faq-item summary::after{
+  content:"+";
+  color:#999;
+  font-size:1.2rem;
+  font-weight:400;
+  line-height:1;
+}
+
+.faq-item[open] summary::after{
+  content:"−";
+}
+
+.faq-answer{
+  border-top:1px solid var(--border);
+  padding:15px 20px 20px;
+  color:var(--dim);
+  font-size:.84rem;
+  line-height:1.75;
+}
+
+.faq-answer a{
+  font-weight:600;
+}
+
+/* DEVELOPER */
+
+.developer-card{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  flex-wrap:wrap;
+  gap:19px;
+}
+
+.developer-main{
+  display:flex;
+  align-items:center;
+  gap:15px;
+  min-width:0;
+}
+
+.developer-avatar{
+  width:57px;
+  height:57px;
+  border-radius:50%;
+  object-fit:cover;
+  flex-shrink:0;
+  border:1px solid #333;
+  background:#161616;
+}
+
+.developer-main h3{
+  color:#fff;
+  font-size:1rem;
+}
+
+.developer-main p{
+  color:var(--dim);
+  font-size:.8rem;
+}
+
+.developer-caption{
+  font-size:.78rem;
+  color:var(--dim);
+  margin-top:11px;
+}
+
+/* END CTA */
+
+.final-cta{
+  border:1px solid #292929;
+  border-radius:16px;
+  background:#0e0e0e;
+  padding:47px 25px;
+  text-align:center;
+  margin:36px 0 55px;
+}
+
+.final-cta img{
+  width:73px;
+  height:73px;
+  border-radius:17px;
+  margin:0 auto 17px;
+  border:1px solid #292929;
+}
+
+.final-cta h2{
+  font-size:clamp(1.7rem,3.5vw,2.35rem);
+  line-height:1.2;
+  letter-spacing:-.045em;
+  color:#fff;
+  margin-bottom:11px;
+}
+
+.final-cta p{
+  max-width:480px;
+  color:var(--dim);
+  margin:0 auto 23px;
+  font-size:.88rem;
+}
+
+.final-cta .hero-actions{
+  justify-content:center;
+}
+
+/* FOOTER */
+
+.site-footer{
+  border-top:1px solid var(--border);
+  padding:33px 0 38px;
+}
+
+.footer-top{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  flex-wrap:wrap;
+  gap:25px;
+}
+
+.footer-brand{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  margin-bottom:10px;
+}
+
+.footer-brand img{
+  width:34px;
+  height:34px;
+  border-radius:8px;
+}
+
+.footer-brand strong{
+  color:#fff;
+  font-size:.95rem;
+}
+
+.footer-about{
+  font-size:.79rem;
+  color:var(--dim);
+  max-width:340px;
+}
+
+.footer-links{
+  display:flex;
+  flex-wrap:wrap;
+  gap:11px 22px;
+}
+
+.footer-links a{
+  color:#aaa;
+  font-size:.8rem;
+}
+
+.footer-links a:hover{
+  color:#fff;
+}
+
+.footer-bottom{
+  margin-top:30px;
+  padding-top:17px;
+  border-top:1px solid var(--border);
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  flex-wrap:wrap;
+  gap:12px;
+  font-size:.74rem;
+  color:#777;
+}
+
+.footer-bottom a{
+  color:#aaa;
+}
+
+/* RESPONSIVE */
+
+@media(max-width:900px){
+  .hero-grid{
+    gap:25px;
+  }
+
+  .hero{
+    padding:58px 0;
+  }
+
+  .features-grid{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+  }
+
+  .header-nav{
+    gap:1px;
+  }
+
+  .header-nav a{
+    padding:8px;
+  }
+}
+
+@media(max-width:740px){
+  .container{
+    padding:0 17px;
+  }
+
+  .header-inner{
+    min-height:64px;
+  }
+
+  .header-nav{
+    display:none;
+  }
+
+  .hero{
+    padding:46px 0 50px;
+  }
+
+  .hero-grid{
+    grid-template-columns:1fr;
+    gap:35px;
+  }
+
+  .hero h1{
+    font-size:clamp(2.6rem,9vw,3.6rem);
+  }
+
+  .preview-shell{
+    max-width:465px;
+    margin:0 auto;
+    width:100%;
+  }
+
+  .section{
+    padding:43px 0;
+  }
+
+  .showcase-grid,
+  .release-layout{
+    grid-template-columns:1fr;
+  }
+
+  .steps{
+    grid-template-columns:1fr;
+  }
+
+  .feature{
+    min-height:0;
+  }
+
+  .final-cta{
+    margin:20px 0 40px;
+  }
+}
+
+@media(max-width:500px){
+  .brand{
+    font-size:1rem;
+  }
+
+  .brand-icon{
+    width:34px;
+    height:34px;
+    border-radius:8px;
+  }
+
+  .header-actions .btn{
+    padding:9px 12px;
+    min-height:38px;
+  }
+
+  .hero h1{
+    font-size:2.65rem;
+  }
+
+  .hero-description{
+    font-size:.91rem;
+  }
+
+  .hero-actions .btn{
+    flex:1 1 auto;
+  }
+
+  .hero-mini{
+    gap:18px;
+  }
+
+  .features-grid{
+    grid-template-columns:1fr;
+  }
+
+  .card{
+    padding:19px;
+  }
+
+  .release-metadata{
+    grid-template-columns:repeat(3,minmax(0,1fr));
+  }
+
+  .release-metadata div{
+    padding:10px 7px;
+  }
+
+  .release-metadata strong{
+    font-size:.72rem;
+  }
+
+  .developer-card .btn{
+    width:100%;
+  }
+
+  .final-cta{
+    padding:35px 18px;
+  }
+
+  .footer-top{
+    flex-direction:column;
+  }
+
+  .footer-bottom{
+    flex-direction:column;
+    align-items:flex-start;
+  }
+}
+
+@media(prefers-reduced-motion:reduce){
+  html{
+    scroll-behavior:auto;
+  }
+
+  *,*::before,*::after{
+    animation-duration:.01ms!important;
+    transition-duration:.01ms!important;
+  }
+}
+</style>
+</head>
+
+<body>
+
+<!-- HEADER -->
+
+<header class="site-header">
+  <div class="container header-inner">
+
+    <a class="brand" href="/" aria-label="Shrubify home">
+      <img
+        class="brand-icon"
+        src="https://raw.githubusercontent.com/ShrubHub-iOS/Shrubify/Master/docs/icon.png"
+        alt="Shrubify logo"
+        width="38"
+        height="38"
+      >
+      <span>Shrubify</span>
+    </a>
+
+    <nav class="header-nav" aria-label="Main navigation">
+      <a href="#features">Features</a>
+      <a href="#experience">Experience</a>
+      <a href="#download">Download</a>
+      <a href="#faq">FAQ</a>
+    </nav>
+
+    <div class="header-actions">
+      <a
+        class="btn btn-primary btn-small"
+        href="https://shrublibrary.pages.dev/?repo=raw-githubusercontent-com-shrubhub-ios-shrubify-refs-heads-master-docs-repo-json"
+      >
+        Download
+
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M12 3v12"></path>
+          <path d="m7 10 5 5 5-5"></path>
+          <path d="M5 17v3h14v-3"></path>
+        </svg>
+      </a>
+    </div>
+
+  </div>
+</header>
+
+<main>
+
+<!-- HERO -->
+
+<section class="hero" id="home">
+  <div class="container">
+
+    <div class="hero-grid">
+
+      <div class="hero-content">
+
+        <div class="hero-label">
+          <span class="dot"></span>
+          The music experience, your way
+        </div>
+
+        <h1>
+          Listening is easy<br>
+          with <span>Shrubify.</span>
+        </h1>
+
+        <p class="hero-description">
+          Your music deserves more than the default experience.
+          Shrubify brings a customizable player, personal listening
+          statistics, smarter shortcuts, and a cleaner interface
+          together in one familiar iOS app.
+        </p>
+
+        <div class="hero-actions">
+
+          <a
+            class="btn btn-primary"
+            href="https://shrublibrary.pages.dev/?repo=raw-githubusercontent-com-shrubhub-ios-shrubify-refs-heads-master-docs-repo-json"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M12 3v12"></path>
+              <path d="m7 10 5 5 5-5"></path>
+              <path d="M5 17v3h14v-3"></path>
+            </svg>
+            Get Shrubify
+          </a>
+
+          <a
+            class="btn"
+            href="https://github.com/ShrubHub-iOS/Shrubify"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            View on GitHub
+
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M7 17 17 7"></path>
+              <path d="M8 7h9v9"></path>
+            </svg>
+          </a>
+
+        </div>
+
+        <p class="hero-note">
+          Made by <span>shrubbery & the ShrubHub team</span>.
+          Built for iPhone and iPad.
+        </p>
+
+        <div class="hero-divider"></div>
+
+        <div class="hero-mini">
+          <div class="hero-mini-item">
+            <strong>Personalized</strong>
+            <span>Player layouts and settings</span>
+          </div>
+          <div class="hero-mini-item">
+            <strong>Native feel</strong>
+            <span>Clean iOS interface</span>
+          </div>
+          <div class="hero-mini-item">
+            <strong>More control</strong>
+            <span>Tools for your listening</span>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- INTERACTIVE PLAYER PREVIEW -->
+
+      <div class="preview-shell">
+
+        <div class="preview-heading">
+          <strong>Shrubify Studio</strong>
+          <span>Player customization preview</span>
+        </div>
+
+        <div class="player-preview" id="playerPreview" data-mode="classic">
+
+          <div class="player-top">
+            <strong id="previewModeName">Classic layout</strong>
+            <div class="indicator" aria-hidden="true">
+              <span></span>
+              <span></span>
+              <span></span>
+            </div>
+          </div>
+
+          <div class="player-cover">
+            <img
+              src="https://raw.githubusercontent.com/ShrubHub-iOS/Shrubify/Master/docs/icon.png"
+              alt="Shrubify's custom leaf music logo"
+              width="240"
+              height="240"
+            >
+          </div>
+
+          <div class="player-meta">
+            <div>
+              <h3>Your music. Your way.</h3>
+              <p>Shrubify Studio</p>
+            </div>
+            <span class="favorite" aria-hidden="true">♡</span>
+          </div>
+
+          <div class="player-progress" aria-hidden="true">
+            <span></span>
+          </div>
+
+          <div class="player-times" aria-hidden="true">
+            <span>1:12</span>
+            <span>−1:48</span>
+          </div>
+
+          <div class="player-controls" aria-hidden="true">
+            <span class="previous">‹‹</span>
+            <span class="play-circle">
+              <span class="play-triangle"></span>
+            </span>
+            <span class="next">››</span>
+          </div>
+
+          <div class="player-bottom">
+            <span>Custom player layout</span>
+            <span>Shrubify</span>
+          </div>
+
+        </div>
+
+        <div class="preview-footer">
+          <p id="presetDescription">
+            A familiar layout with your favorite customizations.
+          </p>
+
+          <div class="preset-buttons" role="group" aria-label="Player preview layout">
+
+            <button class="preset" type="button" data-preset="classic" aria-pressed="true">
+              Classic
+            </button>
+
+            <button class="preset" type="button" data-preset="minimal" aria-pressed="false">
+              Minimal
+            </button>
+
+            <button class="preset" type="button" data-preset="immersive" aria-pressed="false">
+              Immersive
+            </button>
+
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- FEATURES -->
+
+<section class="section" id="features">
+  <div class="container">
+
+    <div class="section-heading">
+      <span class="eyebrow">What makes Shrubify different</span>
+      <h2>More than just music playback.</h2>
+      <p>
+        Shrubify adds useful ways to make your listening experience
+        feel more personal, without turning the familiar interface
+        into something completely unrecognizable.
+      </p>
+    </div>
+
+    <div class="features-grid">
+
+      <article class="card feature">
+        <span class="feature-number">01</span>
+        <h3>Shrubify Studio</h3>
+        <p>
+          Customize the Now Playing interface with different layouts,
+          artwork styling, player elements, and saved presets.
+          Make your player feel like yours.
+        </p>
+      </article>
+
+      <article class="card feature">
+        <span class="feature-number">02</span>
+        <h3>Shrubify Replay</h3>
+        <p>
+          Explore locally recorded listening statistics, including
+          your favorite artists, frequently played tracks,
+          listening history, and recent activity.
+        </p>
+      </article>
+
+      <article class="card feature">
+        <span class="feature-number">03</span>
+        <h3>ShrubPanel</h3>
+        <p>
+          Access Shrubify features from one convenient place.
+          Jump between player settings, listening statistics,
+          customization tools, and more.
+        </p>
+      </article>
+
+      <article class="card feature">
+        <span class="feature-number">04</span>
+        <h3>ShrubQueue</h3>
+        <p>
+          Keep useful listening shortcuts close by, bookmark
+          tracks, and save listening snapshots for later reference.
+        </p>
+      </article>
+
+      <article class="card feature">
+        <span class="feature-number">05</span>
+        <h3>Liquid Glass</h3>
+        <p>
+          Enjoy supported native iOS interface effects with a
+          clean appearance. Shrubify preserves Spotify's
+          familiar color scheme instead of forcing a new theme.
+        </p>
+      </article>
+
+      <article class="card feature">
+        <span class="feature-number">06</span>
+        <h3>Personal Controls</h3>
+        <p>
+          Fine-tune the interface with customization options,
+          cleaner layouts, and stability settings designed
+          to help with compatibility.
+        </p>
+      </article>
+
+    </div>
+  </div>
+</section>
+
+<!-- EXPERIENCE -->
+
+<section class="section" id="experience">
+  <div class="container">
+
+    <div class="section-heading">
+      <span class="eyebrow">Your experience</span>
+      <h2>Made around how you listen.</h2>
+      <p>
+        A few of the tools that give Shrubify its own identity,
+        beyond the standard music player.
+      </p>
+    </div>
+
+    <div class="showcase-grid">
+
+      <!-- REPLAY -->
+
+      <article class="showcase-panel">
+
+        <div class="showcase-content">
+          <span class="eyebrow">Listening insights</span>
+          <h3>Get to know your music.</h3>
+          <p>
+            Shrubify Replay helps you understand your listening
+            habits with local history, artist rankings, and
+            estimated listening activity.
+          </p>
+        </div>
+
+        <div class="showcase-visual" aria-label="Illustrative listening activity chart">
+
+          <div class="stat-head">
+            <strong>Listening activity</strong>
+            <span>Example preview</span>
+          </div>
+
+          <div class="stat-bars" aria-hidden="true">
+            <div class="stat-bar"></div>
+            <div class="stat-bar"></div>
+            <div class="stat-bar"></div>
+            <div class="stat-bar"></div>
+            <div class="stat-bar"></div>
+            <div class="stat-bar"></div>
+            <div class="stat-bar"></div>
+          </div>
+
+          <div class="stat-days" aria-hidden="true">
+            <span>M</span>
+            <span>T</span>
+            <span>W</span>
+            <span>T</span>
+            <span>F</span>
+            <span>S</span>
+            <span>S</span>
+          </div>
+
+        </div>
+
+      </article>
+
+      <!-- PANEL -->
+
+      <article class="showcase-panel">
+
+        <div class="showcase-content">
+          <span class="eyebrow">Quick access</span>
+          <h3>Everything in one place.</h3>
+          <p>
+            ShrubPanel brings your favorite Shrubify tools together,
+            making it easier to access your customizations and
+            listening features.
+          </p>
+        </div>
+
+        <div class="showcase-visual">
+
+          <div class="stat-head">
+            <strong>ShrubPanel</strong>
+            <span>Interface preview</span>
+          </div>
+
+          <div class="panel-list">
+
+            <div class="panel-item">
+              <div>
+                <strong>Studio</strong>
+                <span> — Customize player</span>
+              </div>
+              <span class="panel-chevron">›</span>
+            </div>
+
+            <div class="panel-item">
+              <div>
+                <strong>Replay</strong>
+                <span> — Listening stats</span>
+              </div>
+              <span class="panel-chevron">›</span>
+            </div>
+
+            <div class="panel-item">
+              <div>
+                <strong>ShrubQueue</strong>
+                <span> — Listening tools</span>
+              </div>
+              <span class="panel-chevron">›</span>
+            </div>
+
+          </div>
+        </div>
+
+      </article>
+
+    </div>
+
+  </div>
+</section>
+
+<!-- DOWNLOAD -->
+
+<section class="section" id="download">
+  <div class="container">
+
+    <div class="section-heading">
+      <span class="eyebrow">Get Shrubify</span>
+      <h2>Ready to make music yours?</h2>
+      <p>
+        Find Shrubify releases, app information, and available
+        downloads through ShrubLibrary.
+      </p>
+    </div>
+
+    <div class="release-layout">
+
+      <div class="card release-card">
+
+        <div class="release-top">
+
+          <img
+            class="release-icon"
+            src="https://raw.githubusercontent.com/ShrubHub-iOS/Shrubify/Master/docs/icon.png"
+            alt="Shrubify icon"
+            loading="lazy"
+            width="65"
+            height="65"
+          >
+
+          <div>
+            <h3>Shrubify <span id="releaseNumber"></span></h3>
+            <p id="releaseSubtitle">
+              Listening is easy with Shrubify!
+            </p>
+          </div>
+
+        </div>
+
+        <span class="release-badge" id="releaseStatus">
+          Browse available releases
+        </span>
+
+        <p class="release-description" id="releaseDescription">
+          Browse the latest available Shrubify builds and version
+          information through ShrubLibrary. Release availability
+          and compatibility depend on the selected build.
+        </p>
+
+        <div class="release-metadata">
+
+          <div>
+            <small>Spotify version</small>
+            <strong id="spotifyVersion">See source</strong>
+          </div>
+
+          <div>
+            <small>Minimum iOS</small>
+            <strong id="minimumIOS">See release</strong>
+          </div>
+
+          <div>
+            <small>Release date</small>
+            <strong id="releaseDate">See source</strong>
+          </div>
+
+        </div>
+
+        <div class="release-actions">
+
+          <a
+            class="btn btn-primary"
+            href="https://shrublibrary.pages.dev/?repo=raw-githubusercontent-com-shrubhub-ios-shrubify-refs-heads-master-docs-repo-json"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M12 3v12"></path>
+              <path d="m7 10 5 5 5-5"></path>
+              <path d="M5 17v3h14v-3"></path>
+            </svg>
+            Download from ShrubLibrary
+          </a>
+
+          <a
+            class="btn"
+            href="https://github.com/zoinkdoggie94/Shrubify/releases"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Release history
+          </a>
+
+        </div>
+
+      </div>
+
+      <aside class="card release-info">
+
+        <div>
+          <h3>About installation</h3>
+          <p>
+            Shrubify is distributed as an unofficial iOS app build.
+            Installing an IPA requires a compatible signing method
+            and a device that meets the release requirements.
+          </p>
+        </div>
+
+        <div class="info-divider"></div>
+
+        <div>
+          <h3>Updates</h3>
+          <p>
+            New Shrubify releases can appear in its AltStore-compatible
+            source. Check the version details before updating, as
+            compatibility with different Spotify versions can vary.
+          </p>
+        </div>
+
+        <div class="info-divider"></div>
+
+        <div>
+          <h3>Source & development</h3>
+          <p>
+            Shrubify is developed by shrubbery and the ShrubHub team,
+            with upstream contributions credited in the project repository.
+          </p>
+        </div>
+
+      </aside>
+
+    </div>
+
+  </div>
+</section>
+
+<!-- INSTALLATION GUIDE -->
+
+<section class="section" id="installation">
+  <div class="container">
+
+    <div class="section-heading">
+      <span class="eyebrow">Getting started</span>
+      <h2>Simple from the start.</h2>
+      <p>
+        Find your version, review its requirements, and install
+        using a compatible signing setup.
+      </p>
+    </div>
+
+    <div class="steps">
+
+      <article class="card step">
+        <div class="step-num">STEP 01</div>
+        <h3>Find Shrubify</h3>
+        <p>
+          Open ShrubLibrary using the download button and
+          browse the Shrubify repository.
+        </p>
+      </article>
+
+      <article class="card step">
+        <div class="step-num">STEP 02</div>
+        <h3>Choose a build</h3>
+        <p>
+          Check the available version, supported iOS requirements,
+          and release information before downloading.
+        </p>
+      </article>
+
+      <article class="card step">
+        <div class="step-num">STEP 03</div>
+        <h3>Install and customize</h3>
+        <p>
+          Install with a compatible signing method, then explore
+          Shrubify Studio, Replay, and the other available tools.
+        </p>
+      </article>
+
+    </div>
+
+  </div>
+</section>
+
+<!-- FAQ -->
+
+<section class="section" id="faq">
+  <div class="container faq-container">
+
+    <div class="section-heading">
+      <span class="eyebrow">Frequently asked questions</span>
+      <h2>Good to know.</h2>
+      <p>
+        A few useful things to know before downloading Shrubify.
+      </p>
+    </div>
+
+    <details class="faq-item">
+      <summary>What exactly is Shrubify?</summary>
+      <div class="faq-answer">
+        Shrubify is an unofficial community-developed modification
+        of the Spotify iOS experience. It builds on existing
+        open-source tweak work and adds its own customization tools,
+        interface options, and listening features.
+      </div>
+    </details>
+
+    <details class="faq-item">
+      <summary>Is Shrubify officially associated with Spotify?</summary>
+      <div class="faq-answer">
+        No. Shrubify is an independent community project and is not
+        affiliated with, sponsored by, or endorsed by Spotify.
+        Spotify and its trademarks belong to their respective owners.
+      </div>
+    </details>
+
+    <details class="faq-item">
+      <summary>Does Shrubify change Spotify's colors?</summary>
+      <div class="faq-answer">
+        Shrubify aims to preserve the familiar Spotify appearance
+        by default. Optional player customizations and native
+        interface effects let you adjust the experience without
+        requiring a completely different color scheme.
+      </div>
+    </details>
+
+    <details class="faq-item">
+      <summary>What is Shrubify Studio?</summary>
+      <div class="faq-answer">
+        Shrubify Studio provides controls for supported player
+        appearance settings, with layout presets such as Classic,
+        Minimal, and Immersive. Available options can depend on
+        the installed release and Spotify version.
+      </div>
+    </details>
+
+    <details class="faq-item">
+      <summary>Does Shrubify Replay track my listening?</summary>
+      <div class="faq-answer">
+        Replay provides optional, locally stored listening statistics.
+        Tracking is off until enabled. The resulting statistics
+        are estimates based on recorded activity rather than
+        a complete Spotify account history.
+      </div>
+    </details>
+
+    <details class="faq-item">
+      <summary>How do I get updates?</summary>
+      <div class="faq-answer">
+        New releases can be found through the
+        <a href="https://shrublibrary.pages.dev/?repo=raw-githubusercontent-com-shrubhub-ios-shrubify-refs-heads-master-docs-repo-json">Shrubify repository on ShrubLibrary</a>.
+        You can also check
+        <a href="https://github.com/zoinkdoggie94/Shrubify/releases" target="_blank" rel="noopener noreferrer">GitHub Releases</a>
+        for build details.
+      </div>
+    </details>
+
+    <details class="faq-item">
+      <summary>Where can I report a bug?</summary>
+      <div class="faq-answer">
+        Visit the
+        <a href="https://github.com/zoinkdoggie94/Shrubify/issues" target="_blank" rel="noopener noreferrer">Shrubify issue tracker</a>.
+        Include your iOS version, Spotify version, Shrubify release,
+        and a description of the problem to help with troubleshooting.
+      </div>
+    </details>
+
+  </div>
+</section>
+
+<!-- DEVELOPER -->
+
+<section class="section" id="developers">
+  <div class="container">
+
+    <div class="section-heading">
+      <span class="eyebrow">The people behind Shrubify</span>
+      <h2>Made by the community.</h2>
+      <p>
+        Shrubify is developed by shrubbery and the ShrubHub team,
+        building upon contributions from the original open-source developers.
+      </p>
+    </div>
+
+    <div class="card">
+
+      <div class="developer-card">
+
+        <div class="developer-main">
+
+          <img
+            class="developer-avatar"
+            src="https://github.com/zoinkdoggie94.png?size=160"
+            alt="shrubbery's GitHub profile picture"
+            loading="lazy"
+            width="57"
+            height="57"
+          >
+
+          <div>
+            <h3>shrubbery</h3>
+            <p>Creator of Shrubify · ShrubHub team</p>
+          </div>
+
+        </div>
+
+        <a
+          class="btn"
+          href="https://github.com/zoinkdoggie94"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          View GitHub profile
+
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M7 17 17 7"></path>
+            <path d="M8 7h9v9"></path>
+          </svg>
+        </a>
+
+      </div>
+
+      <p class="developer-caption">
+        Shrubify retains upstream contributor acknowledgments and
+        the applicable open-source license notices in its GitHub repository.
+      </p>
+
+    </div>
+
+  </div>
+</section>
+
+<!-- FINAL CTA -->
+
+<section class="container" aria-labelledby="finalTitle">
+
+  <div class="final-cta">
+
+    <img
+      src="https://raw.githubusercontent.com/ShrubHub-iOS/Shrubify/Master/docs/icon.png"
+      alt="Shrubify logo"
+      loading="lazy"
+      width="73"
+      height="73"
+    >
+
+    <h2 id="finalTitle">
+      Your music. Your way.
+    </h2>
+
+    <p>
+      Customize what matters, explore new listening features,
+      and enjoy an experience that feels more personal.
+      Listening is easy with Shrubify.
+    </p>
+
+    <div class="hero-actions">
+
+      <a
+        class="btn btn-primary"
+        href="https://shrublibrary.pages.dev/?repo=raw-githubusercontent-com-shrubhub-ios-shrubify-refs-heads-master-docs-repo-json"
+      >
+        Get Shrubify
+
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M12 3v12"></path>
+          <path d="m7 10 5 5 5-5"></path>
+          <path d="M5 17v3h14v-3"></path>
+        </svg>
+      </a>
+
+      <a
+        class="btn"
+        href="https://github.com/ShrubHub-iOS/Shrubify"
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        Explore the project
+      </a>
+
+    </div>
+
+  </div>
+
+</section>
+
+</main>
+
+<!-- FOOTER -->
+
+<footer class="site-footer">
+  <div class="container">
+
+    <div class="footer-top">
+
+      <div>
+
+        <div class="footer-brand">
+          <img
+            src="https://raw.githubusercontent.com/ShrubHub-iOS/Shrubify/Master/docs/icon.png"
+            alt=""
+            loading="lazy"
+            width="34"
+            height="34"
+          >
+          <strong>Shrubify</strong>
+        </div>
+
+        <p class="footer-about">
+          Listening is easy with Shrubify.<br>
+          Made by shrubbery & the ShrubHub team.
+        </p>
+
+      </div>
+
+      <nav class="footer-links" aria-label="Footer navigation">
+
+        <a href="#features">Features</a>
+        <a href="#download">Download</a>
+        <a href="#faq">FAQ</a>
+        <a href="https://shrublibrary.pages.dev/">ShrubLibrary</a>
+        <a href="https://github.com/ShrubHub-iOS/Shrubify" target="_blank" rel="noopener noreferrer">GitHub</a>
+        <a href="https://github.com/zoinkdoggie94/Shrubify/issues" target="_blank" rel="noopener noreferrer">Report a bug</a>
+
+      </nav>
+
+    </div>
+
+    <div class="footer-bottom">
+
+      <span>© <span id="year">2026</span> Shrubify. Made by shrubbery & the ShrubHub team.</span>
+
+      <span>
+        Unofficial project. Not affiliated with Spotify.
+      </span>
+
+    </div>
+
+  </div>
+</footer>
+
+<script>
+"use strict";
+
+/* ==========================================
+   SHRUBIFY WEBSITE
+   No external JavaScript dependencies
+   ========================================== */
+
+const SHRUBIFY = Object.freeze({
+  icon:
+    "https://raw.githubusercontent.com/ShrubHub-iOS/Shrubify/Master/docs/icon.png",
+
+  source:
+    "https://raw.githubusercontent.com/ShrubHub-iOS/Shrubify/Master/docs/repo.json",
+
+  download:
+    "https://shrublibrary.pages.dev/?repo=raw-githubusercontent-com-shrubhub-ios-shrubify-refs-heads-master-docs-repo-json",
+
+  github:
+    "https://github.com/ShrubHub-iOS/Shrubify"
+});
+
+/* ==========================================
+   COPYRIGHT YEAR
+   ========================================== */
+
+document.getElementById("year").textContent =
+  String(new Date().getFullYear());
+
+/* ==========================================
+   STUDIO PLAYER PREVIEW
+   ========================================== */
+
+const preview = document.getElementById("playerPreview");
+const previewModeName = document.getElementById("previewModeName");
+const presetDescription = document.getElementById("presetDescription");
+const presetButtons = document.querySelectorAll("[data-preset]");
+
+const presetConfig = Object.freeze({
+  classic: {
+    name: "Classic layout",
+    description:
+      "A familiar layout with your favorite customizations."
+  },
+
+  minimal: {
+    name: "Minimal layout",
+    description:
+      "Keep it simple with less clutter and a focus on the music."
+  },
+
+  immersive: {
+    name: "Immersive layout",
+    description:
+      "Give the artwork more presence with a spacious player."
+  }
+});
+
+function setPreviewPreset(name) {
+  const config = presetConfig[name];
+
+  if (!config) return;
+
+  preview.dataset.mode = name;
+  previewModeName.textContent = config.name;
+  presetDescription.textContent = config.description;
+
+  presetButtons.forEach(button => {
+    const active = button.dataset.preset === name;
+    button.setAttribute("aria-pressed", String(active));
+  });
+}
+
+presetButtons.forEach(button => {
+  button.addEventListener("click", () => {
+    setPreviewPreset(button.dataset.preset);
+  });
+});
+
+/* ==========================================
+   AUTOMATIC RELEASE INFORMATION
+   Reads from the project's AltStore source.
+   Never hardcodes the displayed latest version.
+   ========================================== */
+
+const releaseNumber = document.getElementById("releaseNumber");
+const releaseSubtitle = document.getElementById("releaseSubtitle");
+const releaseDescription = document.getElementById("releaseDescription");
+const releaseStatus = document.getElementById("releaseStatus");
+
+const spotifyVersion = document.getElementById("spotifyVersion");
+const minimumIOS = document.getElementById("minimumIOS");
+const releaseDate = document.getElementById("releaseDate");
+
+function getReleaseDate(dateString) {
+  if (!dateString || !/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+    return null;
+  }
+
+  const date = new Date(dateString + "T12:00:00Z");
+
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+
+  return date;
+}
+
+function formatReleaseDate(dateString) {
+  const date = getReleaseDate(dateString);
+
+  if (!date) return "Not provided";
+
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    timeZone: "UTC"
+  }).format(date);
+}
+
+function getBuildNumber(version) {
+  const value = Number(version && version.buildVersion);
+  return Number.isFinite(value) ? value : 0;
+}
+
+function findShrubifyVersion(description) {
+  const match = String(description || "").match(
+    /\bShrubify\s+v?(\d+\.\d+(?:\.\d+)?)/i
+  );
+
+  return match ? match[1] : null;
+}
+
+function compareSemver(a, b) {
+  const aa = String(a || "0").split(".").map(Number);
+  const bb = String(b || "0").split(".").map(Number);
+
+  for (let i = 0; i < Math.max(aa.length, bb.length); i++) {
+    const difference = (bb[i] || 0) - (aa[i] || 0);
+    if (difference !== 0) return difference;
+  }
+
+  return 0;
+}
+
+function sortVersions(versions) {
+  return [...versions].sort((a, b) => {
+    const aDate = getReleaseDate(a.date)?.getTime() || 0;
+    const bDate = getReleaseDate(b.date)?.getTime() || 0;
+
+    if (aDate !== bDate) {
+      return bDate - aDate;
+    }
+
+    const aShrub = findShrubifyVersion(a.localizedDescription);
+    const bShrub = findShrubifyVersion(b.localizedDescription);
+
+    const shrubDifference = compareSemver(aShrub, bShrub);
+
+    if (shrubDifference !== 0) {
+      return shrubDifference;
+    }
+
+    return getBuildNumber(b) - getBuildNumber(a);
+  });
+}
+
+async function fetchWithTimeout(url, timeout = 8000) {
+  const controller = new AbortController();
+
+  const timer = setTimeout(() => {
+    controller.abort();
+  }, timeout);
+
+  try {
+    const response = await fetch(url, {
+      cache: "no-store",
+      signal: controller.signal
+    });
+
+    if (!response.ok) {
+      throw new Error("Source request failed: " + response.status);
+    }
+
+    return await response.json();
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function loadShrubifyRelease() {
+  try {
+    const source = await fetchWithTimeout(SHRUBIFY.source);
+
+    if (!source || !Array.isArray(source.apps)) {
+      throw new Error("Invalid AltStore source format");
+    }
+
+    const app = source.apps.find(item => {
+      const name = String(item.name || "").toLowerCase();
+      const bundle = String(item.bundleIdentifier || "").toLowerCase();
+
+      return name === "shrubify" ||
+        bundle === "com.shrubify.client";
+    });
+
+    if (!app || !Array.isArray(app.versions) || !app.versions.length) {
+      throw new Error("No Shrubify versions available");
+    }
+
+    const releases = sortVersions(
+      app.versions.filter(item =>
+        item &&
+        typeof item === "object" &&
+        item.downloadURL
+      )
+    );
+
+    if (!releases.length) {
+      throw new Error("No downloadable versions in source");
+    }
+
+    const latest = releases[0];
+
+    const actualShrubifyVersion = findShrubifyVersion(
+      latest.localizedDescription
+    );
+
+    if (actualShrubifyVersion) {
+      releaseNumber.textContent = "v" + actualShrubifyVersion;
+    } else {
+      releaseNumber.textContent = "";
+    }
+
+    releaseSubtitle.textContent =
+      app.subtitle ||
+      "Listening is easy with Shrubify!";
+
+    releaseDescription.textContent =
+      latest.localizedDescription ||
+      app.localizedDescription ||
+      "Explore the available Shrubify builds and their release information.";
+
+    spotifyVersion.textContent =
+      latest.version || "Not provided";
+
+    minimumIOS.textContent =
+      latest.minOSVersion
+        ? "iOS " + latest.minOSVersion + "+"
+        : "See release";
+
+    releaseDate.textContent =
+      formatReleaseDate(latest.date);
+
+    releaseStatus.textContent =
+      "Release information loaded from Shrubify source";
+
+  } catch (error) {
+    console.info(
+      "Shrubify release information unavailable:",
+      error.message
+    );
+
+    releaseNumber.textContent = "";
+    releaseStatus.textContent = "Browse available releases";
+
+    releaseDescription.textContent =
+      "Current release information could not be loaded automatically. " +
+      "Open ShrubLibrary to view available versions, downloads, " +
+      "and compatibility details.";
+
+    spotifyVersion.textContent = "See source";
+    minimumIOS.textContent = "See release";
+    releaseDate.textContent = "See source";
+  }
+}
+
+loadShrubifyRelease();
+
+/* ==========================================
+   SMOOTH INTERNAL NAVIGATION
+   Uses native anchors and accessibility.
+   ========================================== */
+
+document.querySelectorAll('a[href^="#"]').forEach(link => {
+  link.addEventListener("click", event => {
+    const id = link.getAttribute("href");
+
+    if (!id || id === "#") return;
+
+    const target = document.querySelector(id);
+
+    if (!target) return;
+
+    event.preventDefault();
+
+    const reducedMotion = window.matchMedia(
+      "(prefers-reduced-motion: reduce)"
+    ).matches;
+
+    target.scrollIntoView({
+      behavior: reducedMotion ? "auto" : "smooth",
+      block: "start"
+    });
+
+    if (history.replaceState) {
+      history.replaceState(null, "", id);
+    }
+  });
+});
+
+/* ==========================================
+   INITIALIZATION COMPLETE
+   ========================================== */
+
+console.info("Shrubify website loaded.");
+</script>
+
+</body>
+</html>
