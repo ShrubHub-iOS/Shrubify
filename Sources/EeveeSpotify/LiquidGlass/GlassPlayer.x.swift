@@ -191,10 +191,10 @@ enum PlayerLyricsCard {
                 queue += view.subviews
                 if let color = view.layer.backgroundColor, color.alpha > 0.5 {
                     _ = EeveeInterceptBackground(view) { color in
-                        tint = color.withAlphaComponent(0.2)
+                        tint = color.withAlphaComponent(GlassKit.vitrineEnabled ? 0.30 : 0.20)
                         if let pane { GlassKit.tint(pane, tint) }
                     }
-                    tint = UIColor(cgColor: color).withAlphaComponent(0.2)
+                    tint = UIColor(cgColor: color).withAlphaComponent(GlassKit.vitrineEnabled ? 0.30 : 0.20)
                 }
             }
             cell.eeveeStripBackgrounds()
@@ -205,7 +205,7 @@ enum PlayerLyricsCard {
         if glass.frame != cell.bounds {
             glass.frame = cell.bounds
             glass.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-            GlassKit.shape(glass, radius: 16, capsule: false)
+            GlassKit.shape(glass, radius: GlassKit.vitrineEnabled ? 22 : 16, capsule: false)
         }
         GlassKit.tint(glass, tint)
     }
@@ -235,7 +235,7 @@ enum GlassLyricsPage {
         guard page.bounds.height >= 200 else { return }
         if objc_getAssociatedObject(page, &paneKey) == nil {
             let intercepted = EeveeInterceptBackground(page) { color in
-                tint = color.withAlphaComponent(0.25)
+                tint = color.withAlphaComponent(GlassKit.vitrineEnabled ? 0.34 : 0.25)
                 if let pane { GlassKit.tint(pane, tint) }
             }
             if !intercepted { eeveeLog("[Shrubify][Glass] Lyrics page album color intercept FAILED") }

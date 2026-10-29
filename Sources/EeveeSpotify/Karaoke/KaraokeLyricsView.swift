@@ -13,7 +13,7 @@ struct KaraokeLyricsView: View {
 
     var body: some View {
         GeometryReader { geo in
-            ZStack(alignment: .topTrailing) {
+            ZStack(alignment: .top) {
                 if KaraokeGlass.isEnabled {
                     KaraokeGlassBackground().ignoresSafeArea()
                 } else {
@@ -24,7 +24,7 @@ struct KaraokeLyricsView: View {
                         // A new song starts from its own scroll position and state.
                         .id(model.trackId)
                 }
-                closeButton
+                topBar
             }
         }
         .preferredColorScheme(.dark)
@@ -71,8 +71,42 @@ struct KaraokeLyricsView: View {
                 .padding(14)
                 .background(closeButtonBackground)
         }
+    }
+
+    private var topBar: some View {
+        HStack(alignment: .center, spacing: 14) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Custom lyrics")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(.white.opacity(0.72))
+                Text(modelTitle)
+                    .font(.system(size: 28, weight: .bold, design: .rounded))
+                    .foregroundColor(.white)
+                    .lineLimit(2)
+                Text(modelSubtitle)
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundColor(.white.opacity(0.72))
+                    .lineLimit(1)
+            }
+            Spacer(minLength: 12)
+            closeButton
+        }
         .padding(.top, 50)
-        .padding(.trailing, 20)
+        .padding(.horizontal, 20)
+    }
+
+    private var modelTitle: String {
+        statefulPlayer?.currentTrack()?.trackTitle() ?? "Shrubify Lyrics"
+    }
+
+    private var modelSubtitle: String {
+        if let artist = statefulPlayer?.currentTrack()?.artistName(), !artist.isEmpty {
+            if let provider = model.lyrics?.providerName, !provider.isEmpty {
+                return "\(artist) • \(provider)"
+            }
+            return artist
+        }
+        return model.lyrics?.providerName ?? "Word-synced"
     }
 }
 

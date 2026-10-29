@@ -30,12 +30,27 @@ struct KaraokeLineView: View {
             }
         }
         .frame(width: availableWidth)
-        .opacity(isActiveLine ? 1.0 : 0.4)
+        .padding(.horizontal, 18)
+        .padding(.vertical, 14)
+        .background(activePlate)
+        .opacity(isActiveLine ? 1.0 : 0.34)
         .blur(radius: isActiveLine ? 0 : CGFloat(UserDefaults.karaokeOptions.blurIntensity))
-        .scaleEffect(isActiveLine ? 1.0 : 0.97, anchor: .center)
+        .scaleEffect(isActiveLine ? 1.0 : 0.965, anchor: .center)
         .animation(.easeOut(duration: 0.35), value: isActiveLine)
         // Mirrors word/row order for RTL lines; the fill gradient is flipped separately below.
         .environment(\.layoutDirection, layout.isRTL ? .rightToLeft : .leftToRight)
+    }
+
+    @ViewBuilder private var activePlate: some View {
+        if isActiveLine {
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .fill(Color.white.opacity(KaraokeGlass.isEnabled ? 0.09 : 0.06))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 24, style: .continuous)
+                        .stroke(Color.white.opacity(KaraokeGlass.isEnabled ? 0.18 : 0.10), lineWidth: 1)
+                )
+                .shadow(color: Color.black.opacity(0.20), radius: 20, x: 0, y: 10)
+        }
     }
 }
 
@@ -101,7 +116,7 @@ private struct KaraokeSyllableTextView: View {
 
     var body: some View {
         Text(syllable.text)
-            .font(.system(size: 28, weight: .bold))
+            .font(.system(size: 30, weight: .bold, design: .rounded))
             .foregroundStyle(
                 LinearGradient(
                     stops: [

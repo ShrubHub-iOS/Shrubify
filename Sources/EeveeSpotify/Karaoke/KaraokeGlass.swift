@@ -20,9 +20,11 @@ struct KaraokeGlassBackground: UIViewRepresentable {
         view.overrideUserInterfaceStyle = .dark
         view.isUserInteractionEnabled = false
         if #available(iOS 26.0, *) {
-            let effect = UIGlassEffect(style: .regular)
-            effect.tintColor = AlbumColor.current?.withAlphaComponent(0.25)
-            view.effect = effect
+            if let effect = GlassKit.material() as? UIGlassEffect {
+                effect.tintColor = AlbumColor.current?.withAlphaComponent(GlassKit.vitrineEnabled ? 0.32 : 0.25)
+                view.effect = effect
+            }
+            GlassKit.shape(view, radius: 32, capsule: false)
         }
         return view
     }
@@ -38,8 +40,8 @@ struct KaraokeGlassCapsule: UIViewRepresentable {
         view.overrideUserInterfaceStyle = .dark
         view.isUserInteractionEnabled = false
         if #available(iOS 26.0, *) {
-            view.effect = UIGlassEffect(style: .regular)
-            view.cornerConfiguration = .capsule()
+            view.effect = GlassKit.material()
+            GlassKit.shape(view)
         }
         return view
     }
