@@ -31,7 +31,7 @@ struct LiquidGlassSettingsView: View {
                 }
 
                 Section(header: Text("Glass rendering"), footer: Text("Uses Vitrine's iOS 26 glass material and rounded-pane handling for Shrubify's glass surfaces. Experimental: not Vitrine's entire interface. Requires restart; turn off if a Spotify update causes display issues.")) {
-                    SettingsToggle(title: "Vitrine material", subtitle: "Alternative glass style · iOS 26+", icon: "circle.hexagongrid", color: .cyan, isOn: Binding(
+                    SettingsToggle(title: "Vitrine material", subtitle: "Alternative glass style · iOS 26+", icon: "circle.hexagongrid", color: Color(hex: "#30B0C7"), isOn: Binding(
                         get: { glass.vitrineMaterial == true },
                         set: { glass.vitrineMaterial = $0 }
                     ))

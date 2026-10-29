@@ -1,3 +1,4 @@
+import EeveeSpotifyC
 import UIKit
 
 @available(iOS 26.0, *)
