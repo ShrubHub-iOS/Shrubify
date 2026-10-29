@@ -35,7 +35,9 @@ New UI additions use the existing SwiftUI settings navigation and Spotify's in-a
 
 ## Credits and licensing
 
-**Project and current development:** [shrubbery](https://github.com/zoinkdoggie94) and the ShrubHub team.
+**Project and current development:** [shrubbery](https://github.com/zoinkdoggie94) (owner and lead developer), [HakureiMango](https://github.com/HakureiMango) (co-owner and contributor), and the [ShrubHub team](https://github.com/ShrubHub-iOS) (official organization and project support).
+
+**Vitrine Glass:** The optional glass material and shaping implementation in `Sources/EeveeSpotifyC/VitrineGlass.m` is adapted from [Vitrine](https://github.com/My-Name-Is-Jeff/vitrine) (GPL-3.0). Vitrine's complete UI/Spotify hooks are **not** merged, to prevent conflicting hooks and avoid unsupported-version crashes. iOS 26+ only.
 
 **Upstream work:** whoeevee, jaydenjcpy, estrogencat and the contributors documented in [contributors.json](contributors.json) and [README-UPSTREAM.md](README-UPSTREAM.md). Their contributions are substantial and remain acknowledged. The upstream GPL-3.0 obligations, original author notices, and the complete [LICENSE](LICENSE) remain in place. Shrubify is a fork, **not** a claim of authorship over the upstream codebase.
 

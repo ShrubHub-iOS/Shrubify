@@ -205,7 +205,7 @@ enum PlayerLyricsCard {
         if glass.frame != cell.bounds {
             glass.frame = cell.bounds
             glass.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-            glass.cornerConfiguration = .uniformCorners(radius: .fixed(16))
+            GlassKit.shape(glass, radius: 16, capsule: false)
         }
         GlassKit.tint(glass, tint)
     }

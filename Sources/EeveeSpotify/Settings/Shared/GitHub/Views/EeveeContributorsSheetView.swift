@@ -78,9 +78,11 @@ struct EeveeContributorsSheetView: View {
 
                 Section(header: Text("Shrubify development")) {
                     ShrubifyCreditRow(
-                        credit: .init(username: "zoinkdoggie94", title: "shrubbery", role: "Creator, Shrubify lead developer"),
+                        credit: .init(username: "zoinkdoggie94", title: "shrubbery", role: "Shrubify owner & lead developer"),
                         prominent: true
                     )
+                    ShrubifyCreditRow(credit: .init(username: "HakureiMango", title: "HakureiMango", role: "Co-Owner & contributor"), prominent: true)
+                    ShrubifyCreditRow(credit: .init(username: "ShrubHub-iOS", title: "ShrubHub-iOS", role: "Official GitHub organization"))
                     HStack(spacing: 12) {
                         Image(systemName: "person.3.fill")
                             .font(.title3)
@@ -88,18 +90,22 @@ struct EeveeContributorsSheetView: View {
                             .frame(width: 44, height: 44)
                         VStack(alignment: .leading, spacing: 3) {
                             Text("ShrubHub team").fontWeight(.semibold)
-                            Text("Shrubify development and project support")
+                            Text("Core development, testing, community feedback and project support")
                                 .font(.footnote).foregroundColor(.secondary)
                         }
                     }
                     .padding(.vertical, 5)
                 }
 
+                Section(header: Text("Liquid Glass integration")) {
+                    ShrubifyCreditRow(credit: .init(username: "My-Name-Is-Jeff", title: "Vitrine", role: "Liquid Glass material and pane design · GPL-3.0"))
+                }
+
                 Section(header: Text("Upstream contributors"), footer: Text("Shrubify builds on open-source contributions. Original authors and licenses remain credited; the names above do not imply endorsement of Shrubify.")) {
                     ForEach(upstream) { credit in
                         ShrubifyCreditRow(credit: credit)
                     }
-                    Link(destination: URL(string: "https://github.com/zoinkdoggie94/Shrubify/blob/Master/contributors.json")!) {
+                    Link(destination: URL(string: "https://github.com/ShrubHub-iOS/Shrubify/blob/Master/contributors.json")!) {
                         HStack {
                             Text("All upstream contributors")
                             Spacer()

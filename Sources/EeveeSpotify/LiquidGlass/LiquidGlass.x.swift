@@ -71,7 +71,7 @@ func activateLiquidGlass() {
     activateNowPlayingBarConnect()
     activatePlayerDeclutter()
     activateRoundedArtwork()
-    if options.newPlayerDesign {
+    if options.newPlayerDesign, #available(iOS 26.0, *) {
         RemoteFlags.shared.force(LiquidGlass.newPlayerFlags, by: "NewPlayer")
     }
 

@@ -37,18 +37,24 @@ enum GlassTransition {
     }
 
     private static func collectPanes(_ view: UIView, into panes: inout [UIView]) {
-        for sub in view.subviews where !sub.isHidden && sub.alpha > 0.01 {
+        // Bound the view-tree scan; Spotify may supply very large or changing layout trees.
+        var queue = view.subviews
+        var visited = 0
+        while !queue.isEmpty && visited < 512 && panes.count < 12 {
+            let sub = queue.removeFirst()
+            visited += 1
+            guard !sub.isHidden, sub.alpha > 0.01 else { continue }
             if sub is UIVisualEffectView || NSStringFromClass(type(of: sub)).hasSuffix("PlatterView") {
                 panes.append(sub)
             } else {
-                collectPanes(sub, into: &panes)
+                queue.append(contentsOf: sub.subviews)
             }
         }
     }
 
     private static func copy(_ pane: UIView) -> UIVisualEffectView {
         let source = pane as? UIVisualEffectView
-        let glass = UIVisualEffectView(effect: source?.effect ?? UIGlassEffect(style: .regular))
+        let glass = UIVisualEffectView(effect: source?.effect ?? GlassKit.material())
         glass.isUserInteractionEnabled = false
         glass.overrideUserInterfaceStyle = pane.traitCollection.userInterfaceStyle
         if let source {

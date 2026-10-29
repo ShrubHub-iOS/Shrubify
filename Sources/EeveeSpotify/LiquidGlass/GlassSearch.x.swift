@@ -35,7 +35,7 @@ enum GlassSearchField {
         let pane = GlassKit.pane(in: button, key: UnsafeRawPointer(&paneKey))
         if pane.frame != button.bounds {
             pane.frame = button.bounds
-            pane.cornerConfiguration = .capsule()
+            GlassKit.shape(pane)
         }
     }
 }
@@ -72,7 +72,7 @@ enum GlassFindField {
         let pane = GlassKit.pane(in: field, key: UnsafeRawPointer(&paneKey))
         if pane.frame != field.bounds {
             pane.frame = field.bounds
-            pane.cornerConfiguration = .capsule()
+            GlassKit.shape(pane)
         }
     }
 }
@@ -129,9 +129,10 @@ enum GlassSearchCards {
             if parts.color != color {
                 parts.color = color
                 parts.plate.gradient.colors = [color.cgColor, darker(color).cgColor]
-                let effect = UIGlassEffect(style: .clear)
-                effect.tintColor = color.withAlphaComponent(0.35)
-                parts.glass.effect = effect
+                // Native cards stay clear; optional Vitrine mode uses its regular material.
+                let effect = (GlassKit.vitrineEnabled ? GlassKit.material() : UIGlassEffect(style: .clear)) as? UIGlassEffect
+                effect?.tintColor = color.withAlphaComponent(0.35)
+                if let effect { parts.glass.effect = effect }
             }
         }
         guard parts.color != nil else { return }

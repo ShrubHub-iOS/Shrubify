@@ -82,7 +82,7 @@ enum GlassNowPlayingBar {
         pane = glass
         if glass.frame != frame {
             glass.frame = frame
-            glass.cornerConfiguration = .capsule()
+            GlassKit.shape(glass)
         }
         GlassKit.tint(glass, tint)
 

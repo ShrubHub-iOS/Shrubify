@@ -28,8 +28,8 @@ final class TabBarEditorView: UIView {
 
     private let glass: UIVisualEffectView = {
         if #available(iOS 26.0, *) {
-            let effect = UIGlassEffect(style: .regular)
-            effect.isInteractive = true
+            let effect = GlassKit.material()
+            if let glass = effect as? UIGlassEffect { glass.isInteractive = true }
             return UIVisualEffectView(effect: effect)
         }
         return UIVisualEffectView(effect: UIBlurEffect(style: .systemThinMaterialDark))
@@ -83,23 +83,27 @@ final class TabBarEditorView: UIView {
     override func layoutSubviews() {
         super.layoutSubviews()
         glass.frame = bounds
-        glass.layer.cornerRadius = bounds.height / 2
-        glass.layer.cornerCurve = .continuous
+        if #available(iOS 26.0, *) { GlassKit.shape(glass) }
+        else {
+            glass.layer.cornerRadius = bounds.height / 2
+            glass.layer.cornerCurve = .continuous
+        }
         guard dragging == nil else { return }
         layoutTiles(animated: false)
         placeBubble(animated: false)
     }
 
     private func slotWidth() -> CGFloat {
-        (bounds.width - 16) / CGFloat(max(tabs.count, 1))
+        max(bounds.width - 16, 1) / CGFloat(max(tabs.count, 1))
     }
 
     private func slotCenter(_ index: Int) -> CGPoint {
         CGPoint(x: 8 + slotWidth() * (CGFloat(index) + 0.5), y: bounds.midY)
     }
 
-    private func slot(at x: CGFloat) -> Int {
-        max(0, min(tabs.count - 1, Int((x - 8) / slotWidth())))
+    private func slot(at x: CGFloat) -> Int? {
+        guard !tabs.isEmpty, bounds.width > 16, x.isFinite else { return nil }
+        return max(0, min(tabs.count - 1, Int((x - 8) / slotWidth())))
     }
 
     private func layoutTiles(animated: Bool) {
@@ -132,8 +136,8 @@ final class TabBarEditorView: UIView {
     }
 
     @objc private func tapped(_ tap: UITapGestureRecognizer) {
-        guard !tabs.isEmpty else { return }
-        let title = tabs[slot(at: tap.location(in: self).x)]
+        guard let index = slot(at: tap.location(in: self).x) else { return }
+        let title = tabs[index]
         guard entries[title]?.launchable != false else { return }
         launchTab = launchTab == title ? nil : title
         UISelectionFeedbackGenerator().selectionChanged()
@@ -146,8 +150,8 @@ final class TabBarEditorView: UIView {
         let point = hold.location(in: self)
         switch hold.state {
         case .began:
-            guard !tabs.isEmpty else { return }
-            let title = tabs[slot(at: point.x)]
+            guard let index = slot(at: point.x) else { return }
+            let title = tabs[index]
             guard let tile = tiles[title] else { return }
             dragging = title
             removeArmed = false
@@ -165,7 +169,7 @@ final class TabBarEditorView: UIView {
                 UIView.animate(withDuration: 0.15) { tile.alpha = arm ? 0.4 : 1 }
             }
             guard !arm, let from = tabs.firstIndex(of: title) else { return }
-            let to = slot(at: point.x)
+            guard let to = slot(at: point.x) else { return }
             if to != from {
                 tabs.remove(at: from)
                 tabs.insert(title, at: to)

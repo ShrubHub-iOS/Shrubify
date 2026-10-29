@@ -3,6 +3,8 @@ import UIKit
 struct LiquidGlassOptions: Codable, Equatable {
     var enabled = false
     var spotifyGlass = true
+    // Optional preserves Codable compatibility with previously saved Liquid Glass settings.
+    var vitrineMaterial: Bool?
     var tabBar = true
     var nowPlayingBar = true
     var newPlayerDesign = false

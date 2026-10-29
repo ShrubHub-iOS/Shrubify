@@ -9,7 +9,7 @@ struct LiquidGlassSettingsView: View {
     }()
 
     private var surfacesDefault: Bool {
-        glass.spotifyGlass && glass.tabBar && glass.nowPlayingBar && glass.search != false && glass.home != false && glass.playlist != false && glass.lyricsView != false
+        glass.spotifyGlass && glass.vitrineMaterial != true && glass.tabBar && glass.nowPlayingBar && glass.search != false && glass.home != false && glass.playlist != false && glass.lyricsView != false
     }
 
     var body: some View {
@@ -30,6 +30,13 @@ struct LiquidGlassSettingsView: View {
                     SettingsToggle(title: "glass_lyrics_view".localized, icon: "quote.bubble.fill", color: Color(hex: "#30B0C7"), isOn: optIn(\.lyricsView))
                 }
 
+                Section(header: Text("Glass rendering"), footer: Text("Uses Vitrine's iOS 26 glass material and rounded-pane handling for Shrubify's glass surfaces. Experimental: not Vitrine's entire interface. Requires restart; turn off if a Spotify update causes display issues.")) {
+                    SettingsToggle(title: "Vitrine material", subtitle: "Alternative glass style · iOS 26+", icon: "circle.hexagongrid", color: .cyan, isOn: Binding(
+                        get: { glass.vitrineMaterial == true },
+                        set: { glass.vitrineMaterial = $0 }
+                    ))
+                }
+
                 if glass.tabBar {
                     Section {
                         SettingsLink(title: "tab_bar".localized, subtitle: "tab_bar_subtitle".localized, icon: "dock.rectangle", color: .blue) {
@@ -40,6 +47,7 @@ struct LiquidGlassSettingsView: View {
 
                 SettingsResetSection(visible: !surfacesDefault) {
                     glass.spotifyGlass = true
+                    glass.vitrineMaterial = nil
                     glass.tabBar = true
                     glass.nowPlayingBar = true
                     glass.search = nil

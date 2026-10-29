@@ -3,6 +3,24 @@ import UIKit
 @available(iOS 26.0, *)
 enum GlassKit {
     private static var paneKey: UInt8 = 0
+    private static var adaptedBlurKey: UInt8 = 0
+    // Read once at startup. Changing modes in Settings offers Restart Now.
+    static let vitrineEnabled = LiquidGlass.launchOptions.vitrineMaterial == true
+
+    static func material() -> UIVisualEffect {
+        vitrineEnabled ? ShrubVitrineGlassEffect() : UIGlassEffect(style: .regular)
+    }
+
+    static func shape(_ glass: UIView, radius: CGFloat = 16, capsule: Bool = true) {
+        if vitrineEnabled {
+            ShrubVitrineShapeGlass(glass, radius, capsule)
+        } else if let pane = glass as? UIVisualEffectView {
+            pane.cornerConfiguration = capsule ? .capsule() : .uniformCorners(radius: .fixed(radius))
+        } else {
+            glass.layer.cornerRadius = capsule ? glass.bounds.height / 2 : radius
+            glass.layer.cornerCurve = .continuous
+        }
+    }
 
     static func pane(in host: UIView, key: UnsafeRawPointer = UnsafeRawPointer(&paneKey)) -> UIVisualEffectView {
         if let pane = objc_getAssociatedObject(host, key) as? UIVisualEffectView {
@@ -10,7 +28,11 @@ enum GlassKit {
             else if host.subviews.first !== pane { host.sendSubviewToBack(pane) }
             return pane
         }
-        let pane = UIVisualEffectView(effect: UIGlassEffect(style: .regular))
+        // Vitrine's newer control-layer guidance keeps the pane first in the
+        // subview tree instead of forcing a negative zPosition (which can ghost icons).
+        let reduceTransparency = vitrineEnabled && UIAccessibility.isReduceTransparencyEnabled
+        let pane = UIVisualEffectView(effect: reduceTransparency ? nil : material())
+        if reduceTransparency { pane.contentView.backgroundColor = UIColor(white: 0.12, alpha: 0.96) }
         pane.isUserInteractionEnabled = false
         pane.overrideUserInterfaceStyle = .dark
         pane.accessibilityElementsHidden = true
@@ -21,18 +43,24 @@ enum GlassKit {
 
     static func tint(_ pane: UIVisualEffectView, _ color: UIColor?) {
         guard let glass = pane.effect as? UIGlassEffect, glass.tintColor != color else { return }
-        let effect = UIGlassEffect(style: .regular)
+        // Preserve the chosen Vitrine factory when the album color changes.
+        guard let effect = material() as? UIGlassEffect else { return }
         effect.tintColor = color
         pane.effect = effect
     }
 
-    // Many Encore controls already carry a blur view; swapping its effect gives real glass with no extra views.
+    // Many Encore controls already carry a blur view; swap once, never repeatedly per layout pass.
     @discardableResult
     static func glassBlur(in view: UIView) -> Bool {
         guard let blur = view.subviews.first(where: { $0 is UIVisualEffectView }) as? UIVisualEffectView else { return false }
-        guard !(blur.effect is UIGlassEffect) else { return true }
-        blur.effect = UIGlassEffect(style: .regular)
-        blur.cornerConfiguration = .capsule()
+        let adapted = objc_getAssociatedObject(blur, &adaptedBlurKey) as? Bool == true
+        if !adapted {
+            if vitrineEnabled || !(blur.effect is UIGlassEffect) {
+                blur.effect = material()
+            }
+            shape(blur)
+            objc_setAssociatedObject(blur, &adaptedBlurKey, true, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+        }
         view.backgroundColor = .clear
         return true
     }
