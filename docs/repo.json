@@ -15,6 +15,15 @@
       "versions": [
         {
           "version": "9.1.94",
+          "buildVersion": "28",
+          "date": "2026-10-30",
+          "localizedDescription": "Shrubify v3.0.5 for Spotify 9.1.94. Studio presets, ShrubPanel, opt-in Replay, queue shortcuts and supported Liquid Glass. Compatibility depends on Spotify version.",
+          "downloadURL": "https://github.com/ShrubHub-iOS/Shrubify/releases/download/shrubify-s9.1.94-v3.0.5-gd857622/Shrubify-Spotify-9.1.94-v3.0.5-b28.ipa",
+          "size": 131647788,
+          "minOSVersion": "16.1"
+        },
+        {
+          "version": "9.1.94",
           "buildVersion": "26",
           "date": "2026-10-30",
           "localizedDescription": "Shrubify v3.0.4 for Spotify 9.1.94. Studio presets, ShrubPanel, opt-in Replay, queue shortcuts and supported Liquid Glass. Compatibility depends on Spotify version.",
