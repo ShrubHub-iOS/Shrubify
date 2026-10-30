@@ -30,7 +30,7 @@ struct LiquidGlassSettingsView: View {
                     SettingsToggle(title: "glass_lyrics_view".localized, icon: "quote.bubble.fill", color: Color(hex: "#30B0C7"), isOn: optIn(\.lyricsView))
                 }
 
-                Section(header: Text("Glass rendering"), footer: Text("Optional Vitrine-inspired polished glass: a visibly brighter album-art rim, ambient player backdrop and stronger glass edges. Preserves Spotify colors. iOS 26+; restart after changing.")) {
+                Section(header: Text("Glass rendering"), footer: Text("Uses Vitrine’s system glass material and corner shaping, with an album-art backdrop. System-rendered edges keep controls clear without extra outlines. iOS 26+; restart after changing.")) {
                     SettingsToggle(title: "Vitrine material", subtitle: "Distinct glass surfaces · restart required", icon: "circle.hexagongrid", color: Color(hex: "#30B0C7"), isOn: Binding(
                         get: { glass.vitrineMaterial == true },
                         set: { glass.vitrineMaterial = $0 }

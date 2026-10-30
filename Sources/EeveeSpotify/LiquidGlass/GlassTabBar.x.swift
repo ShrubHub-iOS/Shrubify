@@ -182,8 +182,8 @@ enum GlassTabBar {
         film.frame = host.bounds
         film.layer.cornerRadius = host.bounds.height / 2
         film.layer.cornerCurve = .continuous
-        film.layer.borderWidth = GlassKit.vitrineEnabled ? 1 : 0
-        film.layer.borderColor = GlassKit.vitrineEnabled ? UIColor.white.withAlphaComponent(0.18).cgColor : nil
+        film.layer.borderWidth = 0
+        film.layer.borderColor = nil
         if film.backgroundColor != color {
             UIView.animate(withDuration: 0.4) { film.backgroundColor = color }
         }

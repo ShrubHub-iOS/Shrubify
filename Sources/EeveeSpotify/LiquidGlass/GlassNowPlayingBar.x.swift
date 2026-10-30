@@ -77,8 +77,8 @@ enum GlassNowPlayingBar {
         // Clipping can't live in the radius check: iPad already ships a capsule corner radius, so the
         // branch is skipped there and the artwork renders straight past the rounded corners.
         card.clipsToBounds = true
-        card.layer.borderWidth = GlassKit.vitrineEnabled ? 1 : 0
-        card.layer.borderColor = GlassKit.vitrineEnabled ? UIColor.white.withAlphaComponent(0.16).cgColor : nil
+        card.layer.borderWidth = 0
+        card.layer.borderColor = nil
 
         let glass = GlassKit.pane(in: host)
         pane = glass

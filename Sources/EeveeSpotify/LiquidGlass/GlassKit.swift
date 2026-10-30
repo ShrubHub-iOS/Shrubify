@@ -5,7 +5,6 @@ import UIKit
 enum GlassKit {
     private static var paneKey: UInt8 = 0
     private static var adaptedBlurKey: UInt8 = 0
-    private static var chromeKey: UInt8 = 0
     // Read once at startup. Changing modes in Settings offers Restart Now.
     static let vitrineEnabled = LiquidGlass.launchOptions.vitrineMaterial == true
 
@@ -22,9 +21,6 @@ enum GlassKit {
             glass.layer.cornerRadius = capsule ? glass.bounds.height / 2 : radius
             glass.layer.cornerCurve = .continuous
         }
-        if let pane = glass as? UIVisualEffectView {
-            applyChrome(to: pane, radius: radius, capsule: capsule)
-        }
     }
 
     static func pane(in host: UIView, key: UnsafeRawPointer = UnsafeRawPointer(&paneKey)) -> UIVisualEffectView {
@@ -35,7 +31,7 @@ enum GlassKit {
         }
         // Vitrine's newer control-layer guidance keeps the pane first in the
         // subview tree instead of forcing a negative zPosition (which can ghost icons).
-        let reduceTransparency = vitrineEnabled && UIAccessibility.isReduceTransparencyEnabled
+        let reduceTransparency = UIAccessibility.isReduceTransparencyEnabled
         let pane = UIVisualEffectView(effect: reduceTransparency ? nil : material())
         if reduceTransparency { pane.contentView.backgroundColor = UIColor(white: 0.12, alpha: 0.96) }
         pane.isUserInteractionEnabled = false
@@ -43,60 +39,16 @@ enum GlassKit {
         pane.accessibilityElementsHidden = true
         objc_setAssociatedObject(host, key, pane, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
         host.insertSubview(pane, at: 0)
-        applyChrome(to: pane)
         return pane
     }
 
     static func tint(_ pane: UIVisualEffectView, _ color: UIColor?) {
-        guard let glass = pane.effect as? UIGlassEffect, glass.tintColor != color else {
-            applyChrome(to: pane)
-            return
-        }
+        guard !UIAccessibility.isReduceTransparencyEnabled,
+              let glass = pane.effect as? UIGlassEffect, glass.tintColor != color else { return }
         // Preserve the chosen Vitrine factory when the album color changes.
         guard let effect = material() as? UIGlassEffect else { return }
         effect.tintColor = color
         pane.effect = effect
-        applyChrome(to: pane)
-    }
-
-    private static func applyChrome(to pane: UIVisualEffectView, radius: CGFloat? = nil, capsule: Bool = true) {
-        let overlay: UIView = {
-            if let existing = objc_getAssociatedObject(pane, &chromeKey) as? UIView { return existing }
-            let view = UIView()
-            view.isUserInteractionEnabled = false
-            view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-            objc_setAssociatedObject(pane, &chromeKey, view, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
-            pane.contentView.insertSubview(view, at: 0)
-            return view
-        }()
-        overlay.frame = pane.contentView.bounds
-        let effectTint = (pane.effect as? UIGlassEffect)?.tintColor
-        let fill = effectTint?.withAlphaComponent(vitrineEnabled ? 0.18 : 0.04)
-            ?? UIColor.white.withAlphaComponent(vitrineEnabled ? 0.08 : 0.02)
-        let stroke = effectTint?.withAlphaComponent(vitrineEnabled ? 0.38 : 0.10)
-            ?? UIColor.white.withAlphaComponent(vitrineEnabled ? 0.24 : 0.08)
-        overlay.backgroundColor = fill
-        overlay.layer.borderColor = stroke.cgColor
-        overlay.layer.borderWidth = vitrineEnabled ? 1.3 : 0.6
-        overlay.layer.cornerCurve = .continuous
-        let corner = capsule ? pane.bounds.height / 2 : (radius ?? pane.layer.cornerRadius)
-        if corner > 0 {
-            overlay.layer.cornerRadius = corner
-        }
-        pane.clipsToBounds = false
-        pane.contentView.clipsToBounds = true
-        pane.contentView.layer.cornerRadius = overlay.layer.cornerRadius
-        pane.contentView.layer.cornerCurve = .continuous
-        if vitrineEnabled {
-            pane.layer.shadowColor = UIColor.black.cgColor
-            pane.layer.shadowOpacity = 0.26
-            pane.layer.shadowRadius = 20
-            pane.layer.shadowOffset = CGSize(width: 0, height: 8)
-        } else {
-            pane.layer.shadowOpacity = 0
-            pane.layer.shadowRadius = 0
-            pane.layer.shadowOffset = .zero
-        }
     }
 
     // Many Encore controls already carry a blur view; swap once, never repeatedly per layout pass.

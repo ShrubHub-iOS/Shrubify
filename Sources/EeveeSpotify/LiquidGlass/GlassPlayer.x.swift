@@ -105,8 +105,8 @@ enum PlayerBackdrop {
         if #available(iOS 26.0, *) {
             vitrine = LiquidGlass.launchOptions.enabled && GlassKit.vitrineEnabled
         } else { vitrine = false }
-        tilt.layer.borderWidth = vitrine ? 2 : 0
-        tilt.layer.borderColor = vitrine ? UIColor.white.withAlphaComponent(0.33).cgColor : nil
+        tilt.layer.borderWidth = 0
+        tilt.layer.borderColor = nil
         tilt.layer.shadowColor = UIColor.black.cgColor
         tilt.layer.shadowOpacity = vitrine ? 0.64 : 0.45
         tilt.layer.shadowRadius = vitrine ? 40 : 32

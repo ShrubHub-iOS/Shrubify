@@ -45,7 +45,7 @@ struct EeveeSettingsView: View {
     private static let groups: [SettingsGroup] = [
         SettingsGroup(key: "Shrubify · Listening is easy", entries: [
             SettingsEntry(key: "ShrubPanel", icon: "square.grid.2x2.fill", color: .blue) { AnyView(ShrubifyPanelView(dismiss: { SettingsNavigator.navigationController?.popViewController(animated: true) })) },
-            SettingsEntry(key: "Shrubify Studio", icon: "slider.horizontal.3", color: .gray) { AnyView(ShrubifyStudioView()) },
+            SettingsEntry(key: "Shrubify Studio", icon: "slider.horizontal.3", color: .gray) { AnyView(ShrubifyStudioView(usesSettingsNavigation: true)) },
             SettingsEntry(key: "Shrubify Replay", icon: "chart.bar.xaxis", color: .purple) { AnyView(ShrubifyReplayView()) },
             SettingsEntry(key: "ShrubQueue", icon: "list.bullet", color: .orange) { AnyView(NavigationView { ShrubifyQueueView() }.navigationViewStyle(StackNavigationViewStyle())) },
         ]),
