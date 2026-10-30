@@ -32,6 +32,8 @@ private struct ShrubifySavedLayout: Codable, Identifiable {
 }
 
 struct ShrubifyStudioView: View {
+    var usesSettingsNavigation = false
+
     @State private var savedLayouts: [ShrubifySavedLayout] = {
         guard let data = UserDefaults.standard.data(forKey: "ShrubifySavedLayouts3") else { return [] }
         return (try? JSONDecoder().decode([ShrubifySavedLayout].self, from: data)) ?? []
@@ -100,8 +102,12 @@ struct ShrubifyStudioView: View {
                 Text("Affects the Now Playing artwork only when the backdrop hook is active.")
                     .font(.caption).foregroundColor(.secondary)
             }
-            NavigationLink(destination: PlayerHideSettingsView()) {
-                SettingsLabel(title: "Player elements", subtitle: "Choose visible buttons and cards", icon: "eye", color: .gray)
+            if usesSettingsNavigation {
+                SettingsLink(title: "Player elements", subtitle: "Choose visible buttons and cards", icon: "eye", color: .gray) { PlayerHideSettingsView() }
+            } else {
+                NavigationLink(destination: PlayerHideSettingsView()) {
+                    SettingsLabel(title: "Player elements", subtitle: "Choose visible buttons and cards", icon: "eye", color: .gray)
+                }
             }
         }
     }
@@ -110,8 +116,12 @@ struct ShrubifyStudioView: View {
         Section(header: Text("Appearance")) {
             Text("Shrubify follows Spotify's existing light/dark palette and your chosen accent. Liquid Glass is only enabled on supported versions of iOS.")
                 .font(.footnote).foregroundColor(.secondary)
-            NavigationLink(destination: LiquidGlassSettingsView()) {
-                SettingsLabel(title: "Liquid Glass", icon: "circle.hexagongrid.fill", color: .gray)
+            if usesSettingsNavigation {
+                SettingsLink(title: "Liquid Glass", icon: "circle.hexagongrid.fill", color: .gray) { LiquidGlassSettingsView() }
+            } else {
+                NavigationLink(destination: LiquidGlassSettingsView()) {
+                    SettingsLabel(title: "Liquid Glass", icon: "circle.hexagongrid.fill", color: .gray)
+                }
             }
         }
     }
@@ -132,10 +142,14 @@ struct ShrubifyStudioView: View {
                             Text("Tap to restore").font(.caption).foregroundColor(.secondary)
                         }
                     }
+                    .buttonStyle(BorderlessButtonStyle())
                     Spacer()
                     Button { deleteLayout(item.id) } label: {
                         Image(systemName: "trash").foregroundColor(.red)
+                            .frame(minWidth: 44, minHeight: 44)
                     }
+                    .buttonStyle(BorderlessButtonStyle())
+                    .accessibilityLabel("Delete " + item.name)
                 }
             }
         }

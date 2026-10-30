@@ -1,3 +1,7 @@
+# 3.0.5 (release candidate)
+
+Repair Orion/Swift support caching, simplify glass rendering, improve settings text layout, and fix Studio navigation and saved-layout button behavior. See RELEASE-3.0.5.md for validation status.
+
 ## Shrubify 3.0.3 — Identity and incremental-build patch
 
 - Fixed visible **Eevee** subscription and Premium badge labels; the app now shows Shrubify in those positions.

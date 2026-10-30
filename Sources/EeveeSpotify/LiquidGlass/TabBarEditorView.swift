@@ -110,7 +110,7 @@ final class TabBarEditorView: UIView {
         let apply = {
             for (index, title) in self.tabs.enumerated() where title != self.dragging {
                 guard let tile = self.tiles[title] else { continue }
-                tile.bounds = CGRect(x: 0, y: 0, width: self.slotWidth() - 4, height: self.bounds.height)
+                tile.bounds = CGRect(x: 0, y: 0, width: max(0, self.slotWidth() - 4), height: self.bounds.height)
                 tile.center = self.slotCenter(index)
                 tile.color = title == self.launchTab ? self.accent : .white
             }
@@ -124,7 +124,7 @@ final class TabBarEditorView: UIView {
             return
         }
         let center = convert(slotCenter(index), to: glass.contentView)
-        let frame = CGRect(x: center.x - slotWidth() / 2 + 2, y: 5, width: slotWidth() - 4, height: bounds.height - 10)
+        let frame = CGRect(x: center.x - slotWidth() / 2 + 2, y: 5, width: max(0, slotWidth() - 4), height: max(0, bounds.height - 10))
         let apply = {
             self.bubble.frame = frame
             self.bubble.layer.cornerRadius = frame.height / 2

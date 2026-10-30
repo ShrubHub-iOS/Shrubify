@@ -47,15 +47,17 @@ struct SettingsLabel: View {
     var body: some View {
         HStack(spacing: 14) {
             SettingsIcon(systemName: icon, color: color)
+                .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 2) {
                 Text(title).foregroundColor(.primary)
                 if let subtitle {
                     Text(subtitle)
                         .font(.footnote)
                         .foregroundColor(.secondary)
-                        .lineLimit(1)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
+            .layoutPriority(1)
             Spacer(minLength: 8)
             if chevron { ChevronRightView() }
         }

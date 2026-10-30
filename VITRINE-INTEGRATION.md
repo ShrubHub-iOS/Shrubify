@@ -32,3 +32,7 @@ existing tab bar and player hooks could cause crashes and layout conflicts.
 Vitrine derives from spoti.pw and is GPL-3.0 licensed, as is Shrubify's project source.
 The adapted implementation is tracked in `VitrineGlass.m` and the repository GPL-3.0 `LICENSE` applies.
 Retain the upstream notices and corresponding source when distributing a build.
+
+## 3.0.5 refinement
+
+Removed the extra chrome overlay and hand-drawn tab bar, mini-player and artwork borders added in 3.0.4. The system material now supplies its own edge treatment, following Vitrine’s material and shaping approach. The full Vitrine redesign remains outside this adapter. Device appearance has not yet been verified.

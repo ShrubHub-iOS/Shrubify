@@ -1,0 +1,93 @@
+name: Shrubify native validation
+'on':
+  pull_request:
+    branches:
+    - Master
+    - main
+  workflow_dispatch: {}
+permissions:
+  contents: read
+concurrency:
+  group: shrubify-validation-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  compile:
+    runs-on: macos-latest
+    env:
+      THEOS: ${{ github.workspace }}/theos
+      SWIFTPROTOBUF_VERSION: 1.29.0
+      REPO_SLUG: ${{ github.repository }}
+      BRANCH_NAME: ${{ github.event.repository.default_branch }}
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: recursive
+    - uses: maxim-lobanov/setup-xcode@v1
+      with:
+        xcode-version: 26.1.1
+    - name: Validate Shrubify source BEFORE downloading IPA or installing dependencies
+      run: |
+        set -euo pipefail
+        bash -n scripts/build_shrubify.sh
+        python3 -m py_compile scripts/*.py
+        python3 -m unittest discover -s scripts/tests -p 'test_*.py'
+        python3 scripts/check_ios14_swiftui.py
+        python3 scripts/check_shrubify_branding.py
+        swiftc -frontend -parse Sources/EeveeSpotify/Shrubify3/*.swift
+    - name: Checkout Theos
+      uses: actions/checkout@v4
+      with:
+        repository: theos/theos
+        path: theos
+        submodules: recursive
+    - name: Fingerprint native build tools
+      id: native-tools
+      run: |
+        set -euo pipefail
+        HASH=$({ swift --version; git -C theos rev-parse HEAD; git -C theos submodule status --recursive; } | shasum -a 256 | awk '{print $1}')
+        echo "sha=$HASH" >> "$GITHUB_OUTPUT"
+    - name: Restore Orion and Swift support toolchain cache
+      id: orion-cache
+      uses: actions/cache/restore@v4
+      with:
+        path: |
+          theos/vendor/orion/.theos_build
+          theos/vendor/swift-support/.theos_build
+        key: shrubify-native-tools-v2-${{ runner.os }}-${{ runner.arch }}-${{ steps.native-tools.outputs.sha }}
+    - name: Restore SwiftProtobuf framework cache
+      id: proto-cache
+      uses: actions/cache/restore@v4
+      with:
+        path: theos/lib/iphone/rootless/EeveeSwiftProtobuf.framework
+        key: shrink-proto-${{ runner.os }}-${{ runner.arch }}-xcode26.1.1-ios14-1.29.0-${{ hashFiles('Tools/SwiftProtobufBuild/build-eeveeswiftprotobuf.sh') }}
+    - name: Install native build tools
+      run: |
+        brew install make dpkg ldid wget
+        echo "$(brew --prefix make)/libexec/gnubin" >> "$GITHUB_PATH"
+    - name: Build SwiftProtobuf only on cache miss
+      run: |
+        set -euo pipefail
+        THEOS_PACKAGE_SCHEME=rootless bash Tools/SwiftProtobufBuild/build-eeveeswiftprotobuf.sh
+        test -s "$THEOS/lib/iphone/rootless/EeveeSwiftProtobuf.framework/EeveeSwiftProtobuf"
+        lipo -archs "$THEOS/lib/iphone/rootless/EeveeSwiftProtobuf.framework/EeveeSwiftProtobuf" | grep -q 'arm64e'
+      if: ${{ steps.proto-cache.outputs.cache-hit != 'true' }}
+    - name: Save SwiftProtobuf framework cache immediately
+      uses: actions/cache/save@v4
+      with:
+        path: theos/lib/iphone/rootless/EeveeSwiftProtobuf.framework
+        key: shrink-proto-${{ runner.os }}-${{ runner.arch }}-xcode26.1.1-ios14-1.29.0-${{ hashFiles('Tools/SwiftProtobufBuild/build-eeveeswiftprotobuf.sh') }}
+      if: ${{ steps.proto-cache.outputs.cache-hit != 'true' }}
+    - name: Compile release tweak without publishing
+      run: |
+        set -euo pipefail
+        THEOS_PACKAGE_SCHEME=rootless make package FINALPACKAGE=1
+    - name: Save Orion toolchain cache after native compilation
+      continue-on-error: true
+      uses: actions/cache/save@v4
+      with:
+        path: |
+          theos/vendor/orion/.theos_build
+          theos/vendor/swift-support/.theos_build
+        key: shrubify-native-tools-v2-${{ runner.os }}-${{ runner.arch }}-${{ steps.native-tools.outputs.sha }}
+      if: ${{ always() && steps.orion-cache.outcome == 'success' && steps.orion-cache.outputs.cache-hit != 'true' }}
+    timeout-minutes: 30
