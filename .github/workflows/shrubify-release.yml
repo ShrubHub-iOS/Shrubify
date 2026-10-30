@@ -185,6 +185,16 @@ jobs:
           repository: theos/theos
           path: theos
           submodules: recursive
+      # Orion's SwiftSyntax tooling took ~4 minutes on a cold build. Reuse
+      # the exact compiler outputs between source changes, while keeping the
+      # cache independent of Shrubify source/package version.
+      - name: Restore Orion toolchain cache
+        if: ${{ steps.metadata.outputs.already_exists == 'false' && steps.compiled-cache.outputs.cache-hit != 'true' }}
+        id: orion-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: theos/vendor/orion/.build
+          key: shrubify-orion-${{ runner.os }}-${{ runner.arch }}-xcode26.1.1-${{ hashFiles('theos/vendor/orion/Package@swift-5.6.swift', 'theos/vendor/orion/Package.swift', 'theos/vendor/orion/Package.resolved') }}
       # Compiling renamed SwiftProtobuf for arm64 and arm64e is expensive.
       # Cache its validated, complete framework between builds. Separate
       # restore/save steps ensure the cache is saved EVEN IF the tweak fails.
@@ -250,6 +260,13 @@ jobs:
             } >> "$GITHUB_STEP_SUMMARY"
             exit 1
           fi
+      - name: Save Orion toolchain cache after native compilation
+        if: ${{ always() && steps.orion-cache.outcome == 'success' && steps.orion-cache.outputs.cache-hit != 'true' && steps.compiled-cache.outputs.cache-hit != 'true' }}
+        continue-on-error: true
+        uses: actions/cache/save@v4
+        with:
+          path: theos/vendor/orion/.build
+          key: shrubify-orion-${{ runner.os }}-${{ runner.arch }}-xcode26.1.1-${{ hashFiles('theos/vendor/orion/Package@swift-5.6.swift', 'theos/vendor/orion/Package.swift', 'theos/vendor/orion/Package.resolved') }}
       - name: Cache successfully compiled tweak for future Spotify IPA updates
         if: ${{ steps.metadata.outputs.already_exists == 'false' && steps.compiled-cache.outputs.cache-hit != 'true' }}
         uses: actions/cache/save@v4

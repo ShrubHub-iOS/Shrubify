@@ -161,7 +161,7 @@ enum GlassTabBar {
     }
 
     private static func applyTint(_ bar: GlassSystemTabBar) {
-        let color = options.albumTint == true ? AlbumColor.current?.withAlphaComponent(0.2) : nil
+        let color = options.albumTint == true ? AlbumColor.current?.withAlphaComponent(GlassKit.vitrineEnabled ? 0.29 : 0.20) : nil
         guard let platter = platter(in: bar) else {
             if !platterLogged, color != nil {
                 platterLogged = true
@@ -182,6 +182,8 @@ enum GlassTabBar {
         film.frame = host.bounds
         film.layer.cornerRadius = host.bounds.height / 2
         film.layer.cornerCurve = .continuous
+        film.layer.borderWidth = GlassKit.vitrineEnabled ? 1 : 0
+        film.layer.borderColor = GlassKit.vitrineEnabled ? UIColor.white.withAlphaComponent(0.18).cgColor : nil
         if film.backgroundColor != color {
             UIView.animate(withDuration: 0.4) { film.backgroundColor = color }
         }

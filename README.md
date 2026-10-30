@@ -1,4 +1,4 @@
-# Shrubify 3.0.3 — Listening is easy with Shrubify!
+# Shrubify 3.0.4 — Listening is easy with Shrubify!
 
 **Created and maintained by shrubbery and the ShrubHub team.**
 
@@ -15,7 +15,7 @@ Shrubify is an **unofficial, community-developed iOS/iPadOS tweak** based on an 
 | **ShrubModes** | One-tap player presets that keep Spotify's original palette and honor chosen accent colors. | Some hooks change between Spotify versions. |
 | **Compatibility & Diagnostics** | Optional Stability Mode, version reporting, issue links and debug-log export. | Cannot guarantee compatibility with all Spotify builds or eliminate every crash. |
 
-Shrubify retains earlier additions such as the existing Liquid Glass integrations, custom lyrics support, icon picker, player gestures and compatibility controls. This release does **not** change Spotify's color palette to a ShrubHub theme.
+Shrubify 3.0.4 improves the hybrid Spotify/Apple Music visual polish while retaining Spotify's color palette and familiar layout. Optional Vitrine mode now changes visible artwork treatment and backdrop, while the custom lyrics view uses a lazy line list and display-synchronized timing (up to 60 Hz; iOS and device permitting). Existing features, contributor credits and compatibility controls remain intact.
 
 ## Install and build
 

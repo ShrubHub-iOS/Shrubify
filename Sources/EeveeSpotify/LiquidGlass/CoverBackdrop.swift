@@ -26,7 +26,12 @@ final class CoverBackdrop: UIView {
 
         let scrim = GradientView()
         scrim.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-        scrim.gradient.colors = [0.35, 0.6, bottomAlpha].map { UIColor(white: 0, alpha: $0).cgColor }
+        let vitrine: Bool
+        if #available(iOS 26.0, *) {
+            vitrine = LiquidGlass.launchOptions.enabled && GlassKit.vitrineEnabled
+        } else { vitrine = false }
+        let shades: [CGFloat] = vitrine ? [0.13, 0.39, min(bottomAlpha, 0.80)] : [0.35, 0.6, bottomAlpha]
+        scrim.gradient.colors = shades.map { UIColor(white: 0, alpha: $0).cgColor }
         scrim.gradient.locations = [0, 0.5, 1]
         addSubview(scrim)
     }

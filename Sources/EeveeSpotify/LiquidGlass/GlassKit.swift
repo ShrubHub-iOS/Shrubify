@@ -71,13 +71,13 @@ enum GlassKit {
         }()
         overlay.frame = pane.contentView.bounds
         let effectTint = (pane.effect as? UIGlassEffect)?.tintColor
-        let fill = effectTint?.withAlphaComponent(vitrineEnabled ? 0.12 : 0.04)
-            ?? UIColor.white.withAlphaComponent(vitrineEnabled ? 0.05 : 0.02)
-        let stroke = effectTint?.withAlphaComponent(vitrineEnabled ? 0.28 : 0.10)
-            ?? UIColor.white.withAlphaComponent(vitrineEnabled ? 0.16 : 0.08)
+        let fill = effectTint?.withAlphaComponent(vitrineEnabled ? 0.18 : 0.04)
+            ?? UIColor.white.withAlphaComponent(vitrineEnabled ? 0.08 : 0.02)
+        let stroke = effectTint?.withAlphaComponent(vitrineEnabled ? 0.38 : 0.10)
+            ?? UIColor.white.withAlphaComponent(vitrineEnabled ? 0.24 : 0.08)
         overlay.backgroundColor = fill
         overlay.layer.borderColor = stroke.cgColor
-        overlay.layer.borderWidth = vitrineEnabled ? 1.0 : 0.6
+        overlay.layer.borderWidth = vitrineEnabled ? 1.3 : 0.6
         overlay.layer.cornerCurve = .continuous
         let corner = capsule ? pane.bounds.height / 2 : (radius ?? pane.layer.cornerRadius)
         if corner > 0 {
@@ -89,7 +89,7 @@ enum GlassKit {
         pane.contentView.layer.cornerCurve = .continuous
         if vitrineEnabled {
             pane.layer.shadowColor = UIColor.black.cgColor
-            pane.layer.shadowOpacity = 0.20
+            pane.layer.shadowOpacity = 0.26
             pane.layer.shadowRadius = 20
             pane.layer.shadowOffset = CGSize(width: 0, height: 8)
         } else {

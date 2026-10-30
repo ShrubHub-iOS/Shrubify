@@ -31,7 +31,7 @@ struct KaraokeLyricsView: View {
     }
 
     private func content(lyrics: KaraokeLyricsDto, layouts: [KaraokeLineLayout], screenWidth: CGFloat) -> some View {
-        TimelineView(.periodic(from: .now, by: 1.0 / 30.0)) { _ in
+        TimelineView(.animation(minimumInterval: ProcessInfo.processInfo.isLowPowerModeEnabled ? 1.0 / 30.0 : 1.0 / 60.0)) { _ in
             let currentMs = KaraokePlaybackTracker.shared.currentPositionMs()
 
             KaraokeScrollingLines(
@@ -47,12 +47,17 @@ struct KaraokeLyricsView: View {
 
     private func activeLineIndex(in lyrics: KaraokeLyricsDto, at currentMs: Int) -> Int? {
         guard !lyrics.lines.isEmpty else { return nil }
-        for (index, line) in lyrics.lines.enumerated().reversed() {
-            if currentMs >= line.startMs {
-                return index
+        var low = 0
+        var high = lyrics.lines.count
+        while low < high {
+            let middle = low + (high - low) / 2
+            if lyrics.lines[middle].startMs <= currentMs {
+                low = middle + 1
+            } else {
+                high = middle
             }
         }
-        return nil
+        return low > 0 ? low - 1 : nil
     }
 
     @ViewBuilder private var closeButtonBackground: some View {
@@ -127,12 +132,12 @@ private struct KaraokeScrollingLines: View {
 
         ScrollViewReader { proxy in
             ScrollView(showsIndicators: false) {
-                VStack(alignment: alignment, spacing: 28) {
-                    Spacer().frame(height: 80)
+                LazyVStack(alignment: alignment, spacing: 16) {
+                    Spacer().frame(height: 116)
 
-                    ForEach(Array(layouts.enumerated()), id: \.offset) { index, layout in
+                    ForEach(layouts.indices, id: \.self) { index in
                         KaraokeLineView(
-                            layout: layout,
+                            layout: layouts[index],
                             currentMs: currentMs,
                             isActiveLine: index == activeLineIndex,
                             availableWidth: max(0, screenWidth - horizontalPadding * 2),
@@ -157,7 +162,7 @@ private struct KaraokeScrollingLines: View {
             .onChange(of: activeLineIndex) { newIndex in
                 guard let newIndex = newIndex, newIndex < lyrics.lines.count else { return }
                 // Single-curve stand-in for SpicyLyrics' overshoot scroll.
-                withAnimation(.timingCurve(0.3, 1.4, 0.7, 1.0, duration: 0.8)) {
+                withAnimation(.easeInOut(duration: 0.38)) {
                     proxy.scrollTo(newIndex, anchor: .center)
                 }
             }

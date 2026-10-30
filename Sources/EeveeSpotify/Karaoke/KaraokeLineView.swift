@@ -33,9 +33,9 @@ struct KaraokeLineView: View {
         .padding(.horizontal, 18)
         .padding(.vertical, 14)
         .background(activePlate)
-        .opacity(isActiveLine ? 1.0 : 0.34)
-        .blur(radius: isActiveLine ? 0 : CGFloat(UserDefaults.karaokeOptions.blurIntensity))
-        .scaleEffect(isActiveLine ? 1.0 : 0.965, anchor: .center)
+        .opacity(isActiveLine ? 1.0 : 0.43)
+
+        .scaleEffect(isActiveLine ? 1.0 : 0.98, anchor: .center)
         .animation(.easeOut(duration: 0.35), value: isActiveLine)
         // Mirrors word/row order for RTL lines; the fill gradient is flipped separately below.
         .environment(\.layoutDirection, layout.isRTL ? .rightToLeft : .leftToRight)
@@ -90,8 +90,7 @@ private struct KaraokeWordView: View {
         .scaleEffect(scale)
         // Curve offsets are em fractions; 28 is the syllable font size.
         .offset(y: CGFloat(yOffsetFraction) * 28)
-        .shadow(color: .white.opacity(glow * 0.8), radius: CGFloat(glow * 8))
-        .animation(.linear(duration: 1.0 / 30.0), value: wordProgress)
+        .shadow(color: .white.opacity(glow * 0.36), radius: CGFloat(glow * 3))
     }
 }
 
@@ -129,6 +128,5 @@ private struct KaraokeSyllableTextView: View {
                     endPoint: gradientEnd
                 )
             )
-            .animation(.linear(duration: 0.08), value: progress)
     }
 }

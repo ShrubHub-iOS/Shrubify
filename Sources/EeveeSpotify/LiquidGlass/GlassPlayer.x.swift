@@ -32,7 +32,11 @@ enum PlayerBackdrop {
     static let meter = PerfMeter("Player][Backdrop")
     private static var artworkRadius: CGFloat {
         let defaults = UserDefaults.standard
-        return CGFloat(defaults.object(forKey: "ShrubifyArtworkRadius3") == nil ? 12 : defaults.double(forKey: "ShrubifyArtworkRadius3"))
+        let chosen = CGFloat(defaults.object(forKey: "ShrubifyArtworkRadius3") == nil ? 12 : defaults.double(forKey: "ShrubifyArtworkRadius3"))
+        if #available(iOS 26.0, *), LiquidGlass.launchOptions.enabled && GlassKit.vitrineEnabled {
+            return max(chosen, 22)
+        }
+        return chosen
     }
     private static var artworkRadiusKey: UInt8 = 0
     private static var backdropKey: UInt8 = 0
@@ -97,10 +101,16 @@ enum PlayerBackdrop {
         let previous = objc_getAssociatedObject(tilt, &artworkRadiusKey) as? NSNumber
         guard previous?.doubleValue != Double(artworkRadius) || tilt.layer.shadowPath?.boundingBox != tilt.bounds else { return }
         objc_setAssociatedObject(tilt, &artworkRadiusKey, NSNumber(value: Double(artworkRadius)), .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+        let vitrine: Bool
+        if #available(iOS 26.0, *) {
+            vitrine = LiquidGlass.launchOptions.enabled && GlassKit.vitrineEnabled
+        } else { vitrine = false }
+        tilt.layer.borderWidth = vitrine ? 2 : 0
+        tilt.layer.borderColor = vitrine ? UIColor.white.withAlphaComponent(0.33).cgColor : nil
         tilt.layer.shadowColor = UIColor.black.cgColor
-        tilt.layer.shadowOpacity = 0.45
-        tilt.layer.shadowRadius = 32
-        tilt.layer.shadowOffset = CGSize(width: 0, height: 12)
+        tilt.layer.shadowOpacity = vitrine ? 0.64 : 0.45
+        tilt.layer.shadowRadius = vitrine ? 40 : 32
+        tilt.layer.shadowOffset = CGSize(width: 0, height: vitrine ? 16 : 12)
         tilt.layer.shadowPath = UIBezierPath(roundedRect: tilt.bounds, cornerRadius: artworkRadius).cgPath
     }
 
@@ -205,7 +215,7 @@ enum PlayerLyricsCard {
         if glass.frame != cell.bounds {
             glass.frame = cell.bounds
             glass.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-            GlassKit.shape(glass, radius: GlassKit.vitrineEnabled ? 22 : 16, capsule: false)
+            GlassKit.shape(glass, radius: GlassKit.vitrineEnabled ? 24 : 16, capsule: false)
         }
         GlassKit.tint(glass, tint)
     }
