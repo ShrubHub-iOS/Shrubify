@@ -28,6 +28,13 @@ struct ShrubifyReplayView: View {
                 }
                 .padding(.vertical, 8)
             }
+            Section(header: Text("Replay details")) {
+                HStack { Text("Recorded plays"); Spacer(); Text("\(history.tracks.reduce(0) { $0 + $1.plays })") }
+                HStack { Text("Artists in history"); Spacer(); Text("\(Set(history.tracks.map { $0.artist.lowercased() }).count)") }
+                HStack { Text("Last seven days"); Spacer(); Text(shrubTime(history.recentDays().reduce(0) { $0 + $1.seconds })) }
+                Text("Plays and artists cover the songs retained on this device. Listening totals are estimates, not Spotify account history.")
+                    .font(.footnote).foregroundColor(.secondary)
+            }
             Section(header: Text("Most listened")) {
                 if history.tracks.isEmpty {
                     Text("Your local listening stats will appear here after tracking is enabled and you play music in Shrubify.")

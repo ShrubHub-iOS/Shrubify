@@ -47,6 +47,10 @@ struct EeveeLyricsSettingsView: View {
             )
 
             if karaokeOptions.enabled {
+                Toggle("Custom lyrics only", isOn: $karaokeOptions.customLyricsOnly)
+                Text("Hide Spotify’s lyrics card and preview. Open custom lyrics with the Word-Synced button. Restart after changing; songs without custom lyrics will have no lyrics card.")
+                    .font(.footnote).foregroundColor(.secondary)
+
                 Picker("karaoke_alignment".localized, selection: $karaokeOptions.textAlignment) {
                     ForEach(KaraokeTextAlignment.allCases, id: \.self) { alignment in
                         Text(alignment.displayName).tag(alignment)
