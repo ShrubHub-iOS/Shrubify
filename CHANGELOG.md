@@ -1,3 +1,12 @@
+# 3.0.6
+
+- Tap custom lyric lines to seek using Spotify’s seconds-based seek API; unsupported builds show a message.
+- Optional custom-lyrics-only setting hides the native lyrics card/preview after restart, without changing the saved player layout.
+- Replay shows retained play/artist counts and seven-day listening time.
+- Fix paused-time overcounting in Replay by preserving cleared sample timestamps.
+
+Validation: source checks only locally; native compilation, actual IPA build and device testing remain required. This setting hides native card/preview entry points; it does not uninstall Spotify’s lyrics implementation or intercept every possible deep link.
+
 # 3.0.5 (release candidate)
 
 Repair Orion/Swift support caching, simplify glass rendering, improve settings text layout, and fix Studio navigation and saved-layout button behavior. See RELEASE-3.0.5.md for validation status.

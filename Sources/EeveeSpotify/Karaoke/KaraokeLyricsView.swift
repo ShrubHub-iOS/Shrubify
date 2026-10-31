@@ -124,6 +124,7 @@ private struct KaraokeScrollingLines: View {
     let activeLineIndex: Int?
     let screenWidth: CGFloat
 
+    @State private var seekUnavailable = false
     private let horizontalPadding: CGFloat = 24
 
     var body: some View {
@@ -143,6 +144,13 @@ private struct KaraokeScrollingLines: View {
                             availableWidth: max(0, screenWidth - horizontalPadding * 2),
                             alignment: alignment
                         )
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            guard lyrics.lines.indices.contains(index) else { return }
+                            seekUnavailable = !KaraokeSeek.seek(milliseconds: lyrics.lines[index].startMs)
+                        }
+                        .accessibilityAddTraits(.isButton)
+                        .accessibilityHint("Jump to this lyric")
                         .id(index)
                         .padding(.horizontal, horizontalPadding)
                         .scaleEffect(x: 1, y: flip)
@@ -170,5 +178,8 @@ private struct KaraokeScrollingLines: View {
             .scaleEffect(x: 1, y: flip)
         }
         .environment(\.layoutDirection, lyrics.isRTL ? .rightToLeft : .leftToRight)
+        .alert(isPresented: $seekUnavailable) {
+            Alert(title: Text("Seeking unavailable"), message: Text("This Spotify build does not expose a supported playback seek method."), dismissButton: .default(Text("OK")))
+        }
     }
 }

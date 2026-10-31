@@ -14,6 +14,7 @@ struct KaraokeOptions: Codable, Hashable {
     var textAlignment: KaraokeTextAlignment = .center
     var reversedDirection = false
     var enabled = true
+    var customLyricsOnly = false
     var blurIntensity: Double = 1.5
 
     init(textAlignment: KaraokeTextAlignment = .center, reversedDirection: Bool = false, enabled: Bool = true, blurIntensity: Double = 1.5) {
@@ -24,7 +25,7 @@ struct KaraokeOptions: Codable, Hashable {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case textAlignment, reversedDirection, enabled, blurIntensity
+        case textAlignment, reversedDirection, enabled, blurIntensity, customLyricsOnly
     }
 
     // Settings saved before these fields existed must keep decoding.
@@ -32,6 +33,7 @@ struct KaraokeOptions: Codable, Hashable {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         textAlignment = try container.decodeIfPresent(KaraokeTextAlignment.self, forKey: .textAlignment) ?? .center
         reversedDirection = try container.decodeIfPresent(Bool.self, forKey: .reversedDirection) ?? false
+        customLyricsOnly = try container.decodeIfPresent(Bool.self, forKey: .customLyricsOnly) ?? false
         enabled = try container.decodeIfPresent(Bool.self, forKey: .enabled) ?? true
         blurIntensity = try container.decodeIfPresent(Double.self, forKey: .blurIntensity) ?? 1.5
     }

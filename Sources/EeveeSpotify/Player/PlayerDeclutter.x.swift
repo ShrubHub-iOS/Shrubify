@@ -42,7 +42,14 @@ enum PlayerPart: String, CaseIterable, Codable {
 }
 
 enum PlayerDeclutter {
-    static let hidden = Set(UserDefaults.playerOptions.hiddenParts)
+    static let hidden: Set<PlayerPart> = {
+        var parts = Set(UserDefaults.playerOptions.hiddenParts)
+        let options = UserDefaults.karaokeOptions
+        if options.enabled && options.customLyricsOnly && UserDefaults.lyricsSource.supportsCustomLyricsView {
+            parts.formUnion([.lyricsCard, .lyricsPreview])
+        }
+        return parts
+    }()
     static let cardsMeter = PerfMeter("Player][Cards")
     static let buttonsMeter = PerfMeter("Player][Buttons")
     private static var loggedCards = Set<PlayerPart>()

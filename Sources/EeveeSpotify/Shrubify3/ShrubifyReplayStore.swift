@@ -114,7 +114,8 @@ final class ShrubifyReplayStore: ObservableObject {
     func sample() {
         guard Thread.isMainThread, isActive, enabled else { previousStamp = nil; return }
         let now = ProcessInfo.processInfo.systemUptime
-        defer { previousStamp = now }
+        let priorStamp = previousStamp
+        previousStamp = nil
         guard let info = MPNowPlayingInfoCenter.default().nowPlayingInfo,
               let title = info[MPMediaItemPropertyTitle] as? String, !title.isEmpty,
               let artist = info[MPMediaItemPropertyArtist] as? String, !artist.isEmpty else {
@@ -133,7 +134,8 @@ final class ShrubifyReplayStore: ObservableObject {
             previousStamp = nil
         }
         // Never backfill missing time or count time spent in background.
-        let seconds = min(12, max(0, now - (previousStamp ?? now)))
+        let seconds = changed ? 0 : min(12, max(0, now - (priorStamp ?? now)))
+        previousStamp = now
         guard seconds > 0 else { return }
         currentPlaySeconds += seconds
         let date = Date()

@@ -14,4 +14,6 @@ void EeveeColorSwapStats(long *grey, long *green, long *uiColor);
 BOOL EeveePinSetter(id object, SEL setter, id value);
 BOOL EeveeInterceptBackground(UIView *view, void (^sink)(UIColor *color));
 
+BOOL ShrubSeekPlaybackSeconds(id target, double seconds);
+
 NS_ASSUME_NONNULL_END

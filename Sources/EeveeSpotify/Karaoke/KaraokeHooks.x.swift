@@ -123,6 +123,7 @@ class KaraokeStateObservableProbeHook: ClassHook<NSObject> {
 
     func provideStateObservable() -> AnyObject {
         let observable = orig.provideStateObservable()
+        KaraokeSeek.player = observable
         if !didDumpStateObservable {
             didDumpStateObservable = true
             karaokeDumpClassMethods("stateObservable", of: observable)
