@@ -4,7 +4,6 @@ import SwiftUI
 struct KaraokeLyricsView: View {
     var onDismiss: () -> Void
     @StateObject private var model: KaraokeLyricsViewModel
-    @Environment(\.scenePhase) private var scenePhase
     private let options = UserDefaults.karaokeOptions
 
     init(trackId: String?, lyrics: KaraokeLyricsDto, onDismiss: @escaping () -> Void) {
@@ -26,26 +25,28 @@ struct KaraokeLyricsView: View {
                         content(lyrics: lyrics, layouts: model.layouts, screenWidth: geo.size.width)
                             .id(model.trackId)
                     }
+                    KaraokePlaybackControls(playback: model.playback, seek: { model.seek(to: $0) }, toggle: { model.togglePlayback() })
+                        .disabled(model.playback.trackID != nil && model.playback.trackID != model.trackId)
                 }
 
             }
         }
         .preferredColorScheme(.dark)
+        .onAppear { model.startPlaybackUpdates() }
+        .onDisappear { model.stopPlaybackUpdates() }
     }
 
     private func content(lyrics: KaraokeLyricsDto, layouts: [KaraokeLineLayout], screenWidth: CGFloat) -> some View {
-        TimelineView(.animation(minimumInterval: ProcessInfo.processInfo.isLowPowerModeEnabled ? 1.0 / 30.0 : 1.0 / 60.0, paused: scenePhase != .active)) { _ in
-            let currentMs = ShrubifyBetaSupport.lyricPosition(playbackMs: KaraokePlaybackTracker.shared.currentPositionMs(), delayMs: options.timingOffsetMs)
-
-            KaraokeScrollingLines(
-                lyrics: lyrics,
-                layouts: layouts,
-                options: options,
-                currentMs: currentMs,
-                activeLineIndex: activeLineIndex(in: lyrics, at: currentMs),
-                screenWidth: screenWidth
-            )
-        }
+        let currentMs = ShrubifyBetaSupport.lyricPosition(playbackMs: model.playback.positionMs, delayMs: options.timingOffsetMs)
+        return KaraokeScrollingLines(
+            lyrics: lyrics,
+            layouts: layouts,
+            options: options,
+            currentMs: currentMs,
+            activeLineIndex: activeLineIndex(in: lyrics, at: currentMs),
+            screenWidth: screenWidth,
+            seek: { model.seek(to: $0) }
+        )
     }
 
     private func activeLineIndex(in lyrics: KaraokeLyricsDto, at currentMs: Int) -> Int? {
@@ -126,6 +127,7 @@ private struct KaraokeScrollingLines: View {
     let currentMs: Int
     let activeLineIndex: Int?
     let screenWidth: CGFloat
+    let seek: (Int) -> Bool
 
     @State private var seekUnavailable = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -140,7 +142,7 @@ private struct KaraokeScrollingLines: View {
                 LazyVStack(alignment: alignment, spacing: 16) {
                     Spacer().frame(height: 24)
 
-                    ForEach(layouts.indices, id: \.self) { index in
+                    ForEach(0..<min(layouts.count, lyrics.lines.count), id: \.self) { index in
                         KaraokeLineView(
                             layout: layouts[index],
                             currentMs: currentMs,
@@ -151,7 +153,7 @@ private struct KaraokeScrollingLines: View {
                         .contentShape(Rectangle())
                         .onTapGesture {
                             guard lyrics.lines.indices.contains(index) else { return }
-                            let succeeded = KaraokeSeek.seek(milliseconds: ShrubifyBetaSupport.seekPosition(lineMs: lyrics.lines[index].startMs, delayMs: options.timingOffsetMs))
+                            let succeeded = seek(ShrubifyBetaSupport.seekPosition(lineMs: lyrics.lines[index].startMs, delayMs: options.timingOffsetMs))
                             seekUnavailable = !succeeded
                             if succeeded { proxy.scrollTo(index, anchor: .center) }
                         }

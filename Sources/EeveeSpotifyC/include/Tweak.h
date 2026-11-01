@@ -16,4 +16,10 @@ BOOL EeveeInterceptBackground(UIView *view, void (^sink)(UIColor *color));
 
 BOOL ShrubSeekPlaybackSeconds(id target, double seconds);
 
+NSDictionary *_Nullable ShrubPlaybackFacts(id state);
+NSDictionary *_Nullable ShrubReadLivePlayback(id player);
+BOOL ShrubSetPlaybackPaused(id player, BOOL paused);
+
+BOOL ShrubRegisterPlaybackObserver(id player, id observer);
+
 NS_ASSUME_NONNULL_END

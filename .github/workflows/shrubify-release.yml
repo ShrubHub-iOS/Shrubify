@@ -107,6 +107,7 @@ jobs:
           python3 scripts/check_ios14_swiftui.py
           python3 scripts/check_shrubify_branding.py
           swiftc -frontend -parse Sources/EeveeSpotify/Shrubify3/*.swift
+          bash scripts/test_v4_beta.sh
       - uses: maxim-lobanov/setup-xcode@v1
         with:
           xcode-version: '26.1.1'

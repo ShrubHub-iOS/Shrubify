@@ -9,8 +9,10 @@ import SwiftUI
 /// before enumeration/hooking can happen).
 final class KaraokeOverlayPresenter {
     private(set) static var isPresented = false
+    private static weak var displayedController: UIViewController?
 
     static func present() {
+        guard Thread.isMainThread else { DispatchQueue.main.async { present() }; return }
         guard !isPresented else { return }
         guard UserDefaults.karaokeOptions.enabled, UserDefaults.lyricsSource.supportsCustomLyricsView else {
             writeDebugLog("[Karaoke] present() skipped: custom lyrics view disabled in settings or unsupported by the lyrics source")
@@ -20,7 +22,7 @@ final class KaraokeOverlayPresenter {
             writeDebugLog("[Karaoke] present() skipped: requires iOS 15+")
             return
         }
-        guard let host = topVC() else {
+        guard let host = topVC(), !(host is UIAlertController), !host.isBeingDismissed else {
             writeDebugLog("[Karaoke] present() called but no top view controller found")
             return
         }
@@ -33,7 +35,8 @@ final class KaraokeOverlayPresenter {
         let view = KaraokeLyricsView(trackId: trackId, lyrics: lyrics, onDismiss: {
             guard isPresented else { return }
             isPresented = false
-            topVC()?.dismiss(animated: true)
+            displayedController?.dismiss(animated: true)
+            displayedController = nil
         })
         let hosting = UIHostingController(rootView: view)
         hosting.overrideUserInterfaceStyle = .dark
@@ -42,6 +45,7 @@ final class KaraokeOverlayPresenter {
         hosting.modalPresentationStyle = glass ? .overFullScreen : .fullScreen
         hosting.view.backgroundColor = glass ? .clear : .black
 
+        displayedController = hosting
         isPresented = true
         host.present(hosting, animated: true)
     }

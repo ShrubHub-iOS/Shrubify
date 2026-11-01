@@ -1,3 +1,9 @@
+# 4.0.0 beta 4
+
+Replace hosted-scene-dependent lyric updates with visible-only live player state sampling. Register the modern playerStateDidChange: callback; use Spotify’s isPaused and positionAsOfTimestamp state fields; synchronize seeks, highlight and controls through one clock. Add pause/play and a scrubbable progress bar with elapsed/remaining time. Sort line timestamps together with layouts, guard row counts across track changes, and protect native playback/observer calls at the Objective-C boundary.
+
+Shrubify Settings now uses a plain UIViewController inside its independent UIKit sheet instead of claiming to be a registered Spotify page. This further isolates the page-registry failure path in the prior crash report. No new crash report was provided for the latest recurrence, so its cause remains unconfirmed.
+
 # 4.0.0 beta 3
 
 Move Shrubify Settings into a standard UIKit navigation sheet and supply a nonempty settings URI. This targets the supplied Spotify 9.1.94 crash report: a button action raises from the TabNodeDataProvider.swift:49 missing-page path. The matching SpotifyShared UUID was verified before examining the caller. No global exception suppression or bundle-ID change is used. Device confirmation remains required.

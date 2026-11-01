@@ -55,25 +55,35 @@ extension UserDefaults {
     static var lyricsOptions: TestLyricsOptions { TestLyricsOptions() }
 }
 
-// Exercise the shipping playback tracker with an Objective-C-visible state object.
-func karaokeDumpClassMethods(_ label: String, of object: AnyObject?) {}
-final class SeekTestState: NSObject {
-    @objc var position: Double = 10
-    @objc var playbackSpeed: Double = 1
-    @objc var isPlaying: Bool = false
-}
+// Facts read from actual Objective-C player fixtures through the shipping bridge.
+let player = ShrubTestPlayer()
 let clock = KaraokePlaybackTracker.shared
-let playbackState = SeekTestState()
-clock.processStateChange(state: playbackState)
-check(clock.currentPositionMs() == 10000, "observer updates lyric clock")
+let pausedFacts = ShrubReadLivePlayback(player)!
+check((pausedFacts["position"] as? NSNumber)?.doubleValue == 10, "paused clock uses positionAsOfTimestamp")
+clock.processStateChange(state: pausedFacts as NSDictionary)
+check(clock.currentPositionMs() == 10000, "native facts update the lyric clock")
+check(ShrubSeekPlaybackSeconds(player, 70), "real bridge invokes a seconds-based seek")
 clock.didSeek(milliseconds: 70000)
 check(clock.currentPositionMs() == 70000, "seek immediately updates lyric clock")
-clock.processStateChange(state: playbackState)
-check(clock.currentPositionMs() == 70000, "old position callback cannot undo seek")
-playbackState.position = 70
-clock.processStateChange(state: playbackState)
-check(clock.currentPositionMs() == 70000, "seek acknowledgement reconciles")
-playbackState.position = Double.nan
-clock.processStateChange(state: playbackState)
+clock.processStateChange(state: pausedFacts as NSDictionary)
+check(clock.currentPositionMs() == 70000, "stale sample cannot undo seek")
+clock.processStateChange(state: ShrubReadLivePlayback(player)! as NSDictionary)
+check(clock.currentPositionMs() == 70000, "live seek acknowledgement reconciles")
+clock.processStateChange(state: ["position": Double.nan] as NSDictionary)
 check(clock.currentPositionMs() == 70000, "invalid playback position does not crash")
-print("Beta 2 fallback and seek synchronization checks passed")
+check(ShrubSetPlaybackPaused(player, false), "resume command accepted")
+clock.processStateChange(state: ShrubReadLivePlayback(player)! as NSDictionary)
+check(clock.isPlaying(), "isPaused drives play state")
+RunLoop.main.run(until: Date().addingTimeInterval(0.02))
+check(clock.currentPositionMs() > 70000, "clock advances while playing")
+check(ShrubSetPlaybackPaused(player, true), "pause command accepted")
+clock.processStateChange(state: ShrubReadLivePlayback(player)! as NSDictionary)
+check(!clock.isPlaying(), "pause reflected in shared clock")
+check(clock.snapshot().durationMs == 240000, "duration read for progress control")
+let throwing = ShrubTestThrowingPlayer()
+check(ShrubReadLivePlayback(throwing) == nil, "state exception stays outside Swift")
+check(!ShrubSeekPlaybackSeconds(throwing, 5), "seek exception handled")
+check(!ShrubRegisterPlaybackObserver(throwing, NSObject()), "observer exception handled")
+check(!ShrubSeekPlaybackSeconds(NSObject(), 5), "unsupported seek rejected")
+check(!ShrubSeekPlaybackSeconds(player, Double.infinity), "invalid seek rejected")
+print("Native playback bridge and shared clock checks passed")

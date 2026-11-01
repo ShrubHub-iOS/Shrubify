@@ -1,4 +1,5 @@
 import Foundation
+import EeveeSpotifyC
 import Orion
 import UIKit
 import ObjectiveC.runtime
@@ -17,22 +18,27 @@ private let karaokeObserver = EeveeKaraokeObserver()
 // didChangeState:, the two-argument variants below simply never fire, which
 // is harmless (extra unused @objc methods, not a conflict).
 @objc final class EeveeKaraokeObserver: NSObject {
+    @objc func playerStateDidChange(_ newState: AnyObject) {
+        KaraokeSeek.observe(newState)
+        DispatchQueue.main.async { KaraokeGestureTrigger.shared.attachIfNeeded() }
+    }
+
     @objc func didChangeState(_ newState: AnyObject) {
-        KaraokePlaybackTracker.shared.processStateChange(state: newState)
+        KaraokeSeek.observe(newState)
         DispatchQueue.main.async {
             KaraokeGestureTrigger.shared.attachIfNeeded()
         }
     }
 
     @objc func player(_ player: AnyObject, stateDidChange newState: AnyObject) {
-        KaraokePlaybackTracker.shared.processStateChange(state: newState)
+        KaraokeSeek.observe(newState)
         DispatchQueue.main.async {
             KaraokeGestureTrigger.shared.attachIfNeeded()
         }
     }
 
     @objc func player(_ player: AnyObject, stateDidChange newState: AnyObject, fromState oldState: AnyObject) {
-        KaraokePlaybackTracker.shared.processStateChange(state: newState)
+        KaraokeSeek.observe(newState)
         DispatchQueue.main.async {
             KaraokeGestureTrigger.shared.attachIfNeeded()
         }
@@ -96,6 +102,16 @@ class KaraokePlayerServiceObserverHook: ClassHook<NSObject> {
     }
 }
 
+// Capture the real player even on builds that do not request the old service observable.
+class KaraokeLivePlayerHook: ClassHook<NSObject> {
+    typealias Group = KaraokeGroup
+    static let targetName = "SPTEsperantoPlayer"
+    func state() -> AnyObject {
+        KaraokeSeek.player = target
+        return orig.state()
+    }
+}
+
 struct KaraokeGroup: HookGroup {}
 
 private var didDumpStateObservable = false
@@ -129,9 +145,8 @@ class KaraokeStateObservableProbeHook: ClassHook<NSObject> {
             karaokeDumpClassMethods("stateObservable", of: observable)
         }
         if !karaokeObserverRegistered {
-            karaokeObserverRegistered = true
-            writeDebugLog("[Karaoke] registering playback observer on SPTEsperantoPlayer via provideStateObservable")
-            _ = observable.perform(Selector(("addPlayerObserver:")), with: karaokeObserver)
+            karaokeObserverRegistered = ShrubRegisterPlaybackObserver(observable, karaokeObserver)
+            writeDebugLog("[Karaoke] playback observer registered: \(karaokeObserverRegistered)")
         }
         return observable
     }
