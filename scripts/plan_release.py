@@ -4,6 +4,7 @@
 This deliberately never scrapes/decrypts the App Store binary. A detected
 update without a matching IPA URL is reported as pending, not falsely built.
 """
+from release_version import github_version
 import argparse
 import json
 import os
@@ -88,7 +89,7 @@ def main():
         skip_reason = 'No authorized IPA URL was configured for this version.'
     # Avoid recurring macOS builds for already-published release from this commit.
     if not skip_reason and not manual and args.repo and args.sha and args.token:
-        tag = f'shrubify-s{latest}-v{args.tweak}-g{args.sha[:7]}'
+        tag = f'shrubify-s{latest}-v{github_version(args.tweak)}-g{args.sha[:7]}'
         try:
             data = fetch_json(f'https://api.github.com/repos/{args.repo}/releases/tags/{tag}',args.token)
             if data.get('id'): skip_reason = 'This exact Spotify/tweak/source revision is already released.'

@@ -13,7 +13,7 @@ def source_for(repo, releases, branch="main"):
     icon=f'https://raw.githubusercontent.com/{repo}/{branch}/docs/icon.png'
     seen=set(); versions=[]
     for release in sorted(releases,key=lambda r:r.get('published_at') or '',reverse=True):
-        if release.get('draft'): continue
+        if release.get('draft') or release.get('prerelease'): continue
         matched=TAG.fullmatch(release.get('tag_name',''))
         if not matched: continue
         assets=[a for a in release.get('assets',[]) if a.get('name','').endswith('.ipa')]

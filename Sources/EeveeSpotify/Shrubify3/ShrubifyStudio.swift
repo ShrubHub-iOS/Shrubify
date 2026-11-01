@@ -29,6 +29,7 @@ private struct ShrubifySavedLayout: Codable, Identifiable {
     var player: PlayerOptions
     var glass: LiquidGlassOptions
     var bar: NowPlayingBarOptions
+    var artworkRadius: Double?
 }
 
 struct ShrubifyStudioView: View {
@@ -48,6 +49,9 @@ struct ShrubifyStudioView: View {
 
     var body: some View {
         List {
+            Section(footer: Text("Saved v3 layouts remain available. Some changes take effect after restarting Shrubify.")) {
+                SettingsLabel(title: "Studio", subtitle: "Your player, your layout", icon: "slider.horizontal.3", color: .blue)
+            }
             presetSection
             playerDetailsSection
             appearanceSection
@@ -139,7 +143,8 @@ struct ShrubifyStudioView: View {
                     Button { restore(item) } label: {
                         VStack(alignment: .leading, spacing: 3) {
                             Text(item.name).foregroundColor(.primary)
-                            Text("Tap to restore").font(.caption).foregroundColor(.secondary)
+                            Text("Restore player, glass and mini-player settings").font(.caption).foregroundColor(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
                         }
                     }
                     .buttonStyle(BorderlessButtonStyle())
@@ -175,7 +180,7 @@ struct ShrubifyStudioView: View {
     private func saveLayout() {
         let name = String(newLayoutName.trimmingCharacters(in: .whitespacesAndNewlines).prefix(36))
         guard !name.isEmpty, savedLayouts.count < 12 else { return }
-        savedLayouts.append(ShrubifySavedLayout(name: name, player: player, glass: glass, bar: bar))
+        savedLayouts.append(ShrubifySavedLayout(name: name, player: player, glass: glass, bar: bar, artworkRadius: artworkRadius))
         persistLayouts()
     }
 
@@ -187,6 +192,10 @@ struct ShrubifyStudioView: View {
     private func restore(_ layout: ShrubifySavedLayout) {
         preset = .custom
         UserDefaults.standard.set(ShrubifyPreset.custom.rawValue, forKey: "ShrubifyPreset3")
+        if let radius = layout.artworkRadius, radius.isFinite {
+            artworkRadius = min(30, max(0, radius))
+            UserDefaults.standard.set(artworkRadius, forKey: "ShrubifyArtworkRadius3")
+        }
         player = layout.player
         glass = layout.glass
         bar = layout.bar

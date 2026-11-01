@@ -50,6 +50,7 @@ struct SettingsLabel: View {
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 2) {
                 Text(title).foregroundColor(.primary)
+                    .fixedSize(horizontal: false, vertical: true)
                 if let subtitle {
                     Text(subtitle)
                         .font(.footnote)
@@ -99,7 +100,6 @@ struct SettingsHero: View {
                 .aspectRatio(contentMode: .fit)
                 .frame(width: 84, height: 84)
                 .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-                .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(Color.primary.opacity(0.08), lineWidth: 1))
                 .accessibilityHidden(true)
             Text("Shrubify")
                 .font(.system(size: 27, weight: .bold, design: .rounded))
@@ -115,7 +115,7 @@ struct SettingsHero: View {
         .padding(.horizontal, 18)
         .padding(.vertical, 24)
         .frame(maxWidth: .infinity)
-        .modifier(ShrubifyGlassSurface())
+        .multilineTextAlignment(.center)
         .padding(.horizontal, 14)
         .padding(.bottom, 5)
         .accessibilityElement(children: .combine)

@@ -16,6 +16,7 @@ struct KaraokeOptions: Codable, Hashable {
     var enabled = true
     var customLyricsOnly = false
     var blurIntensity: Double = 1.5
+    var timingOffsetMs = 0
 
     init(textAlignment: KaraokeTextAlignment = .center, reversedDirection: Bool = false, enabled: Bool = true, blurIntensity: Double = 1.5) {
         self.textAlignment = textAlignment
@@ -25,7 +26,7 @@ struct KaraokeOptions: Codable, Hashable {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case textAlignment, reversedDirection, enabled, blurIntensity, customLyricsOnly
+        case textAlignment, reversedDirection, enabled, blurIntensity, customLyricsOnly, timingOffsetMs
     }
 
     // Settings saved before these fields existed must keep decoding.
@@ -35,6 +36,7 @@ struct KaraokeOptions: Codable, Hashable {
         reversedDirection = try container.decodeIfPresent(Bool.self, forKey: .reversedDirection) ?? false
         customLyricsOnly = try container.decodeIfPresent(Bool.self, forKey: .customLyricsOnly) ?? false
         enabled = try container.decodeIfPresent(Bool.self, forKey: .enabled) ?? true
+        timingOffsetMs = ShrubifyBetaSupport.timingOffset(try container.decodeIfPresent(Int.self, forKey: .timingOffsetMs) ?? 0)
         blurIntensity = try container.decodeIfPresent(Double.self, forKey: .blurIntensity) ?? 1.5
     }
 }

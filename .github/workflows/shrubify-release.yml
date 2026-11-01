@@ -141,7 +141,8 @@ jobs:
           TWEAK_VERSION=$(awk '$1=="Version:"{print $2}' control)
           SOURCE_SHA=$(git log -1 --format=%H -- Sources Scripts Tools modules layout Assets config scripts Makefile control .github/workflows/shrubify-release.yml)
           SHA7="${SOURCE_SHA:0:7}"
-          TAG="shrubify-s${SPOT_VERSION}-v${TWEAK_VERSION}-g${SHA7}"
+          TAG_VERSION=$(python3 scripts/release_version.py "$TWEAK_VERSION")
+          TAG="shrubify-s${SPOT_VERSION}-v${TAG_VERSION}-g${SHA7}"
           if [[ "$FORCE" == "true" ]]; then TAG="${TAG}-r${GITHUB_RUN_NUMBER}"; fi
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "tweak_version=$TWEAK_VERSION" >> "$GITHUB_OUTPUT"
@@ -329,7 +330,9 @@ jobs:
           altstore-build: ${GITHUB_RUN_NUMBER}
           source-sha: ${GITHUB_SHA}
           EOF
-          gh release create "$RELEASE_TAG" "$IPA_PATH" "$DEB_PATH" \
+          RELEASE_FLAGS=()
+          if [[ "$TWEAK_VERSION" == *"~beta"* ]]; then RELEASE_FLAGS+=(--prerelease --latest=false); fi
+          gh release create "$RELEASE_TAG" "$IPA_PATH" "$DEB_PATH" "${RELEASE_FLAGS[@]}" \
             --title "Shrubify ${TWEAK_VERSION} · Spotify ${SPOTIFY_VERSION}" \
             --notes-file "$RUNNER_TEMP/shrubify-notes.md" \
             --target "$GITHUB_SHA"

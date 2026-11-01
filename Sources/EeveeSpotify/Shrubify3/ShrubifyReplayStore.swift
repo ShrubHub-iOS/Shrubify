@@ -54,6 +54,9 @@ final class ShrubifyReplayStore: ObservableObject {
     @Published private(set) var enabled: Bool = false
 
     private var archive = ShrubifyReplayArchive()
+    private(set) var rankedTracks: [ShrubifyTrackRecord] = []
+    private var recentSortedTracks: [ShrubifyTrackRecord] = []
+    private var rankedArtists: [ShrubifyArtistTotal] = []
     private var timer: Timer?
     private var observers: [NSObjectProtocol] = []
     private var previousStamp: TimeInterval?
@@ -165,15 +168,11 @@ final class ShrubifyReplayStore: ObservableObject {
             let recent = archive.dailySeconds.keys.sorted().suffix(400)
             archive.dailySeconds = archive.dailySeconds.filter { recent.contains($0.key) }
         }
-        publish()
-        if now - lastSave >= 40 { persist() }
+        if now - lastSave >= 40 { persist() } else { publish() }
     }
 
     func topArtists(limit: Int = 10) -> [ShrubifyArtistTotal] {
-        var sums: [String: Double] = [:]
-        for track in tracks { sums[track.artist, default: 0] += track.seconds }
-        return Array(sums.map { ShrubifyArtistTotal(name: $0.key, seconds: $0.value) }
-            .sorted { $0.seconds > $1.seconds }.prefix(limit))
+        Array(rankedArtists.prefix(max(0, limit)))
     }
 
     func recentDays() -> [ShrubifyDailyTotal] {
@@ -185,7 +184,7 @@ final class ShrubifyReplayStore: ObservableObject {
     }
 
     func recentTracks(limit: Int = 15) -> [ShrubifyTrackRecord] {
-        Array(tracks.sorted { $0.lastPlayed > $1.lastPlayed }.prefix(limit))
+        Array(recentSortedTracks.prefix(max(0, limit)))
     }
 
     func bookmarkCurrent() -> Bool {
@@ -213,6 +212,13 @@ final class ShrubifyReplayStore: ObservableObject {
         return true
     }
 
+    func exportData() throws -> Data {
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        return try encoder.encode(archive)
+    }
+
     func removeSession(_ id: UUID) {
         archive.sessions.removeAll { $0.id == id }
         persist()
@@ -236,6 +242,13 @@ final class ShrubifyReplayStore: ObservableObject {
     }
 
     private func publish() {
+        // Rebuild these bounded summaries once per data change, not for every view body.
+        rankedTracks = archive.tracks.sorted { $0.seconds == $1.seconds ? $0.id < $1.id : $0.seconds > $1.seconds }
+        recentSortedTracks = archive.tracks.sorted { $0.lastPlayed == $1.lastPlayed ? $0.id < $1.id : $0.lastPlayed > $1.lastPlayed }
+        var sums: [String: Double] = [:]
+        for track in archive.tracks { sums[track.artist, default: 0] += track.seconds }
+        rankedArtists = sums.map { ShrubifyArtistTotal(name: $0.key, seconds: $0.value) }
+            .sorted { $0.seconds == $1.seconds ? $0.name < $1.name : $0.seconds > $1.seconds }
         tracks = archive.tracks
         sessions = archive.sessions
         todaySeconds = archive.dailySeconds[Self.dayKey(Date())] ?? 0

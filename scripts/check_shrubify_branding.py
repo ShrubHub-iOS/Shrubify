@@ -6,6 +6,7 @@ Internal compatibility names are intentionally not renamed.
 """
 from pathlib import Path
 import re
+from release_version import github_version
 
 root = Path(__file__).resolve().parent.parent
 premium = (root / 'Sources/EeveeSpotify/Premium/DynamicPremium+PremiumPlanRow.swift').read_text()
@@ -20,5 +21,6 @@ assert premium.count('"Shrubify"') >= 4, 'Expected Shrubify name in Premium badg
 assert 'static let version = GeneratedConfig.tweakVersion' in tweak, 'Tweak version is not derived from control'
 assert 'static let tweakVersion = ' in makefile, 'GeneratedConfig must expose the package version'
 assert 'SHRUBIFY_VERSION' in makefile, 'Missing Makefile version generation'
-assert version_match.group(1).startswith('3.'), 'Unexpected older package version'
+github_version(version_match.group(1))
+assert int(version_match.group(1).split('.')[0]) >= 3, 'Unexpected older package version'
 print(f'Shrubify {version_match.group(1)} branding and version preflight passed')

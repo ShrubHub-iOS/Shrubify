@@ -1,29 +1,7 @@
 import Foundation
 
-/// Holds the most recently parsed karaoke (per-syllable) lyrics, keyed by
-/// Spotify track ID. SpicyLyricsRepository populates this as a side effect
-/// whenever it parses a Type=="Syllable" response — it's the bridge between
-/// the existing LyricsRepository protocol (which only returns flattened
-/// LyricsDto, matching Spotify's native line-only protobuf schema) and the
-/// custom karaoke overlay view, which needs the richer per-syllable timing
-/// that LyricsDto has nowhere to carry.
-///
-/// Not persisted, not thread-safety-hardened beyond a simple lock — this is
-/// just a same-process handoff between "lyrics were fetched" and "the
-/// overlay wants to render them," both of which happen on the main app
-/// process during normal playback.
-/// Holds the most recently parsed karaoke (per-syllable) lyrics, keyed by
-/// Spotify track ID. SpicyLyricsRepository populates this as a side effect
-/// whenever it parses a Type=="Syllable" response — it's the bridge between
-/// the existing LyricsRepository protocol (which only returns flattened
-/// LyricsDto, matching Spotify's native line-only protobuf schema) and the
-/// custom karaoke overlay view, which needs the richer per-syllable timing
-/// that LyricsDto has nowhere to carry.
-///
-/// Not persisted, not thread-safety-hardened beyond a simple lock — this is
-/// just a same-process handoff between "lyrics were fetched" and "the
-/// overlay wants to render them," both of which happen on the main app
-/// process during normal playback.
+/// Bounded, locked in-memory handoff between lyrics fetching and the custom view.
+/// Reads refresh recency; repeated notifications are coalesced on the main queue.
 final class KaraokeLyricsStore {
     static let shared = KaraokeLyricsStore()
 
@@ -31,6 +9,7 @@ final class KaraokeLyricsStore {
     private var cache: [String: KaraokeLyricsDto] = [:]
     private var order: [String] = []
     private let capacity = 8
+    private var notificationPending = false
 
     private init() {}
 
@@ -60,7 +39,10 @@ final class KaraokeLyricsStore {
     func lyrics(forTrackId trackId: String) -> KaraokeLyricsDto? {
         lock.lock()
         defer { lock.unlock() }
-        return cache[trackId]
+        guard let lyrics = cache[trackId] else { return nil }
+        order.removeAll { $0 == trackId }
+        order.append(trackId)
+        return lyrics
     }
 
     func clear() {
@@ -72,6 +54,16 @@ final class KaraokeLyricsStore {
     }
 
     func notify() {
-        DispatchQueue.main.async { NotificationCenter.default.post(name: .eeveeKaraokeLyricsChanged, object: nil) }
+        lock.lock()
+        guard !notificationPending else { lock.unlock(); return }
+        notificationPending = true
+        lock.unlock()
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            self.lock.lock()
+            self.notificationPending = false
+            self.lock.unlock()
+            NotificationCenter.default.post(name: .eeveeKaraokeLyricsChanged, object: nil)
+        }
     }
 }
