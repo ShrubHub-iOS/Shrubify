@@ -45,3 +45,28 @@ class EeveeSettingsViewController: SPTPageViewController {
         UIApplication.shared.open(URL(string: "https://github.com/zoinkdoggie94/Shrubify")!)
     }
 }
+
+/// Keep mod pages off Spotify's private tab/page registry. A standard UIKit
+/// navigation controller owns all settings pushes for the lifetime of the sheet.
+enum ShrubifySettingsPresenter {
+    static func present(from presenter: UIViewController) {
+        guard Thread.isMainThread else {
+            DispatchQueue.main.async { present(from: presenter) }
+            return
+        }
+        guard presenter.presentedViewController == nil else { return }
+        let navigation = UINavigationController()
+        let root = EeveeSettingsViewController(
+            presenter.view.bounds,
+            settingsView: AnyView(EeveeSettingsView(navigationController: navigation)),
+            navigationTitle: "Shrubify"
+        )
+        root.navigationItem.rightBarButtonItem = UIBarButtonItem(
+            systemItem: .done,
+            primaryAction: UIAction { [weak navigation] _ in navigation?.dismiss(animated: true) }
+        )
+        navigation.setViewControllers([root], animated: false)
+        navigation.modalPresentationStyle = .pageSheet
+        presenter.present(navigation, animated: true)
+    }
+}

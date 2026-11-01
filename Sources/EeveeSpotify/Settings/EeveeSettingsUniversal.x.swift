@@ -69,33 +69,7 @@ class UniversalProfileSettingsSectionHook: ClassHook<NSObject> {
             return
         }
         
-        let eeveeSettingsController = EeveeSettingsViewController(
-            rootController.view.bounds,
-            settingsView: AnyView(EeveeSettingsView(navigationController: navigationController)),
-            navigationTitle: "Shrubify"
-        )
-        
-        let button = UIButton()
-        
-        if let githubImage = BundleHelper.shared.uiImage("github") {
-            button.setImage(githubImage.withRenderingMode(.alwaysOriginal), for: .normal)
-        } else {
-             // Fallback if github image is missing
-             button.setImage(UIImage(systemName: "globe"), for: .normal)
-        }
-        
-        button.addTarget(
-            eeveeSettingsController,
-            action: #selector(eeveeSettingsController.openRepositoryUrl(_:)),
-            for: .touchUpInside
-        )
-        
-        let menuBarItem = UIBarButtonItem(customView: button)
-        menuBarItem.customView?.heightAnchor.constraint(equalToConstant: 22).isActive = true
-        menuBarItem.customView?.widthAnchor.constraint(equalToConstant: 22).isActive = true
-        eeveeSettingsController.navigationItem.rightBarButtonItem = menuBarItem
-        
-        navigationController.pushViewController(eeveeSettingsController, animated: true)
+        ShrubifySettingsPresenter.present(from: navigationController)
     }
 }
 
@@ -128,37 +102,7 @@ func injectEeveeButton(into target: UIViewController) {
         
         eeveeLog("[Shrubify] Opening Shrubify settings...")
         
-        let eeveeSettingsController = EeveeSettingsViewController(
-            target.view.bounds,
-            settingsView: AnyView(EeveeSettingsView(navigationController: navigationController)),
-            navigationTitle: "Shrubify"
-        )
-        
-        // Add GitHub button to the Eevee settings page itself
-        let subButton = UIButton(type: .system)
-        
-        // Try loading hex image, fallback to system "globe" if it fails or bundle is missing
-        let bundleImage = BundleHelper.shared.uiImage("hex")
-        // Check if the image returned from BundleHelper is valid (has a size)
-        if let bundleImage = bundleImage, bundleImage.size != .zero {
-            subButton.setImage(bundleImage.withRenderingMode(.alwaysOriginal), for: .normal)
-        } else {
-             subButton.setImage(UIImage(systemName: "globe"), for: .normal)
-        }
-        
-        subButton.tintColor = .white
-        
-        let subAction = UIAction { [weak eeveeSettingsController] _ in
-            eeveeSettingsController?.openRepositoryUrl(subButton)
-        }
-        subButton.addAction(subAction, for: .touchUpInside)
-        
-        let menuBarItem = UIBarButtonItem(customView: subButton)
-        menuBarItem.customView?.heightAnchor.constraint(equalToConstant: 22).isActive = true
-        menuBarItem.customView?.widthAnchor.constraint(equalToConstant: 22).isActive = true
-        eeveeSettingsController.navigationItem.rightBarButtonItem = menuBarItem
-        
-        navigationController.pushViewController(eeveeSettingsController, animated: true)
+        ShrubifySettingsPresenter.present(from: navigationController)
     }
     
     button.addAction(action, for: .touchUpInside)
@@ -334,29 +278,7 @@ private func findFirstCollectionView(in view: UIView) -> UICollectionView? {
 
 private func pushEeveeSettings(from vc: UIViewController) {
     guard let nav = vc.navigationController else { return }
-    let host = EeveeSettingsViewController(
-        vc.view.bounds,
-        settingsView: AnyView(EeveeSettingsView(navigationController: nav)),
-        navigationTitle: "Shrubify"
-    )
-
-    let subButton = UIButton(type: .system)
-    if let bundleImage = BundleHelper.shared.uiImage("hex"), bundleImage.size != .zero {
-        subButton.setImage(bundleImage.withRenderingMode(.alwaysOriginal), for: .normal)
-    } else {
-        subButton.setImage(UIImage(systemName: "globe"), for: .normal)
-    }
-    subButton.tintColor = .white
-    subButton.addAction(UIAction { [weak host] _ in
-        host?.openRepositoryUrl(subButton)
-    }, for: .touchUpInside)
-
-    let menuBarItem = UIBarButtonItem(customView: subButton)
-    menuBarItem.customView?.heightAnchor.constraint(equalToConstant: 22).isActive = true
-    menuBarItem.customView?.widthAnchor.constraint(equalToConstant: 22).isActive = true
-    host.navigationItem.rightBarButtonItem = menuBarItem
-
-    nav.pushViewController(host, animated: true)
+    ShrubifySettingsPresenter.present(from: nav)
 }
 
 // MARK: - Generic Fallback: Hook UINavigationController to catch Settings by title/class name

@@ -1,3 +1,7 @@
+# 4.0.0 beta 3
+
+Move Shrubify Settings into a standard UIKit navigation sheet and supply a nonempty settings URI. This targets the supplied Spotify 9.1.94 crash report: a button action raises from the TabNodeDataProvider.swift:49 missing-page path. The matching SpotifyShared UUID was verified before examining the caller. No global exception suppression or bundle-ID change is used. Device confirmation remains required.
+
 # 4.0.0 beta 2
 
 Fix lyric seek clock/scroll synchronization and stale-position callbacks; reserve space for the lyric header; remove nested ShrubPanel navigation when opened from Settings; add ordered missing/error lyric-provider fallbacks; add an optional Taurus-inspired prominent glass treatment above Vitrine. Guard non-finite playback positions, missing native lyrics indices, romanization failure and out-of-range lyric timestamps. Pause/dismantle Metal backgrounds and lower their rate in Low Power Mode.

@@ -14,6 +14,6 @@ class SPTPageViewController: UIViewController {
     }
 
     @objc func spt_pageURI() -> NSURL? {
-        return NSURL(string: "")
+        return NSURL(string: "spotify:internal:shrubify")
     }
 }
