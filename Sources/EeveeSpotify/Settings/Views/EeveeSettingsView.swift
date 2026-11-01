@@ -2,7 +2,7 @@ import SwiftUI
 import UIKit
 
 struct EeveeSettingsView: View {
-    let navigationController: UINavigationController
+    weak var navigationController: UINavigationController?
     
     @State private var hasShownCommonIssuesTip = UserDefaults.hasShownCommonIssuesTip
     @State private var isClearingData = false
@@ -14,7 +14,7 @@ struct EeveeSettingsView: View {
             return
         }
         let share = UIActivityViewController(activityItems: [URL(fileURLWithPath: EeveeLog.path)], applicationActivities: nil)
-        if let popover = share.popoverPresentationController, let view = navigationController.view {
+        if let popover = share.popoverPresentationController, let view = navigationController?.view {
             popover.sourceView = view
             popover.sourceRect = CGRect(x: view.bounds.midX, y: view.bounds.midY, width: 0, height: 0)
         }
