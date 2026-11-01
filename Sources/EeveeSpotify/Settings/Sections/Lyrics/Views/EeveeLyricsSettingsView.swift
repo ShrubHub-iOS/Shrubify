@@ -51,6 +51,17 @@ struct EeveeLyricsSettingsView: View {
                 Text("Hide Spotify’s lyrics card and preview. Open custom lyrics with the Word-Synced button. Restart after changing; songs without custom lyrics will have no lyrics card.")
                     .font(.footnote).foregroundColor(.secondary)
 
+                Stepper(value: $karaokeOptions.timingOffsetMs, in: -5000...5000, step: 100) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Lyrics delay: \(karaokeOptions.timingOffsetMs) ms")
+                        Text("Positive values show lyrics later. Reopen custom lyrics after changing.")
+                            .font(.footnote).foregroundColor(.secondary)
+                    }
+                }
+                if karaokeOptions.timingOffsetMs != 0 {
+                    Button("Reset lyrics timing") { karaokeOptions.timingOffsetMs = 0 }
+                }
+
                 Picker("karaoke_alignment".localized, selection: $karaokeOptions.textAlignment) {
                     ForEach(KaraokeTextAlignment.allCases, id: \.self) { alignment in
                         Text(alignment.displayName).tag(alignment)

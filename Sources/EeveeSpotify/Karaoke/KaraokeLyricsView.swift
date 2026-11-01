@@ -4,6 +4,7 @@ import SwiftUI
 struct KaraokeLyricsView: View {
     var onDismiss: () -> Void
     @StateObject private var model: KaraokeLyricsViewModel
+    @Environment(\.scenePhase) private var scenePhase
     private let options = UserDefaults.karaokeOptions
 
     init(trackId: String?, lyrics: KaraokeLyricsDto, onDismiss: @escaping () -> Void) {
@@ -31,8 +32,8 @@ struct KaraokeLyricsView: View {
     }
 
     private func content(lyrics: KaraokeLyricsDto, layouts: [KaraokeLineLayout], screenWidth: CGFloat) -> some View {
-        TimelineView(.animation(minimumInterval: ProcessInfo.processInfo.isLowPowerModeEnabled ? 1.0 / 30.0 : 1.0 / 60.0)) { _ in
-            let currentMs = KaraokePlaybackTracker.shared.currentPositionMs()
+        TimelineView(.animation(minimumInterval: ProcessInfo.processInfo.isLowPowerModeEnabled ? 1.0 / 30.0 : 1.0 / 60.0, paused: scenePhase != .active)) { _ in
+            let currentMs = ShrubifyBetaSupport.lyricPosition(playbackMs: KaraokePlaybackTracker.shared.currentPositionMs(), delayMs: options.timingOffsetMs)
 
             KaraokeScrollingLines(
                 lyrics: lyrics,
@@ -147,8 +148,9 @@ private struct KaraokeScrollingLines: View {
                         .contentShape(Rectangle())
                         .onTapGesture {
                             guard lyrics.lines.indices.contains(index) else { return }
-                            seekUnavailable = !KaraokeSeek.seek(milliseconds: lyrics.lines[index].startMs)
+                            seekUnavailable = !KaraokeSeek.seek(milliseconds: ShrubifyBetaSupport.seekPosition(lineMs: lyrics.lines[index].startMs, delayMs: options.timingOffsetMs))
                         }
+                        .accessibilityLabel(lyrics.lines[index].plainText)
                         .accessibilityAddTraits(.isButton)
                         .accessibilityHint("Jump to this lyric")
                         .id(index)

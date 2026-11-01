@@ -25,6 +25,14 @@ class AltStoreSourceTests(unittest.TestCase):
         self.assertEqual('https://example.org/releases/Shrubify.ipa', source['apps'][0]['versions'][0]['downloadURL'])
         self.assertIn('Replay', source['apps'][0]['localizedDescription'])
 
+    def test_prerelease_does_not_replace_stable_feed(self):
+        release = dict(tag_name='shrubify-s9.1.94-v4.0.0-g123abcd',
+                       published_at='2026-11-01T00:00:00Z', prerelease=True,
+                       body='altstore-build: 99', assets=[dict(name='Beta.ipa', browser_download_url='https://example.org/beta.ipa', size=10)])
+        self.assertEqual([], module.source_for('test/Shrubify', [release])['apps'])
+        release['tag_name'] = 'shrubify-s9.1.94-v4.0.0-beta1-g123abcd'
+        self.assertEqual([], module.source_for('test/Shrubify', [release])['apps'])
+
     def test_draft_and_no_asset_are_not_published(self):
         releases = [dict(tag_name='shrubify-s9.1.94-v3.0.0-g123abcd', published_at='', draft=True,
                          body='altstore-build: 37', assets=[])]

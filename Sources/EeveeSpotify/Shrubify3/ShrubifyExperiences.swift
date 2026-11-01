@@ -8,6 +8,7 @@ private func shrubTime(_ seconds: Double) -> String {
 }
 
 struct ShrubifyReplayView: View {
+    var usesSettingsNavigation = false
     @ObservedObject private var history = ShrubifyReplayStore.shared
     @State private var showClear = false
 
@@ -19,14 +20,9 @@ struct ShrubifyReplayView: View {
                 }
             }
             Section(header: Text("Your listening")) {
-                HStack {
-                    replayMetric("Today", shrubTime(history.todaySeconds))
-                    Spacer()
-                    replayMetric("All recorded", shrubTime(history.totalSeconds))
-                    Spacer()
-                    replayMetric("Songs", "\(history.tracks.count)")
-                }
-                .padding(.vertical, 8)
+                replayMetric("Today", shrubTime(history.todaySeconds))
+                replayMetric("All recorded", shrubTime(history.totalSeconds))
+                replayMetric("Songs in history", "\(history.tracks.count)")
             }
             Section(header: Text("Replay details")) {
                 HStack { Text("Recorded plays"); Spacer(); Text("\(history.tracks.reduce(0) { $0 + $1.plays })") }
@@ -35,12 +31,21 @@ struct ShrubifyReplayView: View {
                 Text("Plays and artists cover the songs retained on this device. Listening totals are estimates, not Spotify account history.")
                     .font(.footnote).foregroundColor(.secondary)
             }
+            Section {
+                if usesSettingsNavigation {
+                    SettingsLink(title: "Listening history", subtitle: "Search, filter and export your local records", icon: "clock", color: .purple) { ShrubifyReplayHistoryView() }
+                } else {
+                    NavigationLink(destination: ShrubifyReplayHistoryView()) {
+                        SettingsLabel(title: "Listening history", subtitle: "Search, filter and export your local records", icon: "clock", color: .purple)
+                    }
+                }
+            }
             Section(header: Text("Most listened")) {
                 if history.tracks.isEmpty {
                     Text("Your local listening stats will appear here after tracking is enabled and you play music in Shrubify.")
                         .font(.footnote).foregroundColor(.secondary)
                 }
-                ForEach(Array(history.tracks.sorted { $0.seconds > $1.seconds }.prefix(30))) { entry in
+                ForEach(Array(history.rankedTracks.prefix(30))) { entry in
                     HStack(spacing: 10) {
                         Image(systemName: "music.note").foregroundColor(.secondary).frame(width: 24)
                         VStack(alignment: .leading, spacing: 3) {
@@ -118,16 +123,26 @@ struct ShrubifyReplayView: View {
     }
 
     private func replayMetric(_ label: String, _ value: String) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(value).font(.system(size: 20, weight: .bold, design: .monospaced))
-            Text(label).font(.caption).foregroundColor(.secondary)
+        HStack(alignment: .firstTextBaseline) {
+            Text(label).foregroundColor(.secondary)
+            Spacer(minLength: 12)
+            Text(value).font(.system(.headline, design: .monospaced))
         }
+        .padding(.vertical, 4)
+        .accessibilityElement(children: .combine)
     }
 }
 
 struct ShrubifyQueueView: View {
     @ObservedObject private var history = ShrubifyReplayStore.shared
     @State private var message: String?
+    @State private var query = ""
+
+    private var matchingSessions: [ShrubifySession] {
+        history.sessions.filter { session in
+            ShrubifyBetaSupport.matches([session.title] + session.tracks.flatMap { [$0.title, $0.artist] }, query: query)
+        }
+    }
 
     var body: some View {
         List {
@@ -145,12 +160,20 @@ struct ShrubifyQueueView: View {
             if let message = message {
                 Section { Text(message).font(.footnote).foregroundColor(.secondary) }
             }
+            Section(header: Text("Find a snapshot")) {
+                TextField("Search snapshots, songs or artists", text: $query)
+                    .autocapitalization(.none)
+                    .disableAutocorrection(true)
+            }
             Section(header: Text("Saved listening snapshots")) {
                 if history.sessions.isEmpty {
                     Text("No snapshots yet. Save the current song, or enable Replay to collect a recent listening list.")
                         .font(.footnote).foregroundColor(.secondary)
                 }
-                ForEach(history.sessions) { session in
+                if !history.sessions.isEmpty && matchingSessions.isEmpty {
+                    Text("No snapshots match your search.").foregroundColor(.secondary)
+                }
+                ForEach(matchingSessions) { session in
                     NavigationLink(destination: ShrubifySessionView(session: session)) {
                         VStack(alignment: .leading, spacing: 3) {
                             Text(session.title).fontWeight(.medium)
@@ -164,7 +187,7 @@ struct ShrubifyQueueView: View {
                     }
                 }
                 .onDelete { offsets in
-                    let sessions = history.sessions
+                    let sessions = matchingSessions
                     for index in offsets where sessions.indices.contains(index) { history.removeSession(sessions[index].id) }
                 }
             }
@@ -220,6 +243,9 @@ struct ShrubifySessionView: View {
 /// wholesale replacement for Spotify's dynamic player implementation.
 struct ShrubifyPanelView: View {
     let dismiss: () -> Void
+    @AppStorage("ShrubPanelShowStudio4") private var showStudio = true
+    @AppStorage("ShrubPanelShowReplay4") private var showReplay = true
+    @AppStorage("ShrubPanelShowQueue4") private var showQueue = true
 
     var body: some View {
         NavigationView {
@@ -238,14 +264,27 @@ struct ShrubifyPanelView: View {
                     .padding(.vertical, 6)
                 }
                 Section(header: Text("Quick access")) {
-                    NavigationLink(destination: ShrubifyStudioView()) {
-                        SettingsLabel(title: "Shrubify Studio", subtitle: "Player layouts and details", icon: "slider.horizontal.3", color: .blue)
+                    if showStudio {
+                        NavigationLink(destination: ShrubifyStudioView()) {
+                            SettingsLabel(title: "Shrubify Studio", subtitle: "Player layouts and details", icon: "slider.horizontal.3", color: .blue)
+                        }
                     }
-                    NavigationLink(destination: ShrubifyReplayView()) {
-                        SettingsLabel(title: "Shrubify Replay", subtitle: "Private listening stats", icon: "chart.bar.xaxis", color: .purple)
+                    if showReplay {
+                        NavigationLink(destination: ShrubifyReplayView()) {
+                            SettingsLabel(title: "Shrubify Replay", subtitle: "Private listening stats", icon: "chart.bar.xaxis", color: .purple)
+                        }
                     }
-                    NavigationLink(destination: ShrubifyQueueView()) {
-                        SettingsLabel(title: "ShrubQueue", subtitle: "Queue and snapshots", icon: "list.bullet", color: .orange)
+                    if showQueue {
+                        NavigationLink(destination: ShrubifyQueueView()) {
+                            SettingsLabel(title: "ShrubQueue", subtitle: "Queue and snapshots", icon: "list.bullet", color: .orange)
+                        }
+                    }
+                }
+                Section {
+                    DisclosureGroup("Customize shortcuts") {
+                        Toggle("Studio", isOn: $showStudio)
+                        Toggle("Replay", isOn: $showReplay)
+                        Toggle("Queue and snapshots", isOn: $showQueue)
                     }
                 }
                 Section(header: Text("Listening tools")) {

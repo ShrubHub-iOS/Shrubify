@@ -1,3 +1,7 @@
+# 4.0.0 beta 1
+
+Search and export Replay history; search snapshots; adjust custom lyric timing; save artwork radius in Studio layouts; customize ShrubPanel shortcuts; improve settings text/metrics layout; reduce repeated summary and notification work. Existing player and glass integration remain unchanged. See V4-BETA.md for limits, migration and validation.
+
 # 3.0.6
 
 - Tap custom lyric lines to seek using Spotify’s seconds-based seek API; unsupported builds show a message.

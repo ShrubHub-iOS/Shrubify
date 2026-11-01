@@ -46,7 +46,7 @@ struct EeveeSettingsView: View {
         SettingsGroup(key: "Shrubify · Listening is easy", entries: [
             SettingsEntry(key: "ShrubPanel", icon: "square.grid.2x2.fill", color: .blue) { AnyView(ShrubifyPanelView(dismiss: { SettingsNavigator.navigationController?.popViewController(animated: true) })) },
             SettingsEntry(key: "Shrubify Studio", icon: "slider.horizontal.3", color: .gray) { AnyView(ShrubifyStudioView(usesSettingsNavigation: true)) },
-            SettingsEntry(key: "Shrubify Replay", icon: "chart.bar.xaxis", color: .purple) { AnyView(ShrubifyReplayView()) },
+            SettingsEntry(key: "Shrubify Replay", icon: "chart.bar.xaxis", color: .purple) { AnyView(ShrubifyReplayView(usesSettingsNavigation: true)) },
             SettingsEntry(key: "ShrubQueue", icon: "list.bullet", color: .orange) { AnyView(NavigationView { ShrubifyQueueView() }.navigationViewStyle(StackNavigationViewStyle())) },
         ]),
         SettingsGroup(key: "settings_group_listening", entries: [
@@ -82,6 +82,13 @@ struct EeveeSettingsView: View {
             .listRowBackground(Color.clear)
             .listRowInsets(EdgeInsets(top: 8, leading: 0, bottom: 4, trailing: 0))
 
+            Section {
+                Button {
+                    SettingsNavigator.push(ShrubifyBetaView(), title: "V4 beta")
+                } label: {
+                    SettingsLabel(title: "V4 · Beta 1", subtitle: "What’s new and what to test", icon: "sparkles", color: .orange, chevron: true)
+                }
+            }
             EeveeSettingsVersionView()
             
             if !hasShownCommonIssuesTip {
