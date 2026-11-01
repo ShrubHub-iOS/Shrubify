@@ -1,6 +1,18 @@
 import EeveeSpotifyC
 import UIKit
 
+// The prominent film follows final UIKit bounds, including representable views
+// whose makeUIView runs before they have a size.
+private final class ProminentGlassFilm: UIView {
+    var capsule = true
+    var radius: CGFloat = 16
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        layer.cornerRadius = capsule ? min(bounds.width, bounds.height) / 2 : radius
+        layer.cornerCurve = .continuous
+    }
+}
+
 @available(iOS 26.0, *)
 enum GlassKit {
     private static var paneKey: UInt8 = 0
@@ -30,8 +42,8 @@ enum GlassKit {
     // Same system material as Vitrine; this preset has a visibly lighter composition.
     private static func prominentFilm(_ pane: UIVisualEffectView, radius: CGFloat, capsule: Bool) {
         guard taurusEnabled, !UIAccessibility.isReduceTransparencyEnabled else { return }
-        let film = (objc_getAssociatedObject(pane, &filmKey) as? UIView) ?? {
-            let view = UIView()
+        let film = (objc_getAssociatedObject(pane, &filmKey) as? ProminentGlassFilm) ?? {
+            let view = ProminentGlassFilm()
             view.backgroundColor = UIColor(white: 1, alpha: 0.14)
             view.isUserInteractionEnabled = false
             view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
@@ -40,8 +52,9 @@ enum GlassKit {
             return view
         }()
         film.frame = pane.contentView.bounds
-        film.layer.cornerRadius = capsule ? min(pane.bounds.width, pane.bounds.height) / 2 : radius
-        film.layer.cornerCurve = .continuous
+        film.capsule = capsule
+        film.radius = radius
+        film.setNeedsLayout()
     }
 
     static func pane(in host: UIView, key: UnsafeRawPointer = UnsafeRawPointer(&paneKey)) -> UIVisualEffectView {
