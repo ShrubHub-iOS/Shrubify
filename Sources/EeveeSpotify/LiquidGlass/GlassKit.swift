@@ -6,14 +6,16 @@ enum GlassKit {
     private static var paneKey: UInt8 = 0
     private static var adaptedBlurKey: UInt8 = 0
     // Read once at startup. Changing modes in Settings offers Restart Now.
+    static let taurusEnabled = LiquidGlass.launchOptions.taurusMaterial == true
+    private static var filmKey: UInt8 = 0
     static let vitrineEnabled = LiquidGlass.launchOptions.vitrineMaterial == true
 
     static func material() -> UIVisualEffect {
-        vitrineEnabled ? ShrubVitrineGlassEffect() : UIGlassEffect(style: .regular)
+        (vitrineEnabled || taurusEnabled) ? ShrubVitrineGlassEffect() : UIGlassEffect(style: .regular)
     }
 
     static func shape(_ glass: UIView, radius: CGFloat = 16, capsule: Bool = true) {
-        if vitrineEnabled {
+        if vitrineEnabled || taurusEnabled {
             ShrubVitrineShapeGlass(glass, radius, capsule)
         } else if let pane = glass as? UIVisualEffectView {
             pane.cornerConfiguration = capsule ? .capsule() : .uniformCorners(radius: .fixed(radius))
@@ -21,6 +23,25 @@ enum GlassKit {
             glass.layer.cornerRadius = capsule ? glass.bounds.height / 2 : radius
             glass.layer.cornerCurve = .continuous
         }
+        if let pane = glass as? UIVisualEffectView { prominentFilm(pane, radius: radius, capsule: capsule) }
+    }
+
+    // Adapted prominent film from Taurus Redesigned/Kit/SGRGlass.m (GPL-3.0).
+    // Same system material as Vitrine; this preset has a visibly lighter composition.
+    private static func prominentFilm(_ pane: UIVisualEffectView, radius: CGFloat, capsule: Bool) {
+        guard taurusEnabled, !UIAccessibility.isReduceTransparencyEnabled else { return }
+        let film = (objc_getAssociatedObject(pane, &filmKey) as? UIView) ?? {
+            let view = UIView()
+            view.backgroundColor = UIColor(white: 1, alpha: 0.14)
+            view.isUserInteractionEnabled = false
+            view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+            pane.contentView.insertSubview(view, at: 0)
+            objc_setAssociatedObject(pane, &filmKey, view, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+            return view
+        }()
+        film.frame = pane.contentView.bounds
+        film.layer.cornerRadius = capsule ? min(pane.bounds.width, pane.bounds.height) / 2 : radius
+        film.layer.cornerCurve = .continuous
     }
 
     static func pane(in host: UIView, key: UnsafeRawPointer = UnsafeRawPointer(&paneKey)) -> UIVisualEffectView {

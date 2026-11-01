@@ -9,7 +9,7 @@ struct LiquidGlassSettingsView: View {
     }()
 
     private var surfacesDefault: Bool {
-        glass.spotifyGlass && glass.vitrineMaterial != true && glass.tabBar && glass.nowPlayingBar && glass.search != false && glass.home != false && glass.playlist != false && glass.lyricsView != false
+        glass.spotifyGlass && glass.taurusMaterial != true && glass.vitrineMaterial != true && glass.tabBar && glass.nowPlayingBar && glass.search != false && glass.home != false && glass.playlist != false && glass.lyricsView != false
     }
 
     var body: some View {
@@ -30,10 +30,14 @@ struct LiquidGlassSettingsView: View {
                     SettingsToggle(title: "glass_lyrics_view".localized, icon: "quote.bubble.fill", color: Color(hex: "#30B0C7"), isOn: optIn(\.lyricsView))
                 }
 
-                Section(header: Text("Glass rendering"), footer: Text("Uses Vitrine’s system glass material and corner shaping, with an album-art backdrop. System-rendered edges keep controls clear without extra outlines. iOS 26+; restart after changing.")) {
+                Section(header: Text("Glass rendering"), footer: Text("Both presets share Apple’s system glass. Taurus-inspired adds its prominent light film; Vitrine keeps the quieter material. This is a surface treatment, not the full Taurus redesign. iOS 26+; restart after changing.")) {
+                    SettingsToggle(title: "Taurus-inspired prominent", subtitle: "Brighter glass treatment · restart required", icon: "sparkles", color: .blue, isOn: Binding(
+                        get: { glass.taurusMaterial == true },
+                        set: { glass.taurusMaterial = $0; if $0 { glass.vitrineMaterial = false } }
+                    ))
                     SettingsToggle(title: "Vitrine material", subtitle: "Distinct glass surfaces · restart required", icon: "circle.hexagongrid", color: Color(hex: "#30B0C7"), isOn: Binding(
                         get: { glass.vitrineMaterial == true },
-                        set: { glass.vitrineMaterial = $0 }
+                        set: { glass.vitrineMaterial = $0; if $0 { glass.taurusMaterial = false } }
                     ))
                 }
 
@@ -48,6 +52,7 @@ struct LiquidGlassSettingsView: View {
                 SettingsResetSection(visible: !surfacesDefault) {
                     glass.spotifyGlass = true
                     glass.vitrineMaterial = nil
+                    glass.taurusMaterial = nil
                     glass.tabBar = true
                     glass.nowPlayingBar = true
                     glass.search = nil

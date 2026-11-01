@@ -20,12 +20,14 @@ struct KaraokeLyricsView: View {
                 } else {
                     KaraokeBackgroundView()
                 }
-                if let lyrics = model.lyrics {
-                    content(lyrics: lyrics, layouts: model.layouts, screenWidth: geo.size.width)
-                        // A new song starts from its own scroll position and state.
-                        .id(model.trackId)
+                VStack(spacing: 0) {
+                    topBar
+                    if let lyrics = model.lyrics {
+                        content(lyrics: lyrics, layouts: model.layouts, screenWidth: geo.size.width)
+                            .id(model.trackId)
+                    }
                 }
-                topBar
+
             }
         }
         .preferredColorScheme(.dark)
@@ -97,12 +99,12 @@ struct KaraokeLyricsView: View {
             Spacer(minLength: 12)
             closeButton
         }
-        .padding(.top, 50)
+        .padding(.vertical, 12)
         .padding(.horizontal, 20)
     }
 
     private var modelTitle: String {
-        statefulPlayer?.currentTrack()?.trackTitle() ?? "Shrubify Lyrics"
+        statefulPlayer?.currentTrack()?.trackTitle() ?? (capturedTrackId == model.trackId ? capturedTrackTitle : nil) ?? "Shrubify Lyrics"
     }
 
     private var modelSubtitle: String {
@@ -126,6 +128,7 @@ private struct KaraokeScrollingLines: View {
     let screenWidth: CGFloat
 
     @State private var seekUnavailable = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     private let horizontalPadding: CGFloat = 24
 
     var body: some View {
@@ -135,7 +138,7 @@ private struct KaraokeScrollingLines: View {
         ScrollViewReader { proxy in
             ScrollView(showsIndicators: false) {
                 LazyVStack(alignment: alignment, spacing: 16) {
-                    Spacer().frame(height: 116)
+                    Spacer().frame(height: 24)
 
                     ForEach(layouts.indices, id: \.self) { index in
                         KaraokeLineView(
@@ -148,7 +151,9 @@ private struct KaraokeScrollingLines: View {
                         .contentShape(Rectangle())
                         .onTapGesture {
                             guard lyrics.lines.indices.contains(index) else { return }
-                            seekUnavailable = !KaraokeSeek.seek(milliseconds: ShrubifyBetaSupport.seekPosition(lineMs: lyrics.lines[index].startMs, delayMs: options.timingOffsetMs))
+                            let succeeded = KaraokeSeek.seek(milliseconds: ShrubifyBetaSupport.seekPosition(lineMs: lyrics.lines[index].startMs, delayMs: options.timingOffsetMs))
+                            seekUnavailable = !succeeded
+                            if succeeded { proxy.scrollTo(index, anchor: .center) }
                         }
                         .accessibilityLabel(lyrics.lines[index].plainText)
                         .accessibilityAddTraits(.isButton)
@@ -172,7 +177,7 @@ private struct KaraokeScrollingLines: View {
             .onChange(of: activeLineIndex) { newIndex in
                 guard let newIndex = newIndex, newIndex < lyrics.lines.count else { return }
                 // Single-curve stand-in for SpicyLyrics' overshoot scroll.
-                withAnimation(.easeInOut(duration: 0.38)) {
+                withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.38)) {
                     proxy.scrollTo(newIndex, anchor: .center)
                 }
             }

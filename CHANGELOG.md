@@ -1,3 +1,9 @@
+# 4.0.0 beta 2
+
+Fix lyric seek clock/scroll synchronization and stale-position callbacks; reserve space for the lyric header; remove nested ShrubPanel navigation when opened from Settings; add ordered missing/error lyric-provider fallbacks; add an optional Taurus-inspired prominent glass treatment above Vitrine. Guard non-finite playback positions, missing native lyrics indices, romanization failure and out-of-range lyric timestamps. Pause/dismantle Metal backgrounds and lower their rate in Low Power Mode.
+
+The supplied Taurus and Vitrine archives share the underlying system material. This is a distinct prominent surface preset, not a full Taurus port. Crash reports and device testing remain necessary; this release cannot certify no crashes, heat or battery drain.
+
 # 4.0.0 beta 1
 
 Search and export Replay history; search snapshots; adjust custom lyric timing; save artwork radius in Studio layouts; customize ShrubPanel shortcuts; improve settings text/metrics layout; reduce repeated summary and notification work. Existing player and glass integration remain unchanged. See V4-BETA.md for limits, migration and validation.

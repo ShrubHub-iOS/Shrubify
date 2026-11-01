@@ -5,6 +5,7 @@ struct LiquidGlassOptions: Codable, Equatable {
     var spotifyGlass = true
     // Optional preserves Codable compatibility with previously saved Liquid Glass settings.
     var vitrineMaterial: Bool?
+    var taurusMaterial: Bool?
     var tabBar = true
     var nowPlayingBar = true
     var newPlayerDesign = false

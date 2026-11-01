@@ -1,3 +1,17 @@
+# Beta 2 update
+
+Seek now updates the lyric clock immediately and ignores stale-position callbacks for up to two seconds. The lyric header has dedicated layout space. Settings-hosted ShrubPanel uses the existing navigation stack, avoiding duplicate title bars.
+
+Lyrics settings include reorderable fallbacks: main provider first, then enabled fallbacks on empty/error results, without duplicate requests. Default main remains SpicyLyrics; default fallback is LRCLIB, with legacy Genius fallback preserved unless a custom list is saved. Credentials are required for providers that use them. Genius supplies plain text only.
+
+Taurus-inspired prominent glass appears above Vitrine. Both archives use the same system material; the distinct preset adds Taurus’s 0.14 white prominent film, not a full Taurus redesign. Vitrine remains selectable and existing settings remain readable.
+
+Stability guards cover non-finite playback clocks, absent diffable indices, romanization failures and integer conversion of timestamps. Metal backgrounds pause outside the active scene, run at 15 fps in Low Power Mode, and release their renderer when dismantled. No device crash reports were supplied: crash elimination, heat and battery claims cannot be verified from these checks.
+
+Device checks: repeated forward/backward lyric taps, automatic following after seek, source failures with a custom fallback order, native/custom lyrics modes, ShrubPanel from Settings and as a modal, Vitrine/Taurus options after restart, and background/foreground playback. Record exact Spotify/iOS versions and export .ips crash reports for remaining crashes.
+
+---
+
 # Shrubify 4.0.0 beta 1
 
 This first beta builds on 3.0.6 and preserves its playback engine, injection/signing paths, account behavior, existing glass integration and v3 storage keys. Taurus versus Vitrine is still undecided; no Taurus hooks or assets are imported.

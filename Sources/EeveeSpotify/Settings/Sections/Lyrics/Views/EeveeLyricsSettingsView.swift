@@ -3,6 +3,7 @@ import SwiftUI
 struct EeveeLyricsSettingsView: View {
     @StateObject var viewModel = EeveeLyricsSettingsViewModel()
     @State private var karaokeOptions: KaraokeOptions = UserDefaults.karaokeOptions
+    @State private var fallbackOrder = UserDefaults.lyricsFallbackOrder
     @State var spicyLyricsApiKey: String = UserDefaults.spicyLyricsApiKey
 
     var body: some View {
@@ -10,9 +11,7 @@ struct EeveeLyricsSettingsView: View {
             lyricsSourceSection()
 
             if viewModel.lyricsSource != .notReplaced {
-                if viewModel.lyricsSource != .genius {
-                    geniusFallbackSection()
-                }
+                fallbackSection
                 
                 hideOnErrorSection()
                 romanizedLyricsSection()
@@ -36,7 +35,25 @@ struct EeveeLyricsSettingsView: View {
         .disabled(viewModel.isRequestingMusixmatchToken)
         .animation(.default, value: viewModel.animationValues)
         .onChange(of: karaokeOptions) { UserDefaults.karaokeOptions = $0 }
+        .onChange(of: fallbackOrder) { order in
+            UserDefaults.lyricsFallbackOrder = order
+            invalidateLyricsForSourceChange()
+        }
         .onChange(of: spicyLyricsApiKey) { UserDefaults.spicyLyricsApiKey = $0 }
+    }
+
+    private var fallbackSection: some View {
+        Section(header: Text("Fallback order"), footer: Text("The main source is tried first, then enabled providers in this order when lyrics are missing or a request fails. Drag to reorder. Genius is plain text and cannot populate custom timed lyrics. Provider credentials are still required.")) {
+            ForEach(fallbackOrder, id: \.rawValue) { source in
+                HStack { Text(source.description); Spacer(); Text("Fallback").font(.caption).foregroundColor(.secondary) }
+            }
+            .onMove { from, to in fallbackOrder.move(fromOffsets: from, toOffset: to) }
+            .onDelete { fallbackOrder.remove(atOffsets: $0) }
+            ForEach(LyricsSource.allCases.filter { !fallbackOrder.contains($0) && $0 != viewModel.lyricsSource }, id: \.rawValue) { source in
+                Button("Add " + source.description) { fallbackOrder.append(source) }
+            }
+        }
+        .environment(\.editMode, .constant(.active))
     }
 
     @ViewBuilder private func karaokeAppearanceSection() -> some View {
