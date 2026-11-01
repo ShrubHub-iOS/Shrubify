@@ -86,7 +86,7 @@ struct EeveeSettingsView: View {
                 Button {
                     SettingsNavigator.push(ShrubifyBetaView(), title: "V4 beta")
                 } label: {
-                    SettingsLabel(title: "V4 · Beta 1", subtitle: "What’s new and what to test", icon: "sparkles", color: .orange, chevron: true)
+                    SettingsLabel(title: "V4 · Beta 2", subtitle: "What’s new and what to test", icon: "sparkles", color: .orange, chevron: true)
                 }
             }
             EeveeSettingsVersionView()

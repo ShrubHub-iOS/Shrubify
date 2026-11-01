@@ -1,4 +1,4 @@
-> **V4 beta 1:** Replay search/export, snapshot search, lyric timing adjustment, improved Studio saves and configurable ShrubPanel shortcuts. The current player/glass foundation is retained. See [V4-BETA.md](V4-BETA.md) for included features, deferred work and device checks. Beta builds are not stable-feed updates.
+> **V4 beta 2:** Replay search/export, snapshot search, lyric timing adjustment, improved Studio saves and configurable ShrubPanel shortcuts. The current player/glass foundation is retained. See [V4-BETA.md](V4-BETA.md) for included features, deferred work and device checks. Beta builds are not stable-feed updates.
 
 # Shrubify 3.0.4 — Listening is easy with Shrubify!
 
