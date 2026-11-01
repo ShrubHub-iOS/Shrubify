@@ -242,13 +242,25 @@ struct ShrubifySessionView: View {
 /// Presented over the running player. This panel is an additive surface, not a
 /// wholesale replacement for Spotify's dynamic player implementation.
 struct ShrubifyPanelView: View {
+    var embeddedInSettings = false
     let dismiss: () -> Void
     @AppStorage("ShrubPanelShowStudio4") private var showStudio = true
     @AppStorage("ShrubPanelShowReplay4") private var showReplay = true
     @AppStorage("ShrubPanelShowQueue4") private var showQueue = true
 
-    var body: some View {
-        NavigationView {
+    @ViewBuilder var body: some View {
+        if embeddedInSettings { panelContent }
+        else {
+            NavigationView {
+                panelContent
+                    .navigationBarTitle("ShrubPanel", displayMode: .inline)
+                    .navigationBarItems(trailing: Button("Done", action: dismiss))
+            }
+            .navigationViewStyle(StackNavigationViewStyle())
+        }
+    }
+
+    private var panelContent: some View {
             List {
                 Section {
                     HStack(spacing: 12) {
@@ -256,7 +268,7 @@ struct ShrubifyPanelView: View {
                             .font(.system(size: 34))
                             .foregroundColor(EeveeTheme.accent)
                         VStack(alignment: .leading) {
-                            Text("ShrubPanel").font(.headline)
+                            Text("Your listening tools").font(.headline)
                             Text("Listening is easy with Shrubify.")
                                 .font(.footnote).foregroundColor(.secondary)
                         }
@@ -265,18 +277,30 @@ struct ShrubifyPanelView: View {
                 }
                 Section(header: Text("Quick access")) {
                     if showStudio {
+                        if embeddedInSettings {
+                            Button { SettingsNavigator.push(ShrubifyStudioView(usesSettingsNavigation: true), title: "Studio") } label: { SettingsLabel(title: "Shrubify Studio", subtitle: "Player layouts and details", icon: "slider.horizontal.3", color: .blue) }
+                        } else {
                         NavigationLink(destination: ShrubifyStudioView()) {
                             SettingsLabel(title: "Shrubify Studio", subtitle: "Player layouts and details", icon: "slider.horizontal.3", color: .blue)
                         }
+                        }
                     }
                     if showReplay {
+                        if embeddedInSettings {
+                            Button { SettingsNavigator.push(ShrubifyReplayView(usesSettingsNavigation: true), title: "Replay") } label: { SettingsLabel(title: "Shrubify Replay", subtitle: "Private listening stats", icon: "chart.bar.xaxis", color: .purple) }
+                        } else {
                         NavigationLink(destination: ShrubifyReplayView()) {
                             SettingsLabel(title: "Shrubify Replay", subtitle: "Private listening stats", icon: "chart.bar.xaxis", color: .purple)
                         }
+                        }
                     }
                     if showQueue {
+                        if embeddedInSettings {
+                            Button { SettingsNavigator.push(NavigationView { ShrubifyQueueView() }.navigationViewStyle(StackNavigationViewStyle()), title: "Queue") } label: { SettingsLabel(title: "ShrubQueue", subtitle: "Queue and snapshots", icon: "list.bullet", color: .orange) }
+                        } else {
                         NavigationLink(destination: ShrubifyQueueView()) {
                             SettingsLabel(title: "ShrubQueue", subtitle: "Queue and snapshots", icon: "list.bullet", color: .orange)
+                        }
                         }
                     }
                 }
@@ -301,10 +325,7 @@ struct ShrubifyPanelView: View {
                 }
             }
             .eeveeSettingsStyle()
-            .navigationBarTitle("ShrubPanel", displayMode: .inline)
-            .navigationBarItems(trailing: Button("Done", action: dismiss))
-        }
-        .navigationViewStyle(StackNavigationViewStyle())
+
     }
 }
 

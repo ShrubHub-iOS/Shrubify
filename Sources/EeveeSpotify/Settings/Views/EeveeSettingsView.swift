@@ -44,7 +44,7 @@ struct EeveeSettingsView: View {
 
     private static let groups: [SettingsGroup] = [
         SettingsGroup(key: "Shrubify · Listening is easy", entries: [
-            SettingsEntry(key: "ShrubPanel", icon: "square.grid.2x2.fill", color: .blue) { AnyView(ShrubifyPanelView(dismiss: { SettingsNavigator.navigationController?.popViewController(animated: true) })) },
+            SettingsEntry(key: "ShrubPanel", icon: "square.grid.2x2.fill", color: .blue) { AnyView(ShrubifyPanelView(embeddedInSettings: true, dismiss: { SettingsNavigator.navigationController?.popViewController(animated: true) })) },
             SettingsEntry(key: "Shrubify Studio", icon: "slider.horizontal.3", color: .gray) { AnyView(ShrubifyStudioView(usesSettingsNavigation: true)) },
             SettingsEntry(key: "Shrubify Replay", icon: "chart.bar.xaxis", color: .purple) { AnyView(ShrubifyReplayView(usesSettingsNavigation: true)) },
             SettingsEntry(key: "ShrubQueue", icon: "list.bullet", color: .orange) { AnyView(NavigationView { ShrubifyQueueView() }.navigationViewStyle(StackNavigationViewStyle())) },
@@ -86,7 +86,7 @@ struct EeveeSettingsView: View {
                 Button {
                     SettingsNavigator.push(ShrubifyBetaView(), title: "V4 beta")
                 } label: {
-                    SettingsLabel(title: "V4 · Beta 1", subtitle: "What’s new and what to test", icon: "sparkles", color: .orange, chevron: true)
+                    SettingsLabel(title: "V4 · Beta 2", subtitle: "What’s new and what to test", icon: "sparkles", color: .orange, chevron: true)
                 }
             }
             EeveeSettingsVersionView()

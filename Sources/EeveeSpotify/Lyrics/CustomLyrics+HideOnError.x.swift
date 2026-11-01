@@ -32,10 +32,12 @@ class ErrorViewControllerHook: ClassHook<UIViewController> {
             }
             
             let collectionView = controller.collectionView()
-            let dataSource = Ivars<__UIDiffableDataSource>(collectionView.dataSource!)._impl
+            guard let nativeSource = collectionView.dataSource, let lyricsProviderIndex else { return }
+            let dataSource = Ivars<__UIDiffableDataSource>(nativeSource)._impl
             
             let itemIdentifiers = dataSource.itemIdentifiers()
-            let lyricsProviderItemIdentifier = itemIdentifiers[lyricsProviderIndex!]
+            guard lyricsProviderIndex >= 0 && lyricsProviderIndex < itemIdentifiers.count else { return }
+            let lyricsProviderItemIdentifier = itemIdentifiers[lyricsProviderIndex]
             
             dataSource.deleteItemsWithIdentifiers([lyricsProviderItemIdentifier])
         }

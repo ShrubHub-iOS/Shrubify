@@ -36,3 +36,7 @@ Retain the upstream notices and corresponding source when distributing a build.
 ## 3.0.5 refinement
 
 Removed the extra chrome overlay and hand-drawn tab bar, mini-player and artwork borders added in 3.0.4. The system material now supplies its own edge treatment, following Vitrine’s material and shaping approach. The full Vitrine redesign remains outside this adapter. Device appearance has not yet been verified.
+
+## Beta 2 Taurus-inspired option
+
+The user-supplied Taurus and Vitrine archives use the same effectWithStyle:0 material. Shrubify retains Vitrine and adds an explicitly Taurus-inspired prominent option using the white 0.14 film from Taurus Redesigned/Kit/SGRGlass.m. The preset changes pane composition, not Apple’s underlying glass shader, and does not import Taurus hooks. Derived composition remains under the repository GPL-3.0 license; credit: https://gitlab.com/taurustweak/taurus.

@@ -21,7 +21,17 @@ final class KaraokePlaybackTracker {
     // Only ever set from the player observer, unlike lastTrackId (which a lyrics fetch also sets).
     private var observedTrackId: String?
 
+    private var pendingSeek: (seconds: Double, stamp: TimeInterval)?
     private var didDumpStateShape = false
+
+    func didSeek(milliseconds: Int) {
+        queue.sync {
+            let seconds = Double(milliseconds) / 1000
+            lastPosition = seconds
+            lastPositionStamp = uptimeSec()
+            pendingSeek = (seconds, lastPositionStamp)
+        }
+    }
 
     private init() {}
 
@@ -75,19 +85,29 @@ final class KaraokePlaybackTracker {
             ? String(uriString.dropFirst("spotify:track:".count))
             : nil
 
-        let positionRaw: Double = (safeValue("position") as? NSNumber)?.doubleValue ?? lastPosition
-        let playbackSpeed: Double = (safeValue("playbackSpeed") as? NSNumber)?.doubleValue ?? lastPlaybackSpeed
-        let isPlaying: Bool = (safeValue("isPlaying") as? Bool) ?? lastIsPlaying
+        let positionValue = (safeValue("position") as? NSNumber)?.doubleValue
+        let playbackSpeed = (safeValue("playbackSpeed") as? NSNumber)?.doubleValue
+        let isPlaying = safeValue("isPlaying") as? Bool
 
         // A state whose item is not a music track (podcast episode, ad, local file)
         // means the previous track's lyrics no longer apply.
         let isNonTrackItem = trackId == nil && !uriString.isEmpty
 
         queue.async {
-            self.lastPosition = positionRaw
-            self.lastPositionStamp = self.uptimeSec()
-            self.lastPlaybackSpeed = playbackSpeed
-            self.lastIsPlaying = isPlaying
+            let now = self.uptimeSec()
+            let changedTrack = trackId != nil && trackId != self.observedTrackId
+            if changedTrack || isNonTrackItem { self.pendingSeek = nil }
+            if let position = positionValue, position.isFinite, position >= 0 {
+                // Ignore old-position callbacks briefly after a user seek.
+                let stale = self.pendingSeek.map { now - $0.stamp < 2 && abs(position - $0.seconds) > 3 } ?? false
+                if !stale {
+                    self.lastPosition = position
+                    self.lastPositionStamp = now
+                    self.pendingSeek = nil
+                }
+            }
+            if let speed = playbackSpeed, speed.isFinite { self.lastPlaybackSpeed = max(0, speed) }
+            if let playing = isPlaying { self.lastIsPlaying = playing }
 
             let previousTrackId = self.lastTrackId
             let previousObservedTrackId = self.observedTrackId
@@ -124,7 +144,8 @@ final class KaraokePlaybackTracker {
             let estSeconds = lastIsPlaying
                 ? lastPosition + elapsed * lastPlaybackSpeed
                 : lastPosition
-            return Int(max(0, estSeconds) * 1000)
+            guard estSeconds.isFinite else { return 0 }
+            return Int(min(Double(Int.max / 2), max(0, estSeconds) * 1000))
         }
     }
 

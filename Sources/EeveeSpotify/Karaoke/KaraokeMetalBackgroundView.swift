@@ -103,10 +103,12 @@ private struct KaraokeBgParamsMirror {
 /// SwiftUI wrapper around the MTKView + renderer.
 struct KaraokeMetalBackgroundView: UIViewRepresentable {
     let albumArt: UIImage
+    @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     func makeUIView(context: Context) -> MTKView {
         let view = MTKView()
-        view.preferredFramesPerSecond = 30 // matches the lyrics TimelineView's rate; no need to run faster
+        view.preferredFramesPerSecond = ProcessInfo.processInfo.isLowPowerModeEnabled ? 15 : 30 // matches the lyrics TimelineView's rate; no need to run faster
         view.enableSetNeedsDisplay = false
         view.isPaused = false
 
@@ -126,6 +128,15 @@ struct KaraokeMetalBackgroundView: UIViewRepresentable {
 
     func updateUIView(_ uiView: MTKView, context: Context) {
         context.coordinator.renderer?.setAlbumArt(albumArt)
+        uiView.isPaused = scenePhase != .active || reduceMotion
+        uiView.preferredFramesPerSecond = ProcessInfo.processInfo.isLowPowerModeEnabled ? 15 : 30
+        if uiView.isPaused && scenePhase == .active { uiView.draw() }
+    }
+
+    static func dismantleUIView(_ uiView: MTKView, coordinator: Coordinator) {
+        uiView.isPaused = true
+        uiView.delegate = nil
+        coordinator.renderer = nil
     }
 
     func makeCoordinator() -> Coordinator { Coordinator() }

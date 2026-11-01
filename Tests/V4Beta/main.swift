@@ -44,3 +44,36 @@ NotificationCenter.default.removeObserver(observer)
 cache.clear()
 check(cache.lyrics(forTrackId: "0") == nil, "cache clear")
 print("V4 beta behavior checks passed")
+
+check(LyricsFallbacks.chain(primary: .spicylyrics, fallbacks: [.lrclib, .spicylyrics, .lrclib, .genius]) == [.spicylyrics, .lrclib, .genius], "fallback order deduplicates and keeps primary first")
+check(LyricsFallbacks.chain(primary: .notReplaced, fallbacks: [.spicylyrics]).isEmpty, "Spotify-only setting prevents provider calls")
+check(LyricsFallbacks.unique([.notReplaced, .lrclib, .lrclib]) == [.lrclib], "invalid fallback removed")
+check(LyricsSource.defaultSource == .spicylyrics, "default provider stays SpicyLyrics")
+struct TestLyricsOptions { let geniusFallback = false }
+extension UserDefaults {
+    static var container: UserDefaults { UserDefaults.standard }
+    static var lyricsOptions: TestLyricsOptions { TestLyricsOptions() }
+}
+
+// Exercise the shipping playback tracker with an Objective-C-visible state object.
+func karaokeDumpClassMethods(_ label: String, of object: AnyObject?) {}
+final class SeekTestState: NSObject {
+    @objc var position: Double = 10
+    @objc var playbackSpeed: Double = 1
+    @objc var isPlaying: Bool = false
+}
+let clock = KaraokePlaybackTracker.shared
+let playbackState = SeekTestState()
+clock.processStateChange(state: playbackState)
+check(clock.currentPositionMs() == 10000, "observer updates lyric clock")
+clock.didSeek(milliseconds: 70000)
+check(clock.currentPositionMs() == 70000, "seek immediately updates lyric clock")
+clock.processStateChange(state: playbackState)
+check(clock.currentPositionMs() == 70000, "old position callback cannot undo seek")
+playbackState.position = 70
+clock.processStateChange(state: playbackState)
+check(clock.currentPositionMs() == 70000, "seek acknowledgement reconciles")
+playbackState.position = Double.nan
+clock.processStateChange(state: playbackState)
+check(clock.currentPositionMs() == 70000, "invalid playback position does not crash")
+print("Beta 2 fallback and seek synchronization checks passed")

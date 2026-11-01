@@ -17,6 +17,33 @@ var hasShownUnauthorizedPopUp = false
 private let geniusLyricsRepository = GeniusLyricsRepository()
 private let petitLyricsRepository = PetitLyricsRepository()
 
+// One ordered provider path for current-track and track-ID requests.
+private func loadOrderedLyrics(_ query: LyricsSearchQuery, primary: LyricsSource, options: LyricsOptions) throws -> (lyrics: LyricsDto, source: LyricsSource) {
+    var lastError: Error = LyricsError.noSuchSong
+    for source in LyricsFallbacks.chain(primary: primary, fallbacks: UserDefaults.lyricsFallbackOrder) {
+        if (source == .genius || source == .lrclib || source == .petit) && (query.title.isEmpty || query.primaryArtist.isEmpty) { continue }
+        let repository: LyricsRepository
+        switch source {
+        case .spicylyrics: repository = SpicyLyricsRepository.shared
+        case .musixmatch: repository = MusixmatchLyricsRepository.shared
+        case .lrclib: repository = LrclibLyricsRepository.shared
+        case .petit: repository = petitLyricsRepository
+        case .genius: repository = geniusLyricsRepository
+        case .notReplaced: continue
+        }
+        do {
+            let lyrics = try repository.getLyrics(query, options: options)
+            guard !lyrics.lines.isEmpty else { throw LyricsError.noSuchSong }
+            return (lyrics, source)
+        } catch {
+            lastError = error
+            lyricsState.fallbackError = (error as? LyricsError) ?? .unknownError
+            KaraokeLyricsStore.shared.remove(trackId: query.spotifyTrackId)
+        }
+    }
+    throw lastError
+}
+
 // Overload for 9.1.6 where we only have track ID from URL
 private func loadCustomLyricsForTrackId(_ trackId: String) throws -> Lyrics {
 
@@ -26,7 +53,6 @@ private func loadCustomLyricsForTrackId(_ trackId: String) throws -> Lyrics {
     var currentArtist: String? = nil
     var hasMetadata = false
 
-    let needsMetadata = source == .genius || source == .lrclib || source == .petit
 
     // 1. Use cached metadata if it's for the same track
     if capturedTrackId == trackId, let title = capturedTrackTitle, let artist = capturedArtistName {
@@ -90,10 +116,6 @@ private func loadCustomLyricsForTrackId(_ trackId: String) throws -> Lyrics {
         }
     }
 
-    if needsMetadata && !hasMetadata {
-        writeDebugLog("[Lyrics] \(trackId): no title/artist for \(source.description), cannot search")
-        throw LyricsError.noSuchSong
-    }
 
     let searchQuery = LyricsSearchQuery(
         title: currentTitle ?? "",
@@ -103,82 +125,12 @@ private func loadCustomLyricsForTrackId(_ trackId: String) throws -> Lyrics {
     
     let options = UserDefaults.lyricsOptions
     
-    var repository: LyricsRepository
-
-    switch source {
-    case .genius:
-        repository = geniusLyricsRepository
-    case .lrclib:
-        repository = LrclibLyricsRepository.shared
-    case .musixmatch:
-        repository = MusixmatchLyricsRepository.shared
-    case .petit:
-        repository = petitLyricsRepository
-    case .spicylyrics:
-        repository = SpicyLyricsRepository.shared
-    case .notReplaced:
-        throw LyricsError.invalidSource
-    }
-    
-    let lyricsDto: LyricsDto
-    
     lyricsState = LyricsLoadingState()
-
-    // A fresh fetch starts from nothing, so the custom lyrics button only shows
-    // for lyrics this fetch actually produced.
     KaraokeLyricsStore.shared.remove(trackId: searchQuery.spotifyTrackId)
-    
-    do {
-        lyricsDto = try repository.getLyrics(searchQuery, options: options)
-    }
-    catch let error {
-        if let lyricsError = error as? LyricsError {
-            lyricsState.fallbackError = lyricsError
+    let result = try loadOrderedLyrics(searchQuery, primary: source, options: options)
+    source = result.source
+    let lyricsDto = result.lyrics
 
-            switch lyricsError {
-            case .invalidMusixmatchToken:
-                if !hasShownUnauthorizedPopUp {
-                    DispatchQueue.main.async {
-                        PopUpHelper.showPopUp(
-                            delayed: false,
-                            message: "musixmatch_unauthorized_popup".localized,
-                            buttonText: "OK".uiKitLocalized
-                        )
-                    }
-                    hasShownUnauthorizedPopUp = true
-                }
-            case .musixmatchRestricted:
-                if !hasShownRestrictedPopUp {
-                    DispatchQueue.main.async {
-                        PopUpHelper.showPopUp(
-                            delayed: false,
-                            message: "musixmatch_restricted_popup".localized,
-                            buttonText: "OK".uiKitLocalized
-                        )
-                    }
-                    hasShownRestrictedPopUp = true
-                }
-            default:
-                break
-            }
-        } else {
-            lyricsState.fallbackError = .unknownError
-        }
-
-        // Attempt Genius fallback if enabled and the primary source isn't already Genius.
-        // Genius requires title + artist to search — only attempt if we have them.
-        let canFallbackToGenius = source != .genius
-            && UserDefaults.lyricsOptions.geniusFallback
-            && !(currentTitle ?? "").isEmpty
-            && !(currentArtist ?? "").isEmpty
-        if canFallbackToGenius {
-            source = .genius
-            lyricsDto = try geniusLyricsRepository.getLyrics(searchQuery, options: options)
-        } else {
-            throw error
-        }
-    }
-    
     lyricsState.isEmpty = lyricsDto.lines.isEmpty
     
     lyricsState.wasRomanized = lyricsDto.romanization == .romanized
@@ -228,80 +180,12 @@ private func loadCustomLyricsForCurrentTrack() throws -> Lyrics {
     var source = UserDefaults.lyricsSource
     
     // switched to swift 5.8 syntax to compile with Theos on Linux.
-    var repository: LyricsRepository
-
-    switch source {
-    case .genius:
-        repository = geniusLyricsRepository
-    case .lrclib:
-        repository = LrclibLyricsRepository.shared
-    case .musixmatch:
-        repository = MusixmatchLyricsRepository.shared
-    case .petit:
-        repository = petitLyricsRepository
-    case .spicylyrics:
-        repository = SpicyLyricsRepository.shared
-    case .notReplaced:
-        throw LyricsError.invalidSource
-    }
-    
-    let lyricsDto: LyricsDto
-    
     lyricsState = LyricsLoadingState()
-
-    // A fresh fetch starts from nothing, so the custom lyrics button only shows
-    // for lyrics this fetch actually produced.
     KaraokeLyricsStore.shared.remove(trackId: searchQuery.spotifyTrackId)
-    
-    do {
-        lyricsDto = try repository.getLyrics(searchQuery, options: options)
-    }
-    catch let error {
-        if let error = error as? LyricsError {
-            lyricsState.fallbackError = error
-            
-            switch error {
-                
-            case .invalidMusixmatchToken:
-                if !hasShownUnauthorizedPopUp {
-                    PopUpHelper.showPopUp(
-                        delayed: false,
-                        message: "musixmatch_unauthorized_popup".localized,
-                        buttonText: "OK".uiKitLocalized
-                    )
-                    
-                    hasShownUnauthorizedPopUp.toggle()
-                }
-            
-            case .musixmatchRestricted:
-                if !hasShownRestrictedPopUp {
-                    PopUpHelper.showPopUp(
-                        delayed: false,
-                        message: "musixmatch_restricted_popup".localized,
-                        buttonText: "OK".uiKitLocalized
-                    )
-                    
-                    hasShownRestrictedPopUp.toggle()
-                }
-                
-            default:
-                break
-            }
-        }
-        else {
-            lyricsState.fallbackError = .unknownError
-        }
-        
-        if source == .genius || !UserDefaults.lyricsOptions.geniusFallback {
-            throw error
-        }
-        
-        source = .genius
-        repository = GeniusLyricsRepository()
-        
-        lyricsDto = try repository.getLyrics(searchQuery, options: options)
-    }
-    
+    let result = try loadOrderedLyrics(searchQuery, primary: source, options: options)
+    source = result.source
+    let lyricsDto = result.lyrics
+
     lyricsState.isEmpty = lyricsDto.lines.isEmpty
     
     lyricsState.wasRomanized = lyricsDto.romanization == .romanized

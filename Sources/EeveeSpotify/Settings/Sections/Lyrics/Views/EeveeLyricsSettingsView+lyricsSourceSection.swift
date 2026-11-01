@@ -69,11 +69,11 @@ extension EeveeLyricsSettingsView {
                     }
                 }
 
-                if viewModel.lyricsSource == .musixmatch {
+                if viewModel.lyricsSource == .musixmatch || UserDefaults.lyricsFallbackOrder.contains(.musixmatch) {
                     musixmatchTokenField()
                 }
 
-                if viewModel.lyricsSource == .spicylyrics {
+                if viewModel.lyricsSource == .spicylyrics || UserDefaults.lyricsFallbackOrder.contains(.spicylyrics) {
                     spicyLyricsApiKeyField()
                 }
                 
