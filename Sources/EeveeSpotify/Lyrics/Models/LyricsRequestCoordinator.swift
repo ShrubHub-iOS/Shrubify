@@ -112,8 +112,8 @@ final class LyricsRequestCoordinator {
             case .spicylyrics: repository = SpicyLyricsRepository.shared
             case .musixmatch: repository = MusixmatchLyricsRepository.shared
             case .lrclib: repository = LrclibLyricsRepository.shared
-            case .genius: repository = GeniusLyricsRepository()
-            case .petit: repository = PetitLyricsRepository()
+            case .genius: repository = GeniusLyricsRepository.shared
+            case .petit: repository = PetitLyricsRepository.shared
             case .notReplaced: continue
             }
             do {

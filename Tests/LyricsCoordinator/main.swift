@@ -51,9 +51,11 @@ class LrclibLyricsRepository: LyricsRepository {
     func getLyrics(_ query: LyricsSearchQuery, options: LyricsOptions) throws -> LyricsDto { try ProviderFixture.shared.load(query, source: "lrclib") }
 }
 class PetitLyricsRepository: LyricsRepository {
+    static let shared = PetitLyricsRepository()
     func getLyrics(_ query: LyricsSearchQuery, options: LyricsOptions) throws -> LyricsDto { try ProviderFixture.shared.load(query, source: "petit") }
 }
 class GeniusLyricsRepository: LyricsRepository {
+    static let shared = GeniusLyricsRepository()
     func getLyrics(_ query: LyricsSearchQuery, options: LyricsOptions) throws -> LyricsDto { try ProviderFixture.shared.load(query, source: "genius") }
 }
 class MusixmatchLyricsRepository: LyricsRepository {

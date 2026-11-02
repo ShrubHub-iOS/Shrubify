@@ -1,6 +1,7 @@
 import Foundation
 
 class PetitLyricsRepository: LyricsRepository {
+    static let shared = PetitLyricsRepository()
     private let url = "https://p1.petitlyrics.com/api/GetPetitLyricsData.php"
     private let session: URLSession
 
