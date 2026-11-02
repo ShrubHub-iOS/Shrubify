@@ -32,6 +32,13 @@ private struct ShrubifySavedLayout: Codable, Identifiable {
     var artworkRadius: Double?
 }
 
+private struct StudioPresetSnapshot: Equatable {
+    let player: PlayerOptions
+    let glass: LiquidGlassOptions
+    let bar: NowPlayingBarOptions
+    let radius: Double
+}
+
 struct ShrubifyStudioView: View {
     var usesSettingsNavigation = false
 
@@ -46,6 +53,11 @@ struct ShrubifyStudioView: View {
     @State private var bar = UserDefaults.nowPlayingBarOptions
     @State private var showRestart = false
     @State private var artworkRadius = UserDefaults.standard.object(forKey: "ShrubifyArtworkRadius3") == nil ? 12.0 : UserDefaults.standard.double(forKey: "ShrubifyArtworkRadius3")
+
+    @State private var appliedPreset: StudioPresetSnapshot?
+    private var currentPreset: StudioPresetSnapshot {
+        StudioPresetSnapshot(player: player, glass: glass, bar: bar, radius: artworkRadius)
+    }
 
     var body: some View {
         List {
@@ -207,9 +219,10 @@ struct ShrubifyStudioView: View {
     }
 
     private func saveCustom() {
-        guard !showRestart else { return }
-        preset = .custom
-        UserDefaults.standard.set(ShrubifyPreset.custom.rawValue, forKey: "ShrubifyPreset3")
+        if appliedPreset != currentPreset {
+            preset = .custom
+            UserDefaults.standard.set(ShrubifyPreset.custom.rawValue, forKey: "ShrubifyPreset3")
+        }
         showRestart = true
     }
 
@@ -245,6 +258,7 @@ struct ShrubifyStudioView: View {
         UserDefaults.liquidGlassOptions = glass
         UserDefaults.nowPlayingBarOptions = bar
         NotificationCenter.default.post(name: .eeveeNowPlayingBarOptionsChanged, object: nil)
+        appliedPreset = currentPreset
         showRestart = true
     }
 }

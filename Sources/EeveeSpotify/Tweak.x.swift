@@ -218,6 +218,11 @@ struct EeveeSpotify: Tweak {
 
     init() {
         eeveeBreadcrumb("Tweak init() entered")
+        if UserDefaults.standard.integer(forKey: "ShrubifyConfigurationSchema") < 4 {
+            UserDefaults.cachedCustomizeData = nil
+            UserDefaults.overwriteConfiguration = false
+            UserDefaults.standard.set(4, forKey: "ShrubifyConfigurationSchema")
+        }
         // A stale flag cancels the next bootstrap and hangs the splash screen.
         UserDefaults.hasPatchedBootstrap = false
 

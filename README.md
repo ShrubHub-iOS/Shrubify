@@ -1,4 +1,4 @@
-> **V4 beta 2:** Replay search/export, snapshot search, lyric timing adjustment, improved Studio saves and configurable ShrubPanel shortcuts. The current player/glass foundation is retained. See [V4-BETA.md](V4-BETA.md) for included features, deferred work and device checks. Beta builds are not stable-feed updates.
+> **Shrubify 4.0:** More reliable custom lyrics, loading and retry controls, independent settings navigation, safer request handling, artwork and motion improvements, and Replay/Studio fixes. See [V4-RELEASE.md](V4-RELEASE.md) for release details and device-validation limits.
 
 # Shrubify 3.0.4 — Listening is easy with Shrubify!
 
@@ -17,7 +17,7 @@ Shrubify is an **unofficial, community-developed iOS/iPadOS tweak** based on an 
 | **ShrubModes** | One-tap player presets that keep Spotify's original palette and honor chosen accent colors. | Some hooks change between Spotify versions. |
 | **Compatibility & Diagnostics** | Optional Stability Mode, version reporting, issue links and debug-log export. | Cannot guarantee compatibility with all Spotify builds or eliminate every crash. |
 
-Shrubify 3.0.4 improves the hybrid Spotify/Apple Music visual polish while retaining Spotify's color palette and familiar layout. Optional Vitrine mode now changes visible artwork treatment and backdrop, while the custom lyrics view uses a lazy line list and display-synchronized timing (up to 60 Hz; iOS and device permitting). Existing features, contributor credits and compatibility controls remain intact.
+Shrubify 4.0 focuses on the features used while listening: reliable lyrics, accessible playback controls, your saved appearance choices and private local history. Existing contributor credits and compatibility controls remain intact.
 
 ## Install and build
 

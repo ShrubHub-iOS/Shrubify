@@ -14,7 +14,7 @@ final class KaraokeOverlayPresenter {
     static func present() {
         guard Thread.isMainThread else { DispatchQueue.main.async { present() }; return }
         guard !isPresented else { return }
-        guard UserDefaults.karaokeOptions.enabled, UserDefaults.lyricsSource.supportsCustomLyricsView else {
+        guard UserDefaults.karaokeOptions.enabled, UserDefaults.lyricsSource.isReplacingLyrics else {
             writeDebugLog("[Karaoke] present() skipped: custom lyrics view disabled in settings or unsupported by the lyrics source")
             return
         }
@@ -54,19 +54,10 @@ final class KaraokeOverlayPresenter {
     /// whatever decides whether to show a "Karaoke" button at all) should
     /// check this rather than always presenting and risking a no-op.
     static func isAvailableForCurrentTrack() -> Bool {
-        guard UserDefaults.karaokeOptions.enabled, UserDefaults.lyricsSource.supportsCustomLyricsView else { return false }
+        guard UserDefaults.karaokeOptions.enabled, UserDefaults.lyricsSource.isReplacingLyrics else { return false }
         guard let trackId = KaraokePlaybackTracker.shared.currentTrackId() else { return false }
         return KaraokeLyricsStore.shared.lyrics(forTrackId: trackId) != nil
     }
 
-    /// Walks from WindowHelper's captured-at-launch root view controller
-    /// (NOT a fresh `UIApplication.shared...windows` lookup) down to
-    /// whatever's actually topmost right now.
-    private static func topVC() -> UIViewController? {
-        var top = WindowHelper.shared.rootViewController
-        while let presented = top.presentedViewController {
-            top = presented
-        }
-        return top
-    }
+    private static func topVC() -> UIViewController? { WindowHelper.shared.topViewController }
 }

@@ -94,7 +94,10 @@ extension URL {
         }
         
         // Block Esperanto ad slot service (in-stream and overlay ads)
-        if path.contains("/esperanto/") && (path.contains("ad") || path.contains("slot")) {
+        if path.contains("/esperanto/") && path.split(separator: "/").contains(where: {
+            ["ads", "ad", "ad-slot", "ad-slots", "adslotservice", "adservice"].contains(String($0))
+                || $0.hasSuffix(".adslotservice") || $0.hasSuffix(".adservice")
+        }) {
             return true
         }
         

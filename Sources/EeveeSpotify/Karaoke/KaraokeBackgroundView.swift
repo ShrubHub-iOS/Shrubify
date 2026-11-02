@@ -12,6 +12,10 @@ import MetalKit
 /// up empty, or if Metal itself is unavailable (e.g. simulator).
 @available(iOS 15.0, *)
 struct KaraokeBackgroundView: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var active = UIApplication.shared.applicationState == .active
+    @State private var lowPower = ProcessInfo.processInfo.isLowPowerModeEnabled
+    @State private var artworkGeneration = UUID()
     @State private var albumArtImage: UIImage?
     @State private var colors: [Color] = KaraokeBackgroundView.placeholderColors
 
@@ -21,28 +25,6 @@ struct KaraokeBackgroundView: View {
         Color(red: 0.05, green: 0.20, blue: 0.55),
     ]
 
-    /// Whether the Metal background renderer actually works on this build —
-    /// computed once and cached (Swift `static let` initializes lazily on
-    /// first access). This used to be approximated as just
-    /// `MTLCreateSystemDefaultDevice() != nil` (i.e. "is Metal supported on
-    /// this device at all"), which is true on essentially any real iPhone
-    /// — it said nothing about whether KaraokeBackgroundRenderer's shader
-    /// library actually loaded. That matters here because the renderer
-    /// loads its .metallib from a fixed path that a Makefile step has to
-    /// produce at build time (see the UNTESTED note in
-    /// KaraokeBackgroundRenderer's init) — if that step didn't run or
-    /// staged the file somewhere else, `KaraokeBackgroundRenderer(device:)`
-    /// returns nil, but the previous code had *already* committed to
-    /// showing KaraokeMetalBackgroundView's MTKView by that point. An
-    /// MTKView with a device but no delegate still runs its normal render
-    /// loop and presents its default clear color every frame — solid
-    /// black — instead of falling back to anything. This is what was
-    /// actually producing the black background, and why it only appeared
-    /// once album art started being found at all: before that, albumArtImage
-    /// was always nil and this branch was never reached, so the gradient
-    /// fallback (which doesn't depend on the .metallib loading) was always
-    /// shown instead. Testing renderer construction up front, before
-    /// deciding which view to show, fixes that.
     private static let metalRendererSupported: Bool = {
         guard let device = MTLCreateSystemDefaultDevice() else { return false }
         return KaraokeBackgroundRenderer(device: device) != nil
@@ -52,30 +34,41 @@ struct KaraokeBackgroundView: View {
         Group {
             if let albumArtImage = albumArtImage,
                albumArtImage.size.width > 1, albumArtImage.size.height > 1,
-               KaraokeBackgroundView.metalRendererSupported {
+               KaraokeBackgroundView.metalRendererSupported, active, !reduceMotion, !lowPower {
                 KaraokeMetalBackgroundView(albumArt: albumArtImage)
                     .ignoresSafeArea()
             } else {
                 gradientFallback
             }
         }
-        .onAppear { loadAlbumArt() }
+        .onAppear {
+            let generation = UUID()
+            artworkGeneration = generation
+            loadAlbumArt()
+            // Now Playing artwork can arrive slightly after the track transition.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+                if artworkGeneration == generation { loadAlbumArt() }
+            }
+        }
+        .onDisappear { artworkGeneration = UUID() }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.willResignActiveNotification)) { _ in active = false }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in active = true }
+        .onReceive(NotificationCenter.default.publisher(for: Notification.Name.NSProcessInfoPowerStateDidChange)) { _ in lowPower = ProcessInfo.processInfo.isLowPowerModeEnabled }
     }
 
-    @available(iOS 15.0, *)
-    private var gradientFallback: some View {
-        TimelineView(.periodic(from: .now, by: 1.0 / 12.0)) { timeline in
-            let t = timeline.date.timeIntervalSinceReferenceDate
-            RadialGradient(
-                colors: colors,
-                center: animatedCenter(t: t),
-                startRadius: 20,
-                endRadius: 500
-            )
-            .ignoresSafeArea()
-            .background(Color.black)
-            .animation(.linear(duration: 1.0 / 12.0), value: t)
+    @ViewBuilder private var gradientFallback: some View {
+        if reduceMotion || lowPower || !active {
+            gradient(at: 0)
+        } else {
+            TimelineView(.periodic(from: .now, by: 1.0 / 12.0)) { timeline in
+                gradient(at: timeline.date.timeIntervalSinceReferenceDate)
+            }
         }
+    }
+
+    private func gradient(at time: TimeInterval) -> some View {
+        RadialGradient(colors: colors, center: animatedCenter(t: time), startRadius: 20, endRadius: 500)
+            .ignoresSafeArea().background(Color.black)
     }
 
     /// AlbumArtLocator now checks MPNowPlayingInfoCenter's published artwork
@@ -98,6 +91,7 @@ struct KaraokeBackgroundView: View {
     }
 
     private func extractColors(from image: UIImage) {
+        let generation = artworkGeneration
         DispatchQueue.global(qos: .userInitiated).async {
             let extracted = AlbumArtColorExtractor.dominantColors(from: image, count: 3)
             guard extracted.count >= 2 else {
@@ -106,7 +100,7 @@ struct KaraokeBackgroundView: View {
             }
             let swiftUIColors = extracted.map { Color($0) }
             DispatchQueue.main.async {
-                colors = swiftUIColors
+                if generation == artworkGeneration { colors = swiftUIColors }
             }
         }
     }

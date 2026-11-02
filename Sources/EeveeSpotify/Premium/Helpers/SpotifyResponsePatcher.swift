@@ -4,38 +4,24 @@ import Foundation
 // kept in each caller because its async fetch doesn't fit a sync transform.
 enum SpotifyResponsePatcher {
 
-    // Patched customize body, replayed for 304s and post-startup re-fetches
-    // so ad flags can't re-enable mid-session. Touched from two hook classes on
-    // URLSession's concurrent delegate queues — all access is lock-guarded.
     private static let lock = NSLock()
-    private static var _cachedCustomizeData: Data?
-    private static var _handledCustomizeTasks = Set<Int>()
+    private static var customize: Data?
+    private static var customizeToken: String?
 
+    // Reuse only within this process and bearer-token context. Old persisted
+    // configuration can describe another account, Spotify build or tab registry.
     static var cachedCustomizeData: Data? {
-        get { lock.lock(); defer { lock.unlock() }; return _cachedCustomizeData }
-        set {
+        get {
+            let token = spotifyAccessToken
             lock.lock(); defer { lock.unlock() }
-            _cachedCustomizeData = newValue
-            // Mirror to disk: on a warm relaunch the customize fetch comes back
-            // 304 (no body) and the in-memory cache is empty in the new process.
-            // Without the persisted copy there is nothing to replay and
-            // Spotify's disk-cached unpatched config re-enables ad flags —
-            // the fingerprint behind the "random crashes within minutes of
-            // relaunch" reports (empty/unpatched config + ad surfaces that the
-            // tweak then kills mid-render).
-            UserDefaults.cachedCustomizeData = newValue
+            return token != nil && token == customizeToken ? customize : nil
         }
-    }
-
-    static func markCustomizeTaskHandled(_ id: Int) {
-        lock.lock(); defer { lock.unlock() }
-        _handledCustomizeTasks.insert(id)
-    }
-
-    // Returns true exactly once per id (the task that synthesized the replay).
-    static func consumeCustomizeTask(_ id: Int) -> Bool {
-        lock.lock(); defer { lock.unlock() }
-        return _handledCustomizeTasks.remove(id) != nil
+        set {
+            let token = spotifyAccessToken
+            lock.lock(); defer { lock.unlock() }
+            customize = newValue
+            customizeToken = token
+        }
     }
 
     static func shouldBlock(_ url: URL) -> Bool {
@@ -48,19 +34,11 @@ enum SpotifyResponsePatcher {
             return true
         }
         if path.contains("/dac/view/v1/") { return true }
-        if path.contains("/esperanto/") && (path.contains("ad") || path.contains("slot")) {
-            return true
-        }
-
-        // 30s grace: signup/public is part of fresh-login; blocking pre-30s
-        // breaks first-launch.
+        // Required signup, access-point lookup and configuration requests must
+        // keep working regardless of how long the user has had the app open.
         if elapsed > 30 {
-            return url.isAccountValidate || url.isOndemandSelector
-                || url.isTrialsFacade || url.isPremiumMarketing || url.isPendragonFetchMessageList
-                || url.isPushkaTokens
-                || url.path.contains("signup/public") || url.path.contains("apresolve")
-                || url.path.contains("pses/screenconfig")
-                || shouldHandleCustomize(url)
+            return url.isOndemandSelector || url.isTrialsFacade || url.isPremiumMarketing
+                || url.isPendragonFetchMessageList
         }
         return false
     }
@@ -79,7 +57,7 @@ enum SpotifyResponsePatcher {
         let shouldReplaceLyrics = BaseLyricsGroup.isActive
         let isDAC = url.path.lowercased().contains("/dac/view/v1/")
 
-        return (shouldReplaceLyrics && url.isLyrics)
+        return (shouldReplaceLyrics && UserDefaults.lyricsSource.isReplacingLyrics && url.isLyrics)
             || (shouldPatchPremium && (
                 url.isBootstrap || url.isCustomize ||
                 url.isPremiumPlanRow || url.isPremiumBadge || url.isPlanOverview ||

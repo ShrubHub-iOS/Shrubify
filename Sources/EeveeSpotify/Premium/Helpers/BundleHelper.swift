@@ -40,6 +40,10 @@ class BundleHelper {
         }
     }
     
+    func resourceURL(_ name: String, extension ext: String) -> URL? {
+        bundle?.url(forResource: name, withExtension: ext)
+    }
+
     func uiImage(_ name: String) -> UIImage? {
         guard let bundle = self.bundle else { return nil }
         

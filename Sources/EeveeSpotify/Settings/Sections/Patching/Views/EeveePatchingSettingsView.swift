@@ -40,13 +40,8 @@ struct EeveePatchingSettingsView: View {
             }
 
             if patchType == .requests {
-                Section(
-                    footer: Text("overwrite_configuration_description".localized)
-                ) {
-                    Toggle(
-                        "overwrite_configuration".localized,
-                        isOn: $overwriteConfiguration
-                    )
+                Section(footer: Text("Live Spotify configuration is preserved to keep account-specific pages and navigation consistent.")) {
+                    Label("Live configuration", systemImage: "checkmark.shield")
                 }
 
                 Section(

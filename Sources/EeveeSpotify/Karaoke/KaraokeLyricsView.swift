@@ -1,4 +1,5 @@
 import SwiftUI
+import MediaPlayer
 
 @available(iOS 15.0, *)
 struct KaraokeLyricsView: View {
@@ -17,13 +18,29 @@ struct KaraokeLyricsView: View {
                 if KaraokeGlass.isEnabled {
                     KaraokeGlassBackground().ignoresSafeArea()
                 } else {
-                    KaraokeBackgroundView()
+                    KaraokeBackgroundView().id(model.trackId)
                 }
                 VStack(spacing: 0) {
                     topBar
                     if let lyrics = model.lyrics {
                         content(lyrics: lyrics, layouts: model.layouts, screenWidth: geo.size.width)
                             .id(model.trackId)
+                    } else {
+                        VStack(spacing: 16) {
+                            if model.loading {
+                                ProgressView().tint(.white)
+                                Text("Finding lyrics…").font(.headline)
+                                Text("Trying your sources in order").foregroundColor(.secondary)
+                            } else {
+                                Image(systemName: "text.quote").font(.largeTitle)
+                                Text("Timed lyrics unavailable").font(.headline)
+                                Button("Try again") { model.retryLyrics() }
+                                    .buttonStyle(.bordered)
+                            }
+                        }
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .padding(24)
                     }
                     KaraokePlaybackControls(playback: model.playback, seek: { model.seek(to: $0) }, toggle: { model.togglePlayback() })
                         .disabled(model.playback.trackID != nil && model.playback.trackID != model.trackId)
@@ -104,19 +121,21 @@ struct KaraokeLyricsView: View {
         .padding(.horizontal, 20)
     }
 
-    private var modelTitle: String {
-        statefulPlayer?.currentTrack()?.trackTitle() ?? (capturedTrackId == model.trackId ? capturedTrackTitle : nil) ?? "Shrubify Lyrics"
+    private var trackMetadata: (title: String, artist: String)? {
+        guard let id = model.trackId else { return nil }
+        if let saved = LyricsTrackMetadata.get(trackId: id) { return saved }
+        guard KaraokePlaybackTracker.shared.playerReportedTrackId() == id,
+              let info = MPNowPlayingInfoCenter.default().nowPlayingInfo,
+              let title = info[MPMediaItemPropertyTitle] as? String,
+              let artist = info[MPMediaItemPropertyArtist] as? String else { return nil }
+        return (title, artist)
+    }
+    private var modelTitle: String { trackMetadata?.title ?? "Shrubify Lyrics" }
+    private var modelSubtitle: String {
+        let provider = model.lyrics?.providerName ?? "Lyrics"
+        return trackMetadata.map { $0.artist + " • " + provider } ?? provider
     }
 
-    private var modelSubtitle: String {
-        if let artist = statefulPlayer?.currentTrack()?.artistName(), !artist.isEmpty {
-            if let provider = model.lyrics?.providerName, !provider.isEmpty {
-                return "\(artist) • \(provider)"
-            }
-            return artist
-        }
-        return model.lyrics?.providerName ?? "Word-synced"
-    }
 }
 
 @available(iOS 15.0, *)
@@ -130,6 +149,7 @@ private struct KaraokeScrollingLines: View {
     let seek: (Int) -> Bool
 
     @State private var seekUnavailable = false
+    @State private var followLyrics = true
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     private let horizontalPadding: CGFloat = 24
 
@@ -138,6 +158,17 @@ private struct KaraokeScrollingLines: View {
         let flip: CGFloat = options.reversedDirection ? -1 : 1
 
         ScrollViewReader { proxy in
+            VStack(spacing: 0) {
+            HStack {
+                Spacer()
+                Button { followLyrics.toggle(); if followLyrics, let activeLineIndex { proxy.scrollTo(activeLineIndex, anchor: .center) } } label: {
+                    Label(followLyrics ? "Following lyrics" : "Follow lyrics", systemImage: followLyrics ? "location.fill" : "location")
+                        .font(.caption.weight(.semibold))
+                        .padding(.horizontal, 12).padding(.vertical, 8)
+                }
+                .accessibilityHint("Turn off to read lyrics without automatic scrolling")
+            }
+            .padding(.horizontal, 16)
             ScrollView(showsIndicators: false) {
                 LazyVStack(alignment: alignment, spacing: 16) {
                     Spacer().frame(height: 24)
@@ -177,7 +208,7 @@ private struct KaraokeScrollingLines: View {
                 proxy.scrollTo(activeLineIndex, anchor: .center)
             }
             .onChange(of: activeLineIndex) { newIndex in
-                guard let newIndex = newIndex, newIndex < lyrics.lines.count else { return }
+                guard followLyrics, let newIndex = newIndex, newIndex < lyrics.lines.count else { return }
                 // Single-curve stand-in for SpicyLyrics' overshoot scroll.
                 withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.38)) {
                     proxy.scrollTo(newIndex, anchor: .center)
@@ -185,6 +216,7 @@ private struct KaraokeScrollingLines: View {
             }
             // Flip the list and counter-flip rows; y-only so leading/trailing alignment isn't mirrored.
             .scaleEffect(x: 1, y: flip)
+            }
         }
         .environment(\.layoutDirection, lyrics.isRTL ? .rightToLeft : .leftToRight)
         .alert(isPresented: $seekUnavailable) {

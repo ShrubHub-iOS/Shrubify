@@ -46,27 +46,51 @@ class EeveeSettingsViewController: UIViewController {
     }
 }
 
-/// Keep mod pages off Spotify's private tab/page registry. A standard UIKit
-/// navigation controller owns all settings pushes for the lifetime of the sheet.
+/// An independent UIKit window keeps settings pushes/presentations out of
+/// Spotify's private tab-page registry, including parent-navigation observation.
 enum ShrubifySettingsPresenter {
+    private static var window: UIWindow?
+    private static weak var previousWindow: UIWindow?
+    private static let dismissal = SettingsDismissalDelegate()
+
     static func present(from presenter: UIViewController) {
-        guard Thread.isMainThread else {
-            DispatchQueue.main.async { present(from: presenter) }
-            return
-        }
-        guard presenter.presentedViewController == nil else { return }
+        guard Thread.isMainThread else { DispatchQueue.main.async { present(from: presenter) }; return }
+        guard window == nil, let scene = presenter.view.window?.windowScene else { return }
+        previousWindow = scene.windows.first(where: \.isKeyWindow)
+        let host = UIViewController()
+        host.view.backgroundColor = .clear
+        let settingsWindow = UIWindow(windowScene: scene)
+        settingsWindow.windowLevel = .normal + 1
+        settingsWindow.backgroundColor = .clear
+        settingsWindow.rootViewController = host
+        window = settingsWindow
+        settingsWindow.makeKeyAndVisible()
+
         let navigation = UINavigationController()
-        let root = EeveeSettingsViewController(
-            presenter.view.bounds,
-            settingsView: AnyView(EeveeSettingsView(navigationController: navigation)),
-            navigationTitle: "Shrubify"
-        )
-        root.navigationItem.rightBarButtonItem = UIBarButtonItem(
-            systemItem: .done,
-            primaryAction: UIAction { [weak navigation] _ in navigation?.dismiss(animated: true) }
-        )
+        let root = EeveeSettingsViewController(presenter.view.bounds,
+            settingsView: AnyView(EeveeSettingsView(navigationController: navigation)), navigationTitle: "Shrubify")
+        root.navigationItem.rightBarButtonItem = UIBarButtonItem(systemItem: .done,
+            primaryAction: UIAction { [weak navigation] _ in
+                navigation?.dismiss(animated: true, completion: { finish() })
+            })
         navigation.setViewControllers([root], animated: false)
         navigation.modalPresentationStyle = .pageSheet
-        presenter.present(navigation, animated: true)
+        host.present(navigation, animated: true)
+        navigation.presentationController?.delegate = dismissal
+    }
+
+    fileprivate static func finish() {
+        window?.isHidden = true
+        window?.rootViewController = nil
+        window = nil
+        SettingsNavigator.navigationController = nil
+        previousWindow?.makeKey()
+        previousWindow = nil
+    }
+}
+
+private final class SettingsDismissalDelegate: NSObject, UIAdaptivePresentationControllerDelegate {
+    func presentationControllerDidDismiss(_ presentationController: UIPresentationController) {
+        ShrubifySettingsPresenter.finish()
     }
 }

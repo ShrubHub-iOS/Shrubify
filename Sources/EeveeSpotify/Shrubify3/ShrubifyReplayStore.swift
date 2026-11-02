@@ -61,6 +61,7 @@ final class ShrubifyReplayStore: ObservableObject {
     private var observers: [NSObjectProtocol] = []
     private var previousStamp: TimeInterval?
     private var previousKey: String?
+    private var previousPosition: Double?
     private var countedCurrentPlay = false
     private var currentPlaySeconds: Double = 0
     private var lastSave: TimeInterval = 0
@@ -109,6 +110,7 @@ final class ShrubifyReplayStore: ObservableObject {
         UserDefaults.standard.set(value, forKey: Self.enabledKey)
         previousStamp = nil
         previousKey = nil
+        previousPosition = nil
         currentPlaySeconds = 0
         countedCurrentPlay = false
         persist()
@@ -123,18 +125,33 @@ final class ShrubifyReplayStore: ObservableObject {
               let title = info[MPMediaItemPropertyTitle] as? String, !title.isEmpty,
               let artist = info[MPMediaItemPropertyArtist] as? String, !artist.isEmpty else {
             previousKey = nil
+            previousPosition = nil
             return
         }
         let rate = (info[MPNowPlayingInfoPropertyPlaybackRate] as? NSNumber)?.doubleValue
             ?? (KaraokePlaybackTracker.shared.isPlaying() ? 1 : 0)
         guard rate > 0 else { previousStamp = nil; return }
-        let key = artist.lowercased() + "\u{001F}" + title.lowercased()
+        let playback = KaraokeSeek.refresh()
+        let legacyKey = artist.lowercased() + "\u{001F}" + title.lowercased()
+        let uri = playback.trackID.map { "spotify:track:" + $0 }
+        let key = uri ?? legacyKey
         let changed = previousKey != key
-        if changed {
+        let position = Double(playback.positionMs) / 1000
+        let repeated = !changed && ReplayPlaybackBoundary.didRepeat(previous: previousPosition,
+            current: position, duration: Double(playback.durationMs) / 1000,
+            elapsed: now - (priorStamp ?? now), rate: rate)
+        previousPosition = position
+        if changed || repeated {
             previousKey = key
             currentPlaySeconds = 0
             countedCurrentPlay = false
-            previousStamp = nil
+        }
+        // Upgrade a legacy title-based record without throwing away its history.
+        if key != legacyKey, !archive.tracks.contains(where: { $0.id == key }),
+           let index = archive.tracks.firstIndex(where: { $0.id == legacyKey }) {
+            let old = archive.tracks[index]
+            archive.tracks[index] = ShrubifyTrackRecord(id: key, title: old.title, artist: old.artist,
+                seconds: old.seconds, plays: old.plays, lastPlayed: old.lastPlayed, spotifyURI: uri)
         }
         // Never backfill missing time or count time spent in background.
         let seconds = changed ? 0 : min(12, max(0, now - (priorStamp ?? now)))
@@ -143,10 +160,6 @@ final class ShrubifyReplayStore: ObservableObject {
         currentPlaySeconds += seconds
         let date = Date()
         let idx = archive.tracks.firstIndex { $0.id == key }
-        let uri: String? = {
-            guard let id = KaraokePlaybackTracker.shared.playerReportedTrackId(), !id.isEmpty else { return nil }
-            return "spotify:track:" + id
-        }()
         if let idx = idx {
             archive.tracks[idx].seconds += seconds
             archive.tracks[idx].lastPlayed = date
@@ -192,7 +205,8 @@ final class ShrubifyReplayStore: ObservableObject {
               let title = info[MPMediaItemPropertyTitle] as? String,
               let artist = info[MPMediaItemPropertyArtist] as? String,
               !title.isEmpty, !artist.isEmpty else { return false }
-        let key = artist.lowercased() + "\u{001F}" + title.lowercased()
+        let key = KaraokePlaybackTracker.shared.playerReportedTrackId().map { "spotify:track:" + $0 }
+            ?? (artist.lowercased() + "\u{001F}" + title.lowercased())
         var entry = archive.tracks.first(where: { $0.id == key }) ?? ShrubifyTrackRecord(id: key, title: title, artist: artist, seconds: 0, plays: 0, lastPlayed: Date(), spotifyURI: nil)
         if let id = KaraokePlaybackTracker.shared.playerReportedTrackId(), !id.isEmpty { entry.spotifyURI = "spotify:track:" + id }
         if !archive.tracks.contains(where: { $0.id == key }) { archive.tracks.append(entry) }
@@ -227,6 +241,7 @@ final class ShrubifyReplayStore: ObservableObject {
     func clear() {
         archive = ShrubifyReplayArchive()
         previousKey = nil
+        previousPosition = nil
         previousStamp = nil
         currentPlaySeconds = 0
         countedCurrentPlay = false

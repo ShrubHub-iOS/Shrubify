@@ -1,11 +1,29 @@
-import Orion
-import UIKit
-import MediaPlayer
+import Foundation
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 
-// Global variables to store captured track metadata for 9.1.6
-var capturedTrackTitle: String?
-var capturedArtistName: String?
-var capturedTrackId: String?
+enum LyricsTrackMetadata {
+    private static let lock = NSLock()
+    private static var tracks: [String: (title: String, artist: String)] = [:]
+    private static var lastId: String?
+    static func set(trackId: String, title: String, artist: String) {
+        lock.lock(); defer { lock.unlock() }
+        if tracks.count >= 16, tracks[trackId] == nil { tracks.removeAll() }
+        tracks[trackId] = (title, artist); lastId = trackId
+    }
+    static func get(trackId: String) -> (title: String, artist: String)? {
+        lock.lock(); defer { lock.unlock() }; return tracks[trackId]
+    }
+    static var current: (id: String, title: String, artist: String)? {
+        lock.lock(); defer { lock.unlock() }
+        guard let id = lastId, let value = tracks[id] else { return nil }
+        return (id, value.title, value.artist)
+    }
+}
+var capturedTrackTitle: String? { LyricsTrackMetadata.current?.title }
+var capturedArtistName: String? { LyricsTrackMetadata.current?.artist }
+var capturedTrackId: String? { LyricsTrackMetadata.current?.id }
 
 // Function to fetch track details using Spotify API if we have a token
 func fetchTrackDetails(trackId: String, token: String) -> (title: String, artist: String)? {
@@ -19,7 +37,12 @@ func fetchTrackDetails(trackId: String, token: String) -> (title: String, artist
     var result: (String, String)?
     let semaphore = DispatchSemaphore(value: 0)
     
-    let task = URLSession.shared.dataTask(with: request) { data, response, error in
+    let config = URLSessionConfiguration.ephemeral
+    config.timeoutIntervalForRequest = 3
+    config.timeoutIntervalForResource = 3
+    let session = URLSession(configuration: config)
+    defer { session.finishTasksAndInvalidate() }
+    let task = session.dataTask(with: request) { data, response, error in
         defer { semaphore.signal() }
         
         guard let data = data, error == nil else { return }
@@ -34,8 +57,8 @@ func fetchTrackDetails(trackId: String, token: String) -> (title: String, artist
         }
     }
     
-    task.resume()
-    _ = semaphore.wait(timeout: .now() + 3.0)
+    LyricsRequestContext.resume(task)
+    semaphore.wait()
     
     return result
 }

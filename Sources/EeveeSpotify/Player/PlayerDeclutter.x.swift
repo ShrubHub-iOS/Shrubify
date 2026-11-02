@@ -45,7 +45,7 @@ enum PlayerDeclutter {
     static let hidden: Set<PlayerPart> = {
         var parts = Set(UserDefaults.playerOptions.hiddenParts)
         let options = UserDefaults.karaokeOptions
-        if options.enabled && options.customLyricsOnly && UserDefaults.lyricsSource.supportsCustomLyricsView {
+        if options.enabled && options.customLyricsOnly && UserDefaults.lyricsSource.isReplacingLyrics {
             parts.formUnion([.lyricsCard, .lyricsPreview])
         }
         return parts

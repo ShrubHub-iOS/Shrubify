@@ -19,7 +19,9 @@ func modifyRemoteConfiguration(_ configuration: inout UcsResponse) {
             liveMessagingAssignmentKeys.contains("\($0.propertyID.scope).\($0.propertyID.name)")
         }
 
-        configuration.resolve.configuration = try! BundleHelper.shared.resolveConfiguration()
+        if let bundled = try? BundleHelper.shared.resolveConfiguration() {
+            configuration.resolve.configuration = bundled
+        }
 
         configuration.assignedValues.removeAll {
             liveMessagingAssignmentKeys.contains("\($0.propertyID.scope).\($0.propertyID.name)")

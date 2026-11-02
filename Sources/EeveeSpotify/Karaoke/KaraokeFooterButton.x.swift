@@ -72,7 +72,7 @@ enum KaraokeFooterButton {
 }
 
 func activateKaraokeFooterButton() {
-    guard #available(iOS 15.0, *), UserDefaults.lyricsSource.supportsCustomLyricsView else { return }
+    guard #available(iOS 15.0, *), UserDefaults.lyricsSource.isReplacingLyrics else { return }
     let start = CFAbsoluteTimeGetCurrent()
     guard NSClassFromString(KaraokeFooterUnitHook.targetName) != nil else {
         eeveeLog("[Shrubify][Karaoke] Footer button skipped: footer unit missing")

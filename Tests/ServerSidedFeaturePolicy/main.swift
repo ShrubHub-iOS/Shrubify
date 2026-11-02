@@ -18,10 +18,10 @@ for name in [
 }
 
 require(
-    ServerSidedFeaturePolicy.shouldOverwriteResolvedConfiguration(
+    !ServerSidedFeaturePolicy.shouldOverwriteResolvedConfiguration(
         requested: true
     ),
-    "explicit overwrite must use the version-selected bundled configuration"
+    "live account configuration must survive old overwrite preferences"
 )
 require(
     !ServerSidedFeaturePolicy.shouldOverwriteResolvedConfiguration(

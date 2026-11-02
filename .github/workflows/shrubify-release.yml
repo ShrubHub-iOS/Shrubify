@@ -106,8 +106,10 @@ jobs:
           python3 -m unittest discover -s scripts/tests -p 'test_*.py'
           python3 scripts/check_ios14_swiftui.py
           python3 scripts/check_shrubify_branding.py
-          swiftc -frontend -parse Sources/EeveeSpotify/Shrubify3/*.swift
+          find Sources/EeveeSpotify -name '*.swift' -print0 | xargs -0 swiftc -frontend -parse
           bash scripts/test_v4_beta.sh
+          bash scripts/test_release_support.sh
+          bash scripts/test_lyrics_coordinator.sh
       - uses: maxim-lobanov/setup-xcode@v1
         with:
           xcode-version: '26.1.1'
@@ -321,9 +323,14 @@ jobs:
 
           - Spotify: ${SPOTIFY_VERSION}
           - Shrubify tweak: ${TWEAK_VERSION}
-          - Shrubify Studio layouts, ShrubPanel quick access, local-only Replay and ShrubQueue shortcuts
+          - Cancellable custom lyrics loading, ordered fallbacks, retry and Follow lyrics controls
+          - Pause/play and progress scrubbing in custom lyrics; safer seeking and timestamp parsing
+          - Independent settings navigation, request cleanup, artwork and motion/power improvements
+          - Studio layouts, ShrubPanel, local-only Replay improvements and ShrubQueue shortcuts
           - Preserves Spotify's color palette; existing iOS 26 Liquid Glass hooks remain supported
           - Listening snapshots are not Spotify's actual playback queue
+          - Full release notes and device-validation limits: V4-RELEASE.md in the source repository
+          - Reported beta 4 navigation crash is targeted; device confirmation remains required.
           - This is an automated build, NOT a device-verified compatibility certification.
           - You must sign the IPA with your own certificate.
           - Unofficial and not affiliated with Spotify.

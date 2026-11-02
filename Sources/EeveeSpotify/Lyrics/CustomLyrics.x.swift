@@ -3,306 +3,71 @@ import SwiftUI
 import MediaPlayer
 
 struct BaseLyricsGroup: HookGroup { }
-
 struct LegacyLyricsGroup: HookGroup { }
 struct ModernLyricsGroup: HookGroup { }
-struct V91LyricsGroup: HookGroup { }            // 9.1.x-safe subset
-struct LyricsErrorHandlingGroup: HookGroup { }  // not activated on 9.1.x
+struct V91LyricsGroup: HookGroup { }
+struct LyricsErrorHandlingGroup: HookGroup { }
 
-var lyricsState = LyricsLoadingState()
-
+private let lyricsStateLock = NSLock()
+private var storedLyricsState = LyricsLoadingState()
+var lyricsState: LyricsLoadingState {
+    get { lyricsStateLock.lock(); defer { lyricsStateLock.unlock() }; return storedLyricsState }
+    set { lyricsStateLock.lock(); storedLyricsState = newValue; lyricsStateLock.unlock() }
+}
 var hasShownRestrictedPopUp = false
 var hasShownUnauthorizedPopUp = false
 
-private let geniusLyricsRepository = GeniusLyricsRepository()
-private let petitLyricsRepository = PetitLyricsRepository()
+func invalidateLyricsForSourceChange() { LyricsRequestCoordinator.shared.invalidate() }
 
-// One ordered provider path for current-track and track-ID requests.
-private func loadOrderedLyrics(_ query: LyricsSearchQuery, primary: LyricsSource, options: LyricsOptions) throws -> (lyrics: LyricsDto, source: LyricsSource) {
-    var lastError: Error = LyricsError.noSuchSong
-    for source in LyricsFallbacks.chain(primary: primary, fallbacks: UserDefaults.lyricsFallbackOrder) {
-        if (source == .genius || source == .lrclib || source == .petit) && (query.title.isEmpty || query.primaryArtist.isEmpty) { continue }
-        let repository: LyricsRepository
-        switch source {
-        case .spicylyrics: repository = SpicyLyricsRepository.shared
-        case .musixmatch: repository = MusixmatchLyricsRepository.shared
-        case .lrclib: repository = LrclibLyricsRepository.shared
-        case .petit: repository = petitLyricsRepository
-        case .genius: repository = geniusLyricsRepository
-        case .notReplaced: continue
-        }
-        do {
-            let lyrics = try repository.getLyrics(query, options: options)
-            guard !lyrics.lines.isEmpty else { throw LyricsError.noSuchSong }
-            return (lyrics, source)
-        } catch {
-            lastError = error
-            lyricsState.fallbackError = (error as? LyricsError) ?? .unknownError
-            KaraokeLyricsStore.shared.remove(trackId: query.spotifyTrackId)
-        }
-    }
-    throw lastError
-}
-
-// Overload for 9.1.6 where we only have track ID from URL
-private func loadCustomLyricsForTrackId(_ trackId: String) throws -> Lyrics {
-
-    var source = UserDefaults.lyricsSource
-
-    var currentTitle: String? = nil
-    var currentArtist: String? = nil
-    var hasMetadata = false
-
-
-    // 1. Use cached metadata if it's for the same track
-    if capturedTrackId == trackId, let title = capturedTrackTitle, let artist = capturedArtistName {
-        currentTitle = title
-        currentArtist = artist
-        hasMetadata = true
-    }
-
-    // 2. Try statefulPlayer (most reliable on modern Spotify)
-    if !hasMetadata {
-        if let player = statefulPlayer,
-           let track = player.currentTrack() {
-            let currentId = track.URI().spt_trackIdentifier()
-
-            if currentId == trackId {
-                currentTitle = track.trackTitle()
-                currentArtist = track.artistName()
-                hasMetadata = true
-                capturedTrackId = trackId
-                capturedTrackTitle = currentTitle
-                capturedArtistName = currentArtist
-            }
-        }
-    }
-
-    // 3. MPNowPlayingInfoCenter — must be read on the main thread.
-    // It always describes the playing track, so it must not be used for another track
-    // (Spotify also loads lyrics for tracks that aren't playing yet).
-    let nowPlayingIsThisTrack = KaraokePlaybackTracker.shared.playerReportedTrackId().map { $0 == trackId } ?? true
-    if !hasMetadata && nowPlayingIsThisTrack {
-        var npTitle: String? = nil
-        var npArtist: String? = nil
-        if Thread.isMainThread {
-            npTitle = MPNowPlayingInfoCenter.default().nowPlayingInfo?[MPMediaItemPropertyTitle] as? String
-            npArtist = MPNowPlayingInfoCenter.default().nowPlayingInfo?[MPMediaItemPropertyArtist] as? String
-        } else {
-            DispatchQueue.main.sync {
-                npTitle = MPNowPlayingInfoCenter.default().nowPlayingInfo?[MPMediaItemPropertyTitle] as? String
-                npArtist = MPNowPlayingInfoCenter.default().nowPlayingInfo?[MPMediaItemPropertyArtist] as? String
-            }
-        }
-        if let title = npTitle, let artist = npArtist, !title.isEmpty, !artist.isEmpty {
-            currentTitle = title
-            currentArtist = artist
-            hasMetadata = true
-            capturedTrackId = trackId
-            capturedTrackTitle = title
-            capturedArtistName = artist
-        }
-    }
-
-    // 4. Spotify Web API fallback using captured Bearer token
-    if !hasMetadata, let token = spotifyAccessToken {
-        if let info = fetchTrackDetails(trackId: trackId, token: token) {
-            currentTitle = info.title
-            currentArtist = info.artist
-            hasMetadata = true
-            capturedTrackId = trackId
-            capturedTrackTitle = currentTitle
-            capturedArtistName = currentArtist
-        }
-    }
-
-
-    let searchQuery = LyricsSearchQuery(
-        title: currentTitle ?? "",
-        primaryArtist: currentArtist ?? "",
-        spotifyTrackId: trackId
-    )
-    
-    let options = UserDefaults.lyricsOptions
-    
-    lyricsState = LyricsLoadingState()
-    KaraokeLyricsStore.shared.remove(trackId: searchQuery.spotifyTrackId)
-    let result = try loadOrderedLyrics(searchQuery, primary: source, options: options)
-    source = result.source
-    let lyricsDto = result.lyrics
-
-    lyricsState.isEmpty = lyricsDto.lines.isEmpty
-    
-    lyricsState.wasRomanized = lyricsDto.romanization == .romanized
-        || (lyricsDto.romanization == .canBeRomanized && UserDefaults.lyricsOptions.romanization)
-    
-    lyricsState.loadedSuccessfully = true
-
-    writeDebugLog("[Lyrics] \(trackId): \(source.description), \(lyricsDto.lines.count) lines, synced=\(lyricsDto.timeSynced)")
-    publishLineSyncedKaraokeLyrics(lyricsDto, trackId: searchQuery.spotifyTrackId, source: source)
-
-    let lyrics = Lyrics.with {
-        $0.data = lyricsDto.toSpotifyLyricsData(source: source.description)
-    }
-    
-    return lyrics
-}
-
-/// Feeds the custom lyrics view for sources that only have line-level timing.
-/// Spicy Lyrics publishes its own (word/syllable) data while parsing, so an
-/// existing entry for the track is never overwritten.
-private func publishLineSyncedKaraokeLyrics(_ dto: LyricsDto, trackId: String, source: LyricsSource) {
-    guard source.supportsCustomLyricsView, !trackId.isEmpty,
-          KaraokeLyricsStore.shared.lyrics(forTrackId: trackId) == nil else { return }
-    guard let karaoke = KaraokeLyricsDto.lineSynced(from: dto, providerName: source.description) else { return }
-    KaraokeLyricsStore.shared.set(trackId: trackId, lyrics: karaoke)
-}
-
-private func loadCustomLyricsForCurrentTrack() throws -> Lyrics {
-    
-    guard
-        let track = statefulPlayer?.currentTrack() ??
-                    nowPlayingScrollViewController?.loadedTrack
-        else {
-            throw LyricsError.noCurrentTrack
-        }
-    
-    let trackTitle = track.trackTitle()
-    let artistName = track.artistName()
-
-    let searchQuery = LyricsSearchQuery(
-        title: trackTitle,
-        primaryArtist: artistName,
-        spotifyTrackId: track.trackIdentifier
-    )
-    
-    let options = UserDefaults.lyricsOptions
-    var source = UserDefaults.lyricsSource
-    
-    // switched to swift 5.8 syntax to compile with Theos on Linux.
-    lyricsState = LyricsLoadingState()
-    KaraokeLyricsStore.shared.remove(trackId: searchQuery.spotifyTrackId)
-    let result = try loadOrderedLyrics(searchQuery, primary: source, options: options)
-    source = result.source
-    let lyricsDto = result.lyrics
-
-    lyricsState.isEmpty = lyricsDto.lines.isEmpty
-    
-    lyricsState.wasRomanized = lyricsDto.romanization == .romanized
-        || (lyricsDto.romanization == .canBeRomanized && UserDefaults.lyricsOptions.romanization)
-    
-    lyricsState.loadedSuccessfully = true
-
-    publishLineSyncedKaraokeLyrics(lyricsDto, trackId: searchQuery.spotifyTrackId, source: source)
-
-    let lyrics = Lyrics.with {
-        $0.data = lyricsDto.toSpotifyLyricsData(source: source.description)
-    }
-    
-    return lyrics
-}
-
-/// Extracts the Spotify track ID from a `/color-lyrics/v2/track/{trackId}` URL path.
-/// Returns nil if the path doesn't match the expected format.
 func extractTrackId(from path: String) -> String? {
-    guard let range = path.range(of: #"/track/([a-zA-Z0-9]+)"#, options: .regularExpression) else {
-        return nil
-    }
-    let trackId = String(path[range].split(separator: "/").last ?? "")
-    return trackId.isEmpty ? nil : trackId
+    guard let range = path.range(of: #"/track/([a-zA-Z0-9]+)"#, options: .regularExpression) else { return nil }
+    let id = String(path[range].split(separator: "/").last ?? "")
+    return id.isEmpty ? nil : id
 }
 
-// MARK: - Lyrics prefetch
-// Holds the result of the most recently completed prefetch. It's consumed (and
-// cleared) by the next getLyricsDataForCurrentTrack call for the same track. If
-// the real request arrives before prefetch finishes, or is for a different
-// track, the prefetch result is simply ignored — this is a best-effort handoff,
-// not a general cache.
-private struct PrefetchedLyrics {
-    let trackId: String
-    let source: LyricsSource
-    let data: Data
-}
-private var prefetchedResult: PrefetchedLyrics?
-
-// Track ID currently being prefetched, to avoid duplicate background fetches.
-private var prefetchingTrackId: String?
-
-/// Drops everything remembered from the previous provider. Call when the lyrics
-/// source changes so the next visit to any track fetches from the new one.
-func invalidateLyricsForSourceChange() {
-    prefetchedResult = nil
-    prefetchingTrackId = nil
-    KaraokeLyricsStore.shared.clear()
-    MusixmatchLyricsRepository.shared.clearCache()
-    writeDebugLog("[Lyrics] provider changed — cleared prefetch, custom lyrics view and Musixmatch caches")
-}
-
-/// Kicks off a background lyrics fetch for `trackId` so the result is ready
-/// before Spotify fires its `/color-lyrics/v2` request.
-/// Safe to call multiple times — duplicate calls for the same track are ignored.
 func prefetchLyricsIfNeeded(trackId: String) {
-    let source = UserDefaults.lyricsSource
-    guard source.isReplacingLyrics else { return }
-    // A waiting result from another provider is stale, not "already done".
-    if let waiting = prefetchedResult, waiting.source != source { prefetchedResult = nil }
-    // Already have a result waiting, or already fetching — nothing to do.
-    if prefetchedResult?.trackId == trackId { return }
-    if prefetchingTrackId == trackId { return }
+    loadLyricsDataAsync("/color-lyrics/v2/track/" + trackId) { _ in }
+}
 
-    prefetchingTrackId = trackId
-    writeDebugLog("[Lyrics] prefetch start for \(trackId)")
-
-    DispatchQueue.global(qos: .userInitiated).async {
-        defer {
-            if prefetchingTrackId == trackId {
-                prefetchingTrackId = nil
-            }
+/// Completion is always asynchronous on main. Metadata is captured before any
+/// worker starts, with no main.sync/semaphore cycle and no private UI calls off-main.
+func loadLyricsDataAsync(_ path: String, originalLyrics: Lyrics? = nil, force: Bool = false,
+                         completion: @escaping (Data?) -> Void) {
+    DispatchQueue.main.async {
+        guard UserDefaults.lyricsSource.isReplacingLyrics, let trackId = extractTrackId(from: path) else { completion(nil); return }
+        if KaraokePlaybackTracker.shared.playerReportedTrackId() == nil { KaraokePlaybackTracker.shared.updateTrackIdFromLyricsFetch(trackId) }
+        var metadata = LyricsTrackMetadata.get(trackId: trackId)
+        if metadata == nil, KaraokePlaybackTracker.shared.playerReportedTrackId() == trackId,
+           let info = MPNowPlayingInfoCenter.default().nowPlayingInfo,
+           let title = info[MPMediaItemPropertyTitle] as? String,
+           let artist = info[MPMediaItemPropertyArtist] as? String {
+            LyricsTrackMetadata.set(trackId: trackId, title: title, artist: artist)
+            metadata = (title, artist)
         }
-        do {
-            var lyrics = try loadCustomLyricsForTrackId(trackId)
-
-            // Apply color so the prefetched payload is fully valid on its own.
-            // Mirrors the logic in getLyricsDataForCurrentTrack; prefetch has no
-            // access to Spotify's original lyrics object, so displayOriginalColors
-            // can't be honored here — falls back to the static/bg/gray logic.
-            let lyricsColorsSettings = UserDefaults.lyricsColors
-            if !lyricsColorsSettings.displayOriginalColors {
-                let color: Color
-                if lyricsColorsSettings.useStaticColor {
-                    color = Color(hex: lyricsColorsSettings.staticColor)
-                } else if let uiColor = backgroundViewModel?.color() {
-                    color = Color(uiColor).normalized(lyricsColorsSettings.normalizationFactor)
-                } else {
-                    color = Color.gray
+        let query = LyricsSearchQuery(title: metadata?.title ?? "", primaryArtist: metadata?.artist ?? "", spotifyTrackId: trackId)
+        LyricsRequestCoordinator.shared.request(query, force: force) { result in
+            DispatchQueue.main.async {
+                guard let result else { completion(originalLyrics.flatMap { try? $0.serializedData() } ?? emptyLyricsData()); return }
+                var lyrics = Lyrics.with { $0.data = result.dto.toSpotifyLyricsData(source: result.source.description) }
+                let settings = UserDefaults.lyricsColors
+                if settings.displayOriginalColors, let originalLyrics { lyrics.colors = originalLyrics.colors }
+                else {
+                    let color: Color
+                    if settings.useStaticColor { color = Color(hex: settings.staticColor) }
+                    else if let uiColor = backgroundViewModel?.color() { color = Color(uiColor).normalized(settings.normalizationFactor) }
+                    else { color = .gray }
+                    lyrics.colors = LyricsColors.with {
+                        $0.backgroundColor = color.uInt32
+                        $0.lineColor = Color.black.uInt32
+                        $0.activeLineColor = Color.white.uInt32
+                    }
                 }
-                lyrics.colors = LyricsColors.with {
-                    $0.backgroundColor = color.uInt32
-                    $0.lineColor = Color.black.uInt32
-                    $0.activeLineColor = Color.white.uInt32
-                }
+                completion(try? lyrics.serializedData())
             }
-
-            // The provider may have been switched while this was in flight.
-            guard UserDefaults.lyricsSource == source else {
-                writeDebugLog("[Lyrics] prefetch for \(trackId) discarded: provider changed")
-                KaraokeLyricsStore.shared.remove(trackId: trackId)
-                return
-            }
-
-            if let data = try? lyrics.serializedData() {
-                prefetchedResult = PrefetchedLyrics(trackId: trackId, source: source, data: data)
-                writeDebugLog("[Lyrics] prefetch complete for \(trackId)")
-            }
-        } catch {
-            writeDebugLog("[Lyrics] prefetch failed for \(trackId): \(error)")
         }
     }
 }
 
-/// Returns a serialized empty `Lyrics` protobuf payload.
-/// Used as a fallback when every lyrics source (including Genius fallback) fails,
-/// so we show "no lyrics" instead of leaking Spotify's own Musixmatch response.
 func emptyLyricsData(originalLyrics: Lyrics? = nil) -> Data? {
     let emptyDto = LyricsDto(lines: [], timeSynced: false, romanization: .original, translation: nil)
     var lyrics = Lyrics.with {
@@ -312,105 +77,4 @@ func emptyLyricsData(originalLyrics: Lyrics? = nil) -> Data? {
         lyrics.colors = originalLyrics.colors
     }
     return try? lyrics.serializedData()
-}
-
-func getLyricsDataForCurrentTrack(_ originalPath: String, originalLyrics: Lyrics? = nil) throws -> Data {
-    
-    // track id from URL path; player objects are nil on 9.1.6
-    // path: /color-lyrics/v2/track/{trackId}
-    guard let trackIdentifier = extractTrackId(from: originalPath), !trackIdentifier.isEmpty else {
-        throw LyricsError.noCurrentTrack
-    }
-
-    // The player observer doesn't attach on 9.1.x, so the lyrics request is the current-track signal.
-    KaraokePlaybackTracker.shared.updateTrackIdFromLyricsFetch(trackIdentifier)
-
-    if capturedTrackId != trackIdentifier {
-        capturedTrackTitle = nil
-        capturedArtistName = nil
-        capturedTrackId = nil
-    }
-
-    // Use a prefetched result if one finished in time for this track.
-    // Note: if displayOriginalColors is on, the prefetched payload won't carry
-    // Spotify's true original colors (prefetch has no access to `originalLyrics`),
-    // so it falls back to static/bg/gray coloring in that case — see the caveat
-    // in prefetchLyricsIfNeeded.
-    if let prefetched = prefetchedResult, prefetched.trackId == trackIdentifier,
-       prefetched.source == UserDefaults.lyricsSource {
-        prefetchedResult = nil
-        writeDebugLog("[Lyrics] using prefetched result for \(trackIdentifier)")
-        return prefetched.data
-    }
-
-    // Bounded wait around the synchronous fallback fetch, specifically
-    // because a track stuck "queued" (503) on SpicyLyrics has a retry loop
-    // (performQuery) that can legitimately run for up to ~26s — and this
-    // function runs on whatever thread Spotify itself calls it from, not a
-    // background one. Without a bound, skipping through several
-    // back-to-back queued tracks could each block that thread for a long
-    // stretch, one after another. This is the leading theory for lyrics
-    // "breaking" after rapid skipping and needing an app restart to
-    // recover — a real, reachable blocking path — though I don't have a
-    // direct log capture of that exact failure to confirm the mechanism
-    // beyond this.
-    //
-    // The underlying fetch keeps running in the background past the
-    // timeout — its result still reaches KaraokeLyricsStore (and, via
-    // whatever the next prefetch/fetch for the same track does,
-    // prefetchedResult) through loadCustomLyricsForTrackId itself; only
-    // THIS caller stops waiting on it. A slow fetch isn't wasted, it's just
-    // no longer something Spotify's own thread sits through.
-    let fallbackTimeout: TimeInterval = 12.0
-    let semaphore = DispatchSemaphore(value: 0)
-    var fetchedLyrics: Lyrics?
-    var fetchedError: Error?
-    DispatchQueue.global(qos: .userInitiated).async {
-        do {
-            fetchedLyrics = try loadCustomLyricsForTrackId(trackIdentifier)
-        } catch {
-            fetchedError = error
-        }
-        semaphore.signal()
-    }
-    guard semaphore.wait(timeout: .now() + fallbackTimeout) == .success else {
-        writeDebugLog("[Lyrics] \(trackIdentifier): \(UserDefaults.lyricsSource.description) took longer than \(fallbackTimeout)s — Spotify's own lyrics are used for this song")
-        throw LyricsError.noSuchSong
-    }
-    if let fetchedError = fetchedError {
-        writeDebugLog("[Lyrics] \(trackIdentifier): \(UserDefaults.lyricsSource.description) failed: \(fetchedError)")
-        throw fetchedError
-    }
-    guard var lyrics = fetchedLyrics else {
-        throw LyricsError.noSuchSong
-    }
-    
-    let lyricsColorsSettings = UserDefaults.lyricsColors
-    
-    if lyricsColorsSettings.displayOriginalColors, let originalLyrics = originalLyrics {
-        lyrics.colors = originalLyrics.colors
-    }
-    else {
-        // no track object on 9.1.6: static color, else background color, else gray
-        var color: Color
-        
-        if lyricsColorsSettings.useStaticColor {
-            color = Color(hex: lyricsColorsSettings.staticColor)
-        }
-        else if let uiColor = backgroundViewModel?.color() {
-            color = Color(uiColor)
-                .normalized(lyricsColorsSettings.normalizationFactor)
-        }
-        else {
-            color = Color.gray
-        }
-        
-        lyrics.colors = LyricsColors.with {
-            $0.backgroundColor = color.uInt32
-            $0.lineColor = Color.black.uInt32
-            $0.activeLineColor = Color.white.uInt32
-        }
-    }
-    
-    return try lyrics.serializedData()
 }

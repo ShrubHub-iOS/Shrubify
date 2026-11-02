@@ -3,6 +3,10 @@
 #import <objc/runtime.h>
 #import "Tweak.h"
 
+@protocol ShrubEncoreIconInitializer <NSObject>
+- (instancetype)initWithIcon:(id)icon;
+@end
+
 UIImage *EeveeRenderTemplate(UIView *view) {
     CGSize size = view.bounds.size;
     if (size.width < 2 || size.height < 2) return nil;
@@ -10,9 +14,11 @@ UIImage *EeveeRenderTemplate(UIView *view) {
         [view.layer renderInContext:context.CGContext];
     }];
     CGImageRef cg = image.CGImage;
+    if (!cg) return nil;
     size_t width = CGImageGetWidth(cg), height = CGImageGetHeight(cg);
     NSMutableData *alpha = [NSMutableData dataWithLength:width * height];
     CGContextRef context = CGBitmapContextCreate(alpha.mutableBytes, width, height, 8, width, NULL, (CGBitmapInfo)kCGImageAlphaOnly);
+    if (!context) return nil;
     CGContextDrawImage(context, CGRectMake(0, 0, width, height), cg);
     CGContextRelease(context);
     const uint8_t *bytes = alpha.bytes;
@@ -28,9 +34,11 @@ UIImage *EeveeEncoreIconImage(UIView *live, BOOL active) {
     const char *type = ivar ? ivar_getTypeEncoding(ivar) : NULL;
     id icon = type && type[0] == '@' ? object_getIvar(live, ivar) : nil;
     Class viewClass = NSClassFromString(@"SPTEncoreIconView");
-    if (!icon || !viewClass || size.width < 2) return nil;
+    if (!icon || !viewClass || size.width < 2 || ![viewClass instancesRespondToSelector:@selector(initWithIcon:)]) return nil;
 
-    UIView *view = ((id (*)(id, SEL, id))objc_msgSend)([viewClass alloc], @selector(initWithIcon:), icon);
+    // A typed init call preserves ARC's consumed-receiver ownership convention.
+    UIView *view = (UIView *)[(id<ShrubEncoreIconInitializer>)[viewClass alloc] initWithIcon:icon];
+    if (![view isKindOfClass:UIView.class]) return nil;
     view.frame = (CGRect){CGPointZero, size};
     SEL setters[] = {@selector(setForegroundColor:), NSSelectorFromString(@"setActiveForegroundColor:")};
     for (int i = 0; i < 2; i++) {
@@ -45,7 +53,10 @@ UIImage *EeveeEncoreIconImage(UIView *live, BOOL active) {
 // Spotify's tab items answer a tap recognizer, so replay its target-action pairs like a real touch would.
 BOOL EeveeFireTap(UIView *root) {
     if ([root isKindOfClass:UIControl.class]) {
-        [(UIControl *)root sendActionsForControlEvents:UIControlEventTouchUpInside | UIControlEventPrimaryActionTriggered];
+        UIControl *control = (UIControl *)root;
+        UIControlEvents event = (control.allControlEvents & UIControlEventPrimaryActionTriggered)
+            ? UIControlEventPrimaryActionTriggered : UIControlEventTouchUpInside;
+        [control sendActionsForControlEvents:event];
         return YES;
     }
     Ivar targetsIvar = class_getInstanceVariable(UIGestureRecognizer.class, "_targets");
@@ -65,7 +76,17 @@ BOOL EeveeFireTap(UIView *root) {
                 id target = object_getIvar(pair, targetIvar);
                 SEL action = *(SEL *)((char *)(__bridge void *)pair + ivar_getOffset(actionIvar));
                 if (!target || !action || ![target respondsToSelector:action]) continue;
-                ((void (*)(id, SEL, id))objc_msgSend)(target, action, recognizer);
+                Method method = class_getInstanceMethod([target class], action);
+                if (!method) continue;
+                unsigned count = method_getNumberOfArguments(method);
+                char result[8] = {0}; method_getReturnType(method, result, sizeof(result));
+                if (result[0] != 'v' || (count != 2 && count != 3)) continue;
+                if (count == 2) ((void (*)(id, SEL))objc_msgSend)(target, action);
+                else {
+                    char arg[8] = {0}; method_getArgumentType(method, 2, arg, sizeof(arg));
+                    if (arg[0] != '@') continue;
+                    ((void (*)(id, SEL, id))objc_msgSend)(target, action, recognizer);
+                }
                 fired = YES;
             }
             if (fired) return YES;

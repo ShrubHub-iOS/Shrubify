@@ -87,3 +87,11 @@ check(!ShrubRegisterPlaybackObserver(throwing, NSObject()), "observer exception 
 check(!ShrubSeekPlaybackSeconds(NSObject(), 5), "unsupported seek rejected")
 check(!ShrubSeekPlaybackSeconds(player, Double.infinity), "invalid seek rejected")
 print("Native playback bridge and shared clock checks passed")
+
+clock.didSeek(milliseconds: 90000)
+clock.processStateChange(state: ["position": 70, "paused": true] as NSDictionary)
+check(!clock.isPlaying(), "pause update survives pending seek")
+RunLoop.main.run(until: Date().addingTimeInterval(0.7))
+clock.processStateChange(state: ["position": 75, "paused": true] as NSDictionary)
+check(clock.currentPositionMs() == 75000, "rejected/clamped seek reconciles promptly")
+print("Seek rejection and pause reconciliation checks passed")

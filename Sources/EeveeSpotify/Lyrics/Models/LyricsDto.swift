@@ -6,6 +6,8 @@ struct LyricsDto {
     var romanization: LyricsRomanizationStatus
     var translation: LyricsTranslationDto?
     var providerCredit: String? = nil
+    var karaoke: KaraokeLyricsDto? = nil
+    var instrumental = false
     
     func toSpotifyLyricsData(source: String) -> LyricsData {
         var lyricsData = LyricsData.with {

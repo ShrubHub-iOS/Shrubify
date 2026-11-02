@@ -5,7 +5,9 @@ class PetitLyricsRepository: LyricsRepository {
     private let session: URLSession
 
     init() {
-        let configuration = URLSessionConfiguration.default
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.timeoutIntervalForRequest = 8
+        configuration.timeoutIntervalForResource = 8
         configuration.httpAdditionalHeaders = [
             "Content-Type": "application/x-www-form-urlencoded"
         ]
@@ -34,7 +36,7 @@ class PetitLyricsRepository: LyricsRepository {
             semaphore.signal()
         }
 
-        task.resume()
+        LyricsRequestContext.resume(task)
         semaphore.wait()
 
         if let error = error {

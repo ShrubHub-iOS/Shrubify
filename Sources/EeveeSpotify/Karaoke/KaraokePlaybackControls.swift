@@ -19,7 +19,6 @@ struct KaraokePlaybackControls: View {
         VStack(spacing: 6) {
             Slider(value: Binding(get: { min(position, max(1, duration)) }, set: { scrubSeconds = $0 }), in: 0...max(1, duration), onEditingChanged: { editing in
                 if editing {
-                    scrubSeconds = Double(playback.positionMs) / 1000
                     scrubbing = true
                 } else {
                     scrubbing = false
@@ -43,6 +42,10 @@ struct KaraokePlaybackControls: View {
                 Text(playback.durationMs > 0 ? "−" + time(max(0, duration - position)) : "–:–")
             }
             .font(.system(.caption, design: .monospaced))
+        }
+        .onAppear { scrubSeconds = Double(playback.positionMs) / 1000 }
+        .onChange(of: playback.positionMs) { value in
+            if !scrubbing { scrubSeconds = Double(value) / 1000 }
         }
         .foregroundColor(.white)
         .accentColor(.white)

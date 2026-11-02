@@ -13,6 +13,8 @@ final class KaraokeBackgroundRenderer: NSObject, MTKViewDelegate {
     private let commandQueue: MTLCommandQueue
     private let pipelineState: MTLRenderPipelineState
     private var albumTexture: MTLTexture?
+    private var lastArtwork: CGImage?
+    private lazy var textureLoader = MTKTextureLoader(device: device)
     private let startTime = CACurrentMediaTime()
 
     var warpIntensity: Float = 0.8
@@ -22,24 +24,10 @@ final class KaraokeBackgroundRenderer: NSObject, MTKViewDelegate {
         guard let queue = device.makeCommandQueue() else { return nil }
         self.commandQueue = queue
 
-        // Theos has no built-in Metal shader compilation step (unlike an
-        // Xcode app target's build phases), so the Makefile compiles
-        // KaraokeBackgroundShader.metal by hand into a .metallib staged
-        // at this fixed path alongside the tweak's own dylib, rather than
-        // relying on device.makeDefaultLibrary(bundle:) — which expects
-        // Xcode's automatic shader embedding and would not find a
-        // manually-built .metallib here. UNTESTED end-to-end: the
-        // Makefile step that produces this file could not be verified
-        // (no Theos/Metal toolchain available), so if this path doesn't
-        // exist or doesn't load, check the Makefile's internal-stage
-        // Metal compile step first.
-        let metallibPath = "/Library/MobileSubstrate/DynamicLibraries/KaraokeBackgroundShader.metallib"
-        guard let library = try? device.makeLibrary(filepath: metallibPath),
+        guard let url = BundleHelper.shared.resourceURL("KaraokeBackgroundShader", extension: "metallib"),
+              let library = try? device.makeLibrary(URL: url),
               let vertexFn = library.makeFunction(name: "karaoke_bg_vertex"),
-              let fragmentFn = library.makeFunction(name: "karaoke_bg_fragment") else {
-            writeDebugLog("[Karaoke] Metal shader library not found at \(metallibPath) — falling back to placeholder background")
-            return nil
-        }
+              let fragmentFn = library.makeFunction(name: "karaoke_bg_fragment") else { return nil }
 
         let descriptor = MTLRenderPipelineDescriptor()
         descriptor.vertexFunction = vertexFn
@@ -56,11 +44,13 @@ final class KaraokeBackgroundRenderer: NSObject, MTKViewDelegate {
 
     func setAlbumArt(_ image: UIImage) {
         guard let cgImage = image.cgImage else { return }
-        let loader = MTKTextureLoader(device: device)
-        albumTexture = try? loader.newTexture(cgImage: cgImage, options: [
+        if let lastArtwork, lastArtwork === cgImage { return }
+        guard let texture = try? textureLoader.newTexture(cgImage: cgImage, options: [
             .SRGB: false,
             .textureUsage: NSNumber(value: MTLTextureUsage.shaderRead.rawValue),
-        ])
+        ]) else { return }
+        albumTexture = texture
+        lastArtwork = cgImage
     }
 
     func mtkView(_ view: MTKView, drawableSizeWillChange size: CGSize) {}
@@ -103,7 +93,6 @@ private struct KaraokeBgParamsMirror {
 /// SwiftUI wrapper around the MTKView + renderer.
 struct KaraokeMetalBackgroundView: UIViewRepresentable {
     let albumArt: UIImage
-    @Environment(\.scenePhase) private var scenePhase
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     func makeUIView(context: Context) -> MTKView {
@@ -117,6 +106,7 @@ struct KaraokeMetalBackgroundView: UIViewRepresentable {
             return view
         }
         view.device = device
+        context.coordinator.view = view
 
         if let renderer = KaraokeBackgroundRenderer(device: device) {
             renderer.setAlbumArt(albumArt)
@@ -128,9 +118,8 @@ struct KaraokeMetalBackgroundView: UIViewRepresentable {
 
     func updateUIView(_ uiView: MTKView, context: Context) {
         context.coordinator.renderer?.setAlbumArt(albumArt)
-        uiView.isPaused = scenePhase != .active || reduceMotion
-        uiView.preferredFramesPerSecond = ProcessInfo.processInfo.isLowPowerModeEnabled ? 15 : 30
-        if uiView.isPaused && scenePhase == .active { uiView.draw() }
+        context.coordinator.reduceMotion = reduceMotion
+        context.coordinator.updateActivity()
     }
 
     static func dismantleUIView(_ uiView: MTKView, coordinator: Coordinator) {
@@ -143,5 +132,22 @@ struct KaraokeMetalBackgroundView: UIViewRepresentable {
 
     final class Coordinator {
         var renderer: KaraokeBackgroundRenderer?
+        weak var view: MTKView?
+        var reduceMotion = false
+        private var observers: [NSObjectProtocol] = []
+        init() {
+            for name in [UIApplication.willResignActiveNotification, UIApplication.didBecomeActiveNotification, Notification.Name.NSProcessInfoPowerStateDidChange] {
+                observers.append(NotificationCenter.default.addObserver(forName: name, object: nil, queue: .main) { [weak self] note in
+                    if note.name == UIApplication.willResignActiveNotification { self?.view?.isPaused = true }
+                    else { self?.updateActivity() }
+                })
+            }
+        }
+        func updateActivity() {
+            view?.preferredFramesPerSecond = ProcessInfo.processInfo.isLowPowerModeEnabled ? 15 : 30
+            view?.isPaused = UIApplication.shared.applicationState != .active || reduceMotion
+            if reduceMotion && UIApplication.shared.applicationState == .active { view?.draw() }
+        }
+        deinit { observers.forEach(NotificationCenter.default.removeObserver) }
     }
 }

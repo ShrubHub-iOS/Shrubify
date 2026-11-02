@@ -53,10 +53,11 @@ internal-stage::
 	# .metallib or that the staged path is correct; if `make package`
 	# fails at this step or the shader doesn't load at runtime, check
 	# this block first).
+	mkdir -p "$(THEOS_STAGING_DIR)/Library/Application Support/EeveeSpotify.bundle"
 	xcrun -sdk iphoneos metal -c Sources/EeveeSpotify/Karaoke/KaraokeBackgroundShader.metal \
 		-o $(THEOS_OBJ_DIR)/KaraokeBackgroundShader.air
 	xcrun -sdk iphoneos metallib $(THEOS_OBJ_DIR)/KaraokeBackgroundShader.air \
-		-o $(THEOS_STAGING_DIR)/Library/MobileSubstrate/DynamicLibraries/KaraokeBackgroundShader.metallib
+		-o "$(THEOS_STAGING_DIR)/Library/Application Support/EeveeSpotify.bundle/KaraokeBackgroundShader.metallib"
 
 # Build EeveeSwiftProtobuf.framework from apple/swift-protobuf source. Run
 # this once before `make package`. Re-run if SWIFTPROTOBUF_VERSION changes

@@ -5,8 +5,8 @@ class SpicyLyricsRepository: LyricsRepository {
     static let shared = SpicyLyricsRepository()
     private init() {
         let config = URLSessionConfiguration.ephemeral
-        config.timeoutIntervalForRequest  = 15
-        config.timeoutIntervalForResource = 15
+        config.timeoutIntervalForRequest  = 6
+        config.timeoutIntervalForResource = 6
         config.allowsExpensiveNetworkAccess   = true
         config.allowsConstrainedNetworkAccess = true
         config.waitsForConnectivity = false
@@ -19,22 +19,9 @@ class SpicyLyricsRepository: LyricsRepository {
 
     // MARK: - Network
 
-    // 503 means the lyrics are still being generated.
-    private static let queuedRetryDelays: [TimeInterval] = {
-        (0 ..< 5).map { attempt in min(10.0, 2.0 * pow(1.5, Double(attempt))) }
-    }()
-
+    // A queued primary must not hold up the user's fallback providers.
     private func performQuery(trackId: String, apiKey: String) throws -> (Data, Int) {
-        for (attempt, delay) in ([0.0] + SpicyLyricsRepository.queuedRetryDelays).enumerated() {
-            if delay > 0 {
-                eeveeLog("[Shrubify][SpicyLyrics] %@ queued (503), retrying in %.1fs (attempt %d)", trackId, delay, attempt + 1)
-                Thread.sleep(forTimeInterval: delay)
-            }
-            let (data, httpStatus) = try performRequest(trackId: trackId, apiKey: apiKey)
-            if httpStatus != 503 { return (data, httpStatus) }
-        }
-        eeveeLog("[Shrubify][SpicyLyrics] %@ still queued after all retries", trackId)
-        throw LyricsError.noSuchSong
+        try performRequest(trackId: trackId, apiKey: apiKey)
     }
 
     private func performRequest(trackId: String, apiKey: String) throws -> (Data, Int) {
@@ -53,12 +40,13 @@ class SpicyLyricsRepository: LyricsRepository {
         var responseStatus = 0
         var responseError: Error?
 
-        session.dataTask(with: request) { data, response, error in
+        let task = session.dataTask(with: request) { data, response, error in
             responseData = data
             responseStatus = (response as? HTTPURLResponse)?.statusCode ?? 0
             responseError = error
             semaphore.signal()
-        }.resume()
+        }
+        LyricsRequestContext.resume(task)
 
         semaphore.wait()
 
@@ -122,6 +110,7 @@ class SpicyLyricsRepository: LyricsRepository {
     private func parseSyllableLyrics(_ root: SpicyLyricsJSON, trackId: String, query: LyricsSearchQuery, options: LyricsOptions) -> LyricsDto {
         guard let content = root["Content"]?.arrayValue else { return emptyDto() }
 
+        var karaokeResult: KaraokeLyricsDto?
         var lines        = [LyricsLineDto]()
         var karaokeLines = [KaraokeLineDto]()
         var hasRomanized = root["HasTransliterations"]?.boolValue ?? false
@@ -147,8 +136,8 @@ class SpicyLyricsRepository: LyricsRepository {
 
             if (lead["TransliteratedText"]?.stringValue ?? "").isEmpty == false { hasRomanized = true }
 
-            let lineStartMs = lead["StartTime"]?.doubleValue.map { Int($0 * 1000) } ?? 0
-            let lineEndMs   = lead["EndTime"]?.doubleValue.map { Int($0 * 1000) }
+            let lineStartMs = lead["StartTime"]?.doubleValue.flatMap(LyricsTextParser.milliseconds) ?? 0
+            let lineEndMs   = lead["EndTime"]?.doubleValue.flatMap(LyricsTextParser.milliseconds)
                 ?? karaokeSyllables.last?.endMs
                 ?? lineStartMs
 
@@ -178,9 +167,7 @@ class SpicyLyricsRepository: LyricsRepository {
             )
             let normalizedKaraokeLines = SpicyLyricsRepository.normalizeMonotonicTiming(filledKaraokeLines)
 
-            KaraokeLyricsStore.shared.set(
-                trackId: trackId,
-                lyrics: KaraokeLyricsDto(
+            karaokeResult = KaraokeLyricsDto(
                     lines: normalizedKaraokeLines,
                     songWriters: songWriters,
                     providerCode: root["source"]?.stringValue,
@@ -189,14 +176,14 @@ class SpicyLyricsRepository: LyricsRepository {
                     makerName: attribution?["Maker"]?["username"]?.stringValue,
                     makerUrl: attribution?["Maker"]?["url"]?.stringValue
                 )
-            )
         }
 
         return LyricsDto(
             lines: lines,
             timeSynced: true,
             romanization: romanization,
-            providerCredit: SpicyLyricsRepository.providerCredit(root)
+            providerCredit: SpicyLyricsRepository.providerCredit(root),
+            karaoke: karaokeResult
         )
     }
 
@@ -225,6 +212,7 @@ class SpicyLyricsRepository: LyricsRepository {
     private func parseLineLyrics(_ root: SpicyLyricsJSON, trackId: String, query: LyricsSearchQuery, options: LyricsOptions) -> LyricsDto {
         guard let content = root["Content"]?.arrayValue else { return emptyDto() }
 
+        var karaokeResult: KaraokeLyricsDto?
         var lines        = [LyricsLineDto]()
         var karaokeLines = [KaraokeLineDto]()
         let hasRomanized = root["HasTransliterations"]?.boolValue ?? false
@@ -234,7 +222,7 @@ class SpicyLyricsRepository: LyricsRepository {
             let text      = SpicyLyricsRepository.leadText(entry)
             let startTime = entry["Lead"]?["StartTime"]?.doubleValue ?? entry["StartTime"]?.doubleValue
             let endTime   = entry["Lead"]?["EndTime"]?.doubleValue ?? entry["EndTime"]?.doubleValue
-            let startMs   = startTime.map { Int($0 * 1000) }
+            let startMs   = startTime.flatMap(LyricsTextParser.milliseconds)
             lines.append(LyricsLineDto(content: text.lyricsNoteIfEmpty, offsetMs: startMs))
 
             // Line-synced songs still get the custom lyrics view: every word lights up with its line.
@@ -242,7 +230,7 @@ class SpicyLyricsRepository: LyricsRepository {
             let words = text.split(separator: " ", omittingEmptySubsequences: true)
             guard !words.isEmpty else { continue }
 
-            let lineEndMs = max(endTime.map { Int($0 * 1000) } ?? lineStartMs, lineStartMs)
+            let lineEndMs = max(endTime.flatMap(LyricsTextParser.milliseconds) ?? lineStartMs, lineStartMs)
             karaokeLines.append(KaraokeLineDto(
                 syllables: words.map {
                     KaraokeSyllableDto(text: String($0), startMs: lineStartMs, endMs: lineStartMs, isPartOfWord: false)
@@ -264,9 +252,7 @@ class SpicyLyricsRepository: LyricsRepository {
                 options: options
             )
 
-            KaraokeLyricsStore.shared.set(
-                trackId: trackId,
-                lyrics: KaraokeLyricsDto(
+            karaokeResult = KaraokeLyricsDto(
                     lines: SpicyLyricsRepository.normalizeMonotonicTiming(filledKaraokeLines),
                     songWriters: root["SongWriters"]?.arrayValue?.compactMap { $0.stringValue } ?? [],
                     providerCode: root["source"]?.stringValue,
@@ -275,14 +261,14 @@ class SpicyLyricsRepository: LyricsRepository {
                     makerName: attribution?["Maker"]?["username"]?.stringValue,
                     makerUrl: attribution?["Maker"]?["url"]?.stringValue
                 )
-            )
         }
 
         return LyricsDto(
             lines: lines,
             timeSynced: true,
             romanization: romanization,
-            providerCredit: SpicyLyricsRepository.providerCredit(root)
+            providerCredit: SpicyLyricsRepository.providerCredit(root),
+            karaoke: karaokeResult
         )
     }
 
@@ -318,11 +304,11 @@ class SpicyLyricsRepository: LyricsRepository {
     private static func syllables(_ raw: [SpicyLyricsJSON]) -> [KaraokeSyllableDto] {
         raw.compactMap { syllable -> KaraokeSyllableDto? in
             guard let text = syllable["Text"]?.stringValue else { return nil }
-            let startMs = syllable["StartTime"]?.doubleValue.map { Int($0 * 1000) } ?? 0
+            let startMs = syllable["StartTime"]?.doubleValue.flatMap(LyricsTextParser.milliseconds) ?? 0
             return KaraokeSyllableDto(
                 text: text,
                 startMs: startMs,
-                endMs: syllable["EndTime"]?.doubleValue.map { Int($0 * 1000) } ?? startMs,
+                endMs: syllable["EndTime"]?.doubleValue.flatMap(LyricsTextParser.milliseconds) ?? startMs,
                 isPartOfWord: syllable["IsPartOfWord"]?.boolValue ?? false
             )
         }

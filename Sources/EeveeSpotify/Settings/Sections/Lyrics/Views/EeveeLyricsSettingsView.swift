@@ -20,7 +20,7 @@ struct EeveeLyricsSettingsView: View {
                     musixmatchLanguageSection()
                 }
 
-                if viewModel.lyricsSource.supportsCustomLyricsView {
+                if viewModel.lyricsSource.isReplacingLyrics {
                     karaokeAppearanceSection()
                     SettingsResetSection(visible: karaokeOptions != KaraokeOptions()) { karaokeOptions = KaraokeOptions() }
                 }
@@ -39,7 +39,7 @@ struct EeveeLyricsSettingsView: View {
             UserDefaults.lyricsFallbackOrder = order
             invalidateLyricsForSourceChange()
         }
-        .onChange(of: spicyLyricsApiKey) { UserDefaults.spicyLyricsApiKey = $0 }
+        .onChange(of: spicyLyricsApiKey) { UserDefaults.spicyLyricsApiKey = $0; invalidateLyricsForSourceChange() }
     }
 
     private var fallbackSection: some View {

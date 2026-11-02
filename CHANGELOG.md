@@ -1,3 +1,15 @@
+# 4.0.0
+
+- Replace blocking lyric interception with an asynchronous, deduplicated loader. Bound the provider chain, cancel superseded network tasks and prevent old provider/fallback results from restoring invalidated lyrics.
+- Deliver one completion per intercepted request, isolate replay state by task identity, and release partial buffers on errors/cancellation. Preserve live account configuration and allow signup, reconnect and configuration requests beyond the old 30-second cutoff.
+- Isolate Shrubify settings in an independent UIKit window. This removes Spotify navigation ancestry from settings; device confirmation of the reported TabNodeDataProvider assertion remains required.
+- Keep custom lyrics open while fallbacks load. Add loading/retry and Follow lyrics controls; preserve pause/play, elapsed/remaining time and progress scrubbing. Reconcile rejected/clamped seeks promptly and keep pause updates independent of seek state.
+- Safely parse provider timestamps, retain the final lyric line, recognize instrumental success, and allow timed fallbacks when the main provider is plain text.
+- Bundle the Metal shader correctly for IPA installations, reuse unchanged artwork textures, refresh artwork on track changes, and respect app activity, Reduce Motion and Low Power Mode.
+- Resolve presentation windows dynamically, use ARC-correct private icon initialization, and avoid duplicate tab control actions.
+- Correct Studio preset labeling after edits. Improve Replay repeat recognition and track identity while preserving legacy records.
+- Add compiled regression coverage for cancellation, request isolation, parser edge cases, fallback invalidation, deduplication and seek reconciliation. These checks do not replace device compatibility or energy measurements.
+
 # 4.0.0 beta 4
 
 Replace hosted-scene-dependent lyric updates with visible-only live player state sampling. Register the modern playerStateDidChange: callback; use Spotify’s isPaused and positionAsOfTimestamp state fields; synchronize seeks, highlight and controls through one clock. Add pause/play and a scrubbable progress bar with elapsed/remaining time. Sort line timestamps together with layouts, guard row counts across track changes, and protect native playback/observer calls at the Objective-C boundary.

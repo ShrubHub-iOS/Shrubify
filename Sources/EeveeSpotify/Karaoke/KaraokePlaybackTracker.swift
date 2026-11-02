@@ -54,14 +54,15 @@ final class KaraokePlaybackTracker {
             if changed { pendingSeek = nil; position = 0 }
             let stale = pendingSeek.map { target -> Bool in
                 let expected = target.seconds + (playing ? max(0, now - target.stamp) * speed : 0)
-                return now - target.stamp < 5 && abs(value - expected) > 0.75
+                return now - target.stamp < 0.6 && abs(value - expected) > 0.75
             } ?? false
             if !stale {
                 position = value
                 stamp = now
                 pendingSeek = nil
-                if let paused { playing = !paused }
             }
+            // Pause is independent of seek acknowledgement, including stale position samples.
+            if let paused { playing = !paused }
             if let reportedSpeed, reportedSpeed.isFinite { speed = max(0, reportedSpeed) }
             if let reportedDuration, reportedDuration.isFinite { duration = max(0, reportedDuration) }
             if uri != nil {

@@ -1,9 +1,8 @@
 import SwiftUI
 import UIKit
 
-/// Keeps the open custom lyrics view in step with the playing track. When a song ends and the
-/// next one starts, it swaps in that song's lyrics (fetching them if Spotify hasn't), and gives up
-/// — closing the view — only if none turn up.
+/// Keeps lyrics and controls attached to the playing track. Missing lyrics show
+/// loading/retry UI without dismissing the player while fallback providers run.
 @available(iOS 15.0, *)
 final class KaraokeLyricsViewModel: ObservableObject {
     @Published private(set) var playback = KaraokePlaybackSnapshot()
@@ -16,11 +15,9 @@ final class KaraokeLyricsViewModel: ObservableObject {
     private var lifecycleObservers: [NSObjectProtocol] = []
     private var playbackTimer: Timer?
     private var visible = false
-    private var retryWork: DispatchWorkItem?
-    private var attempts = 0
-
-    private let maxAttempts = 4
-    private let retryInterval: TimeInterval = 2.0
+    @Published private(set) var loading = false
+    @Published private(set) var lyricsUnavailable = false
+    private var requestedTrack: String?
 
     init(trackId: String?, lyrics: KaraokeLyricsDto, onNoLyrics: @escaping () -> Void) {
         self.trackId = trackId
@@ -42,7 +39,6 @@ final class KaraokeLyricsViewModel: ObservableObject {
     deinit {
         playbackTimer?.invalidate()
         lifecycleObservers.forEach(NotificationCenter.default.removeObserver)
-        retryWork?.cancel()
         if let observer { NotificationCenter.default.removeObserver(observer) }
     }
 
@@ -106,39 +102,40 @@ final class KaraokeLyricsViewModel: ObservableObject {
 
         let stored = KaraokeLyricsStore.shared.lyrics(forTrackId: playing)
         if playing != trackId {
-            retryWork?.cancel()
-            retryWork = nil
-            attempts = 0
+            requestedTrack = nil
+            loading = false
+            lyricsUnavailable = false
             trackId = playing
             apply(stored)
-        } else if lyrics == nil, let stored {
+        } else if let stored {
             apply(stored)
+        } else if lyrics != nil {
+            apply(nil)
+            requestedTrack = nil
         }
 
         if lyrics == nil {
             fetchMissingLyrics()
         } else {
-            retryWork?.cancel()
-            retryWork = nil
+            loading = false
         }
     }
 
-    private func fetchMissingLyrics() {
-        guard retryWork == nil, let trackId else { return }
-        guard attempts < maxAttempts else {
-            writeDebugLog("[Karaoke] no lyrics for \(trackId) after \(attempts) attempts, closing custom lyrics view")
-            onNoLyrics()
-            return
-        }
-        attempts += 1
-        writeDebugLog("[Karaoke] track changed to \(trackId) with the custom lyrics view open, fetching lyrics (attempt \(attempts))")
-        prefetchLyricsIfNeeded(trackId: trackId)
+    func retryLyrics() {
+        requestedTrack = nil
+        lyricsUnavailable = false
+        fetchMissingLyrics(force: true)
+    }
 
-        let work = DispatchWorkItem { [weak self] in
-            self?.retryWork = nil
-            self?.sync()
+    private func fetchMissingLyrics(force: Bool = false) {
+        guard let trackId, requestedTrack != trackId else { return }
+        requestedTrack = trackId
+        loading = true
+        loadLyricsDataAsync("/color-lyrics/v2/track/" + trackId, force: force) { [weak self] _ in
+            guard let self, self.trackId == trackId else { return }
+            self.loading = false
+            self.apply(KaraokeLyricsStore.shared.lyrics(forTrackId: trackId))
+            self.lyricsUnavailable = self.lyrics == nil
         }
-        retryWork = work
-        DispatchQueue.main.asyncAfter(deadline: .now() + retryInterval, execute: work)
     }
 }

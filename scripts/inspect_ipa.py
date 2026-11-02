@@ -58,6 +58,8 @@ def preflight(archive):
             raise ValueError('Shrubify primary icon not configured in ' + icon_section)
     if not any(n.endswith('/EeveeSpotify.dylib') for n in files):
         raise ValueError('EeveeSpotify.dylib not in IPA')
+    if not any(n.endswith('/EeveeSpotify.bundle/KaraokeBackgroundShader.metallib') for n in files):
+        raise ValueError('Lyrics background shader missing from resource bundle')
     bad = archive.testzip()
     if bad:
         raise ValueError('Corrupt IPA ZIP member: ' + bad)

@@ -1,4 +1,10 @@
-import UIKit
+import Foundation
+#if canImport(Darwin)
+import Darwin
+#else
+import Glibc
+import FoundationNetworking
+#endif
 
 class URLSessionHelper {
     static let shared = URLSessionHelper()
@@ -12,6 +18,7 @@ class URLSessionHelper {
     /// concatenate bodies → garbage protobuf. ObjectIdentifier is stable for the
     /// task's lifetime, which exactly bounds the buffering window.
     private var requestsMap: [ObjectIdentifier: Data]
+    private var replays: [ObjectIdentifier: Data] = [:]
 
     private init() {
         self.requestsMap = [:]
@@ -21,15 +28,15 @@ class URLSessionHelper {
         var sysinfo = utsname()
         uname(&sysinfo)
         let dv = String(
-            bytes: Data(bytes: &sysinfo.release, count: Int(_SYS_NAMELEN)),
+            bytes: Data(bytes: &sysinfo.release, count: MemoryLayout.size(ofValue: sysinfo.release)),
             encoding: .ascii
         )!.trimmingCharacters(in: .controlCharacters)
         return "Darwin/\(dv)"
     }
 
     static var CFNetworkVersion: String {
-        let dictionary = Bundle(identifier: "com.apple.CFNetwork")?.infoDictionary!
-        let version = dictionary?["CFBundleShortVersionString"] as! String
+        let dictionary = Bundle(identifier: "com.apple.CFNetwork")?.infoDictionary
+        let version = dictionary?["CFBundleShortVersionString"] as? String ?? "0"
         return "CFNetwork/\(version)"
     }
 
@@ -49,6 +56,14 @@ class URLSessionHelper {
         }
     }
 
+    func setReplay(_ data: Data, for task: URLSessionTask) {
+        queue.sync { replays[ObjectIdentifier(task)] = data }
+    }
+
+    func obtainReplay(for task: URLSessionTask) -> Data? {
+        queue.sync { replays.removeValue(forKey: ObjectIdentifier(task)) }
+    }
+
     /// Drop any buffered body for a task without consuming it. Use when a task
     /// completes via a path that won't read the buffer (cancel, blocked, 304
     /// fallback) to prevent unbounded growth on long sessions.
@@ -56,6 +71,7 @@ class URLSessionHelper {
         let key = ObjectIdentifier(task)
         queue.sync {
             _ = requestsMap.removeValue(forKey: key)
+            _ = replays.removeValue(forKey: key)
         }
     }
 }

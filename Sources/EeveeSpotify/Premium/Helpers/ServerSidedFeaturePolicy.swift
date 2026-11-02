@@ -31,6 +31,7 @@ struct ServerSidedFeaturePolicy {
     )
 
     static func shouldOverwriteResolvedConfiguration(requested: Bool) -> Bool {
-        requested
+        // Bundled cohorts do not describe the current account's registered pages.
+        false
     }
 }

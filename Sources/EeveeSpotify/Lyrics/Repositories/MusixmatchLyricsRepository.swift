@@ -4,14 +4,25 @@ import UIKit
 class MusixmatchLyricsRepository: LyricsRepository {
     private let apiUrl = "https://apic-appmobile.musixmatch.com"
 
-    var selectedLanguage: String
+    private let languageLock = NSLock()
+    private var language: String
+    var selectedLanguage: String {
+        get { languageLock.lock(); defer { languageLock.unlock() }; return language }
+        set { languageLock.lock(); language = newValue; languageLock.unlock() }
+    }
+    private let session: URLSession = {
+        let config = URLSessionConfiguration.ephemeral
+        config.timeoutIntervalForRequest = 8
+        config.timeoutIntervalForResource = 8
+        return URLSession(configuration: config)
+    }()
 
     static let shared = MusixmatchLyricsRepository(
         language: UserDefaults.lyricsOptions.musixmatchLanguage
     )
 
     private init(language: String) {
-        selectedLanguage = language
+        self.language = language
     }
 
 
@@ -53,13 +64,13 @@ class MusixmatchLyricsRepository: LyricsRepository {
         var data: Data?
         var error: Error?
 
-        let task = URLSession.shared.dataTask(with: request) { response, _, err in
+        let task = session.dataTask(with: request) { response, _, err in
             error = err
             data = response
             semaphore.signal()
         }
 
-        task.resume()
+        LyricsRequestContext.resume(task)
         semaphore.wait()
 
         if let error = error {
