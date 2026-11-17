@@ -74,3 +74,16 @@ LyricsRequestBudget.withLimit(seconds: 10, cancellation: cancellation) {
 check(ProcessInfo.processInfo.systemUptime - started < 1, "Obsolete work must not consume its full timeout")
 check(LyricsRequestBudget.cancellation == nil, "Cancellation context is restored after the request")
 print("Cancellation and nested provider-budget checks passed")
+
+let backoffToken = LyricsCancellationToken()
+let backoffStarted = ProcessInfo.processInfo.systemUptime
+DispatchQueue.global().asyncAfter(deadline: .now() + 0.02) { backoffToken.cancel() }
+do {
+    try LyricsRequestBudget.withLimit(seconds: 15, cancellation: backoffToken) {
+        try LyricsRequestBudget.sleep(10)
+    }
+    fatalError("Cancelled retry backoff must throw")
+} catch {
+    check(ProcessInfo.processInfo.systemUptime - backoffStarted < 1, "Track change interrupts long retry backoff")
+}
+print("Interruptible provider retry checks passed")

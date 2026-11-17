@@ -68,7 +68,11 @@ enum LyricsRequestBudget {
 
     static func sleep(_ seconds: TimeInterval) throws {
         guard remaining(maximum: seconds) >= seconds else { throw URLError(.timedOut) }
-        Thread.sleep(forTimeInterval: seconds)
+        let until = ProcessInfo.processInfo.systemUptime + seconds
+        while ProcessInfo.processInfo.systemUptime < until {
+            try check()
+            Thread.sleep(forTimeInterval: min(0.05, max(0, until - ProcessInfo.processInfo.systemUptime)))
+        }
         try check()
     }
 }

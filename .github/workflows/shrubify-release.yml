@@ -110,6 +110,10 @@ jobs:
           find Sources/EeveeSpotify -name '*.swift' -print0 | xargs -0 swiftc -frontend -parse
           bash scripts/test_v4_beta.sh
           bash scripts/test_release_support.sh
+          bash scripts/test_listening_tools.sh
+          bash scripts/test_evolved_lyrics.sh
+          bash scripts/test_evolved_migration.sh
+          bash scripts/test_pr_integration.sh
           bash scripts/test_lyrics_coordinator.sh
       - uses: maxim-lobanov/setup-xcode@v1
         with:
