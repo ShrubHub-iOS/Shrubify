@@ -51,6 +51,7 @@ struct EeveeSettingsView: View {
         ]),
         SettingsGroup(key: "settings_group_listening", entries: [
             SettingsEntry(key: "patching", icon: "hammer.fill", color: .orange) { AnyView(EeveePatchingSettingsView()) },
+            SettingsEntry(key: "Sleep timer", icon: "moon.zzz.fill", color: .purple) { AnyView(ShrubifySleepTimerView()) },
             SettingsEntry(key: "lyrics", icon: "quote.bubble.fill", color: .blue) { AnyView(EeveeLyricsSettingsView()) },
             SettingsEntry(key: "sponsorblock", icon: "forward.end.fill", color: .red) { AnyView(SponsorBlockSettingsView()) },
         ]),

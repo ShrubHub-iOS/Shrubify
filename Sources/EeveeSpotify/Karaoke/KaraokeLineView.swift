@@ -22,11 +22,12 @@ struct KaraokeLineView: View {
     let isActiveLine: Bool
     let availableWidth: CGFloat
     let alignment: HorizontalAlignment
+    var fontSize: CGFloat = 30
 
     var body: some View {
         KaraokeFlowLayout(spacing: 8, alignment: alignment) {
             ForEach(Array(layout.words.enumerated()), id: \.offset) { _, word in
-                KaraokeWordView(syllables: word, currentMs: currentMs, isActiveLine: isActiveLine, isRTL: layout.isRTL)
+                KaraokeWordView(syllables: word, currentMs: currentMs, isActiveLine: isActiveLine, isRTL: layout.isRTL, fontSize: fontSize)
             }
         }
         .frame(width: availableWidth)
@@ -61,6 +62,8 @@ private struct KaraokeWordView: View {
     let isActiveLine: Bool
     let isRTL: Bool
 
+    let fontSize: CGFloat
+
     private var wordStartMs: Int { syllables.first?.startMs ?? 0 }
     private var wordEndMs: Int { syllables.last?.endMs ?? wordStartMs }
 
@@ -83,13 +86,14 @@ private struct KaraokeWordView: View {
                     syllable: syllable,
                     currentMs: currentMs,
                     isActiveLine: isActiveLine,
-                    isRTL: isRTL
+                    isRTL: isRTL,
+                    fontSize: fontSize
                 )
             }
         }
         .scaleEffect(scale)
-        // Curve offsets are em fractions; 28 is the syllable font size.
-        .offset(y: CGFloat(yOffsetFraction) * 28)
+        // Keep the emphasis proportional to the selected type size.
+        .offset(y: CGFloat(yOffsetFraction) * fontSize)
         .shadow(color: .white.opacity(glow * 0.36), radius: CGFloat(glow * 3))
     }
 }
@@ -100,6 +104,8 @@ private struct KaraokeSyllableTextView: View {
     let currentMs: Int
     let isActiveLine: Bool
     let isRTL: Bool
+
+    let fontSize: CGFloat
 
     // LinearGradient never mirrors .leading/.trailing for RTL, so pick the physical edges here.
     private var gradientStart: UnitPoint { isRTL ? .trailing : .leading }
@@ -115,7 +121,7 @@ private struct KaraokeSyllableTextView: View {
 
     var body: some View {
         Text(syllable.text)
-            .font(.system(size: 30, weight: .bold, design: .rounded))
+            .font(.system(size: fontSize, weight: .bold, design: .rounded))
             .foregroundStyle(
                 LinearGradient(
                     stops: [

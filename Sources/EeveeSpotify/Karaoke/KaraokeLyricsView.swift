@@ -170,7 +170,7 @@ private struct KaraokeScrollingLines: View {
             }
             .padding(.horizontal, 16)
             ScrollView(showsIndicators: false) {
-                LazyVStack(alignment: alignment, spacing: 16) {
+                LazyVStack(alignment: alignment, spacing: CGFloat(options.resolvedLineSpacing)) {
                     Spacer().frame(height: 24)
 
                     ForEach(0..<min(layouts.count, lyrics.lines.count), id: \.self) { index in
@@ -179,7 +179,8 @@ private struct KaraokeScrollingLines: View {
                             currentMs: currentMs,
                             isActiveLine: index == activeLineIndex,
                             availableWidth: max(0, screenWidth - horizontalPadding * 2),
-                            alignment: alignment
+                            alignment: alignment,
+                            fontSize: CGFloat(options.resolvedFontSize)
                         )
                         .contentShape(Rectangle())
                         .onTapGesture {

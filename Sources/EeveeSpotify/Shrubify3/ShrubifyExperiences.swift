@@ -11,6 +11,24 @@ struct ShrubifyReplayView: View {
     var usesSettingsNavigation = false
     @ObservedObject private var history = ShrubifyReplayStore.shared
     @State private var showClear = false
+    @State private var period = 7
+
+    private var selectedDays: [ShrubifyDailyTotal] { history.listeningDays(inLast: period) }
+
+    private var listeningSummary: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Label("Your listening time", systemImage: "headphones")
+                .font(.subheadline).foregroundColor(.secondary)
+            Text(shrubTime(selectedDays.reduce(0) { $0 + $1.seconds }))
+                .font(.system(size: 38, weight: .semibold, design: .rounded))
+                .foregroundColor(EeveeTheme.accent)
+            Text("\(selectedDays.filter { $0.seconds > 0 }.count) days with recorded listening")
+                .font(.footnote).foregroundColor(.secondary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.vertical, 12)
+        .accessibilityElement(children: .combine)
+    }
 
     var body: some View {
         List {
@@ -18,6 +36,15 @@ struct ShrubifyReplayView: View {
                 Toggle(isOn: Binding(get: { history.enabled }, set: { history.setEnabled($0) })) {
                     SettingsLabel(title: "Record local listening", subtitle: "Never sent to a server", icon: "waveform", color: .blue)
                 }
+            }
+            Section(header: Text("Listening time"), footer: Text("The selected period applies to listening time. Song and artist rankings below cover their entire retained history. Up to 400 daily totals are kept on this device.")) {
+                Picker("Period", selection: $period) {
+                    Text("7 days").tag(7)
+                    Text("30 days").tag(30)
+                    Text("1 year").tag(365)
+                    Text("All retained").tag(0)
+                }
+                listeningSummary
             }
             Section(header: Text("Your listening")) {
                 replayMetric("Today", shrubTime(history.todaySeconds))
@@ -40,7 +67,7 @@ struct ShrubifyReplayView: View {
                     }
                 }
             }
-            Section(header: Text("Most listened")) {
+            Section(header: Text("Most listened · retained history")) {
                 if history.tracks.isEmpty {
                     Text("Your local listening stats will appear here after tracking is enabled and you play music in Shrubify.")
                         .font(.footnote).foregroundColor(.secondary)
@@ -61,7 +88,7 @@ struct ShrubifyReplayView: View {
                     .padding(.vertical, 3)
                 }
             }
-            Section(header: Text("Top artists")) {
+            Section(header: Text("Top artists · retained history")) {
                 if history.tracks.isEmpty { Text("Artists will appear here as you listen.").foregroundColor(.secondary) }
                 ForEach(history.topArtists()) { artist in
                     HStack {
@@ -312,6 +339,15 @@ struct ShrubifyPanelView: View {
                     }
                 }
                 Section(header: Text("Listening tools")) {
+                    if embeddedInSettings {
+                        Button { SettingsNavigator.push(ShrubifySleepTimerView(), title: "Sleep timer") } label: {
+                            SettingsLabel(title: "Sleep timer", subtitle: "Wind down with a playback countdown", icon: "moon.zzz.fill", color: .purple)
+                        }
+                    } else {
+                        NavigationLink(destination: ShrubifySleepTimerView()) {
+                            SettingsLabel(title: "Sleep timer", subtitle: "Wind down with a playback countdown", icon: "moon.zzz.fill", color: .purple)
+                        }
+                    }
                     if KaraokeOverlayPresenter.isAvailableForCurrentTrack() {
                         Button {
                             dismiss()

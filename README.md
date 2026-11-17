@@ -1,3 +1,5 @@
+> **New listening tools:** An Evolved-inspired sleep timer, custom-lyrics text size and spacing with a renderer preview, and Replay listening-time periods. See [integration notes and device-test limits](docs/EVOLVED-INTEGRATION.md).
+
 > **Shrubify 4.0:** More reliable custom lyrics, loading and retry controls, independent settings navigation, safer request handling, artwork and motion improvements, and Replay/Studio fixes. See [V4-RELEASE.md](V4-RELEASE.md) for release details and device-validation limits.
 
 # Shrubify 3.0.4 — Listening is easy with Shrubify!
@@ -40,6 +42,8 @@ New UI additions use the existing SwiftUI settings navigation and Spotify's in-a
 **Project and current development:** [shrubbery](https://github.com/zoinkdoggie94) (owner and lead developer), [HakureiMango](https://github.com/HakureiMango) (co-owner and contributor), and the [ShrubHub team](https://github.com/ShrubHub-iOS) (official organization and project support).
 
 **Vitrine Glass:** The optional glass material and shaping implementation in `Sources/EeveeSpotifyC/VitrineGlass.m` is adapted from [Vitrine](https://github.com/My-Name-Is-Jeff/vitrine) (GPL-3.0). Vitrine's complete UI/Spotify hooks are **not** merged, to prevent conflicting hooks and avoid unsupported-version crashes. iOS 26+ only.
+
+**EeveeSpotifyEvolved:** [zbzxbg and contributors](https://github.com/zbzxbg/EeveeSpotifyEvolved) — GPL-3.0 sleep-timer adaptation and inspiration for typography previews and listening-time periods. [Source revision, scope and attribution](docs/EVOLVED-INTEGRATION.md).
 
 **Upstream work:** whoeevee, jaydenjcpy, estrogencat and the contributors documented in [contributors.json](contributors.json) and [README-UPSTREAM.md](README-UPSTREAM.md). Their contributions are substantial and remain acknowledged. The upstream GPL-3.0 obligations, original author notices, and the complete [LICENSE](LICENSE) remain in place. Shrubify is a fork, **not** a claim of authorship over the upstream codebase.
 

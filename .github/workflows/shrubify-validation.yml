@@ -36,6 +36,8 @@ jobs:
         swiftc -frontend -parse Sources/EeveeSpotify/Shrubify3/*.swift
     - name: Test beta migration, timing, search and cache behavior
       run: bash scripts/test_v4_beta.sh
+    - name: Test sleep timer deadline, replacement and cancellation
+      run: bash scripts/test_listening_tools.sh
     - name: Checkout Theos
       uses: actions/checkout@v4
       with:

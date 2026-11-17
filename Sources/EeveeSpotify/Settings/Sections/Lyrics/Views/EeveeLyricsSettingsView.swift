@@ -79,6 +79,22 @@ struct EeveeLyricsSettingsView: View {
                     Button("Reset lyrics timing") { karaokeOptions.timingOffsetMs = 0 }
                 }
 
+                if #available(iOS 16.0, *) {
+                    ShrubifyLyricsPreview(options: karaokeOptions)
+                }
+                VStack(alignment: .leading) {
+                    Text("Text size: \(Int(karaokeOptions.resolvedFontSize)) pt")
+                    Slider(value: $karaokeOptions.fontSize, in: 22...40, step: 1)
+                        .accessibilityLabel("Lyrics text size")
+                }
+                VStack(alignment: .leading) {
+                    Text("Line spacing: \(Int(karaokeOptions.resolvedLineSpacing)) pt")
+                    Slider(value: $karaokeOptions.lineSpacing, in: 8...32, step: 2)
+                        .accessibilityLabel("Lyrics line spacing")
+                }
+                Text("Preview uses sample text. Reopen custom lyrics to apply typography changes.")
+                    .font(.footnote).foregroundColor(.secondary)
+
                 Picker("karaoke_alignment".localized, selection: $karaokeOptions.textAlignment) {
                     ForEach(KaraokeTextAlignment.allCases, id: \.self) { alignment in
                         Text(alignment.displayName).tag(alignment)

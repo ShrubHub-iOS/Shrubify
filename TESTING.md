@@ -36,3 +36,7 @@ This checklist is for **real builds on devices**; passing source-only syntax tes
 ## Known platform limitations
 
 Spotify changes private classes between releases. Hook compatibility and login behavior require per-version device checks. Local Replay listening times are approximate while the app is active and don't use Spotify's historical listening data. Queue snapshots are bookmarks/recent sessions, not real queue serialization. No automatic tests can guarantee zero crashes.
+
+## Evolved-inspired listening tools
+
+See [integration notes](docs/EVOLVED-INTEGRATION.md#compatibility-and-validation) for timer, typography and Replay device checks. Run `bash scripts/test_listening_tools.sh` alongside the beta regression harness on a machine with Swift installed.
