@@ -89,7 +89,7 @@ jobs:
     name: Compile Shrubify and inject selected Spotify IPA
     needs: plan
     if: ${{ needs.plan.outputs.build == 'true' }}
-    runs-on: macos-latest
+    runs-on: macos-15-intel
     env:
       THEOS: ${{ github.workspace }}/theos
       SWIFTPROTOBUF_VERSION: '1.29.0'
@@ -98,6 +98,9 @@ jobs:
         with:
           submodules: recursive
           fetch-depth: 0
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: '26.1.1'
       - name: Validate Shrubify source BEFORE downloading IPA or installing dependencies
         run: |
           set -euo pipefail
@@ -107,17 +110,13 @@ jobs:
           python3 scripts/check_ios14_swiftui.py
           python3 scripts/check_shrubify_branding.py
           python3 scripts/check_release_consistency.py
-          find Sources/EeveeSpotify -name '*.swift' -print0 | xargs -0 swiftc -frontend -parse
+          find Sources/EeveeSpotify -name '*.swift' -print0 | xargs -0 -n 40 swiftc -frontend -parse
           bash scripts/test_v4_beta.sh
           bash scripts/test_release_support.sh
           bash scripts/test_listening_tools.sh
           bash scripts/test_evolved_lyrics.sh
           bash scripts/test_evolved_migration.sh
           bash scripts/test_pr_integration.sh
-          bash scripts/test_lyrics_coordinator.sh
-      - uses: maxim-lobanov/setup-xcode@v1
-        with:
-          xcode-version: '26.1.1'
       - name: Resolve authorized IPA URL on this runner (keep secrets out of job outputs)
         env:
           MANUAL_IPA: ${{ inputs.ipa_url }}

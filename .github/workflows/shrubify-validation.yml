@@ -12,7 +12,7 @@ concurrency:
   cancel-in-progress: true
 jobs:
   compile:
-    runs-on: macos-latest
+    runs-on: macos-15-intel
     env:
       THEOS: ${{ github.workspace }}/theos
       SWIFTPROTOBUF_VERSION: 1.29.0
