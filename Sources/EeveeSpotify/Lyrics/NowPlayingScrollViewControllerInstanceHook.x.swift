@@ -1,6 +1,8 @@
 import Orion
 import UIKit
 
+struct PlaybackCaptureGroup: HookGroup { }
+
 var statefulPlayer: StatefulPlayerImplementation?
 var backgroundViewModel: SPTNowPlayingBackgroundViewModel?
 var scrollDataSource: NowPlayingScrollDataSourceImplementation?
@@ -35,14 +37,16 @@ class LegacyNowPlayingPlatformSwiftServiceImplementationHook: ClassHook<NSObject
     // 结果 `statefulPlayer` 在 9.1.x 上永远抓不到。逐词歌词的播放进度、以及歌词需要的曲目元数据
     // 都依赖它，所以改挂到歌词启用时必定激活的 BaseLyricsGroup。
     // 目标类/方法在 9.1.x 上均存在（已核对二进制）。
-    typealias Group = BaseLyricsGroup
+    typealias Group = PlaybackCaptureGroup
     static let targetName = "NowPlaying_PlatformImpl.NowPlayingPlatformSwiftServiceImplementation"
 
     func provideStatefulPlayer() -> StatefulPlayerImplementation {
         statefulPlayer = orig.provideStatefulPlayer()
         DispatchQueue.main.async {
             KaraokeSeek.player = statefulPlayer as AnyObject?
-            KaraokeGestureTrigger.shared.attachIfNeeded()
+            if !UserDefaults.standard.bool(forKey: "ShrubifyStabilityMode") {
+                KaraokeGestureTrigger.shared.attachIfNeeded()
+            }
         }
         logStatefulPlayerResolution("legacy" as NSString)
         return statefulPlayer!
@@ -51,14 +55,16 @@ class LegacyNowPlayingPlatformSwiftServiceImplementationHook: ClassHook<NSObject
 
 class NowPlayingPlatformSwiftServiceImplementationHook: ClassHook<NSObject> {
     // 同上：改挂 BaseLyricsGroup，保证 9.1.x 上也能拿到 statefulPlayer。
-    typealias Group = BaseLyricsGroup
+    typealias Group = PlaybackCaptureGroup
     static let targetName = "NowPlaying_PlatformImpl.NowPlayingPlatformSwiftServiceImplementation"
 
     func provideStatefulPlayerWithFeatureIdentifier(_ identifier: NSString) -> StatefulPlayerImplementation {
         statefulPlayer = orig.provideStatefulPlayerWithFeatureIdentifier(identifier)
         DispatchQueue.main.async {
             KaraokeSeek.player = statefulPlayer as AnyObject?
-            KaraokeGestureTrigger.shared.attachIfNeeded()
+            if !UserDefaults.standard.bool(forKey: "ShrubifyStabilityMode") {
+                KaraokeGestureTrigger.shared.attachIfNeeded()
+            }
         }
         logStatefulPlayerResolution(identifier)
         return statefulPlayer!

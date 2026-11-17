@@ -241,6 +241,10 @@ struct EeveeSpotify: Tweak {
         // Local-only premium force; independent of patching, so premium UI survives everything else being off.
         activateEeveePremiumForce()
 
+        if LyricsActivationPolicy.shouldCapturePlayer(replacingLyrics: UserDefaults.shouldReplaceLyrics,
+            stabilityMode: stabilityMode) {
+            PlaybackCaptureGroup().activate()
+        }
         if UserDefaults.patchType.isPatching || UserDefaults.shouldHandleLyricsTraffic {
             ResponseTransportGroup().activate()
         }

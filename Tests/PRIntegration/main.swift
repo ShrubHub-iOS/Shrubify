@@ -6,6 +6,8 @@ import FoundationNetworking
 func check(_ value: @autoclosure () -> Bool, _ message: String) {
     guard value() else { fatalError(message) }
 }
+check(LyricsActivationPolicy.shouldCapturePlayer(replacingLyrics: false, stabilityMode: false), "Native lyrics must not disable sleep timer/player capture")
+check(!LyricsActivationPolicy.shouldCapturePlayer(replacingLyrics: false, stabilityMode: true), "Stability Mode must skip optional capture when custom lyrics are off")
 check(LyricsActivationPolicy.shouldReplaceLyrics(replacementSelected: true, officialExperiment: false, disabled: false), "Custom lyrics must work independently of premium patching")
 check(LyricsActivationPolicy.shouldReplaceLyrics(replacementSelected: false, officialExperiment: true, disabled: false), "Official experiment overrides native-source selection")
 check(LyricsActivationPolicy.shouldHandleLyricsTraffic(replacementSelected: false, officialExperiment: false, disabled: true), "Disabling all lyrics must still intercept and suppress the native response")
