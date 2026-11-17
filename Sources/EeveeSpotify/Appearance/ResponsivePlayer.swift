@@ -73,6 +73,12 @@ final class ResponsivePlayerView: UIView {
     private var actions: [String: UIButton] = [:]
     private let native = NSMapTable<NSString, UIView>.strongToWeakObjects()
     private var savedAccessibility: [(UIView, Bool)] = []
+    private final class HeaderSnapshot {
+        weak var view: UIView?
+        let alpha: CGFloat
+        init(_ view: UIView) { self.view = view; alpha = view.alpha }
+    }
+    private var headerSnapshots: [HeaderSnapshot] = []
     private var lastDiscovery: TimeInterval = 0
     private var showingLyrics = false
     private var seekingTrackID: String?
@@ -233,6 +239,7 @@ final class ResponsivePlayerView: UIView {
             native.object(forKey: $0 as NSString).flatMap { NowPlayingIOS27.nearestControl($0) } != nil
         }
         isHidden = !ready
+        for snapshot in headerSnapshots { snapshot.view?.alpha = ready ? 0 : snapshot.alpha }
         for (child, original) in savedAccessibility { child.accessibilityElementsHidden = ready ? true : original }
         guard ready else { displayLink?.isPaused = true; return }
         displayLink?.isPaused = false
@@ -298,11 +305,44 @@ final class ResponsivePlayerView: UIView {
                 native.setObject(view, forKey: "shrubify-save")
             }
         }
+        discoverHeader(in: page)
         for child in page.subviews where child !== self {
             if !savedAccessibility.contains(where: { $0.0 === child }) {
                 savedAccessibility.append((child, child.accessibilityElementsHidden))
             }
             child.accessibilityElementsHidden = true
+        }
+    }
+
+    // iPad can host the native header as a sibling of the scroll controller.
+    // Hide only its recognized buttons, preserving their actions and restoration.
+    private func discoverHeader(in page: UIView) {
+        var root = page
+        for _ in 0..<3 {
+            guard let parent = root.superview, !(parent is UIWindow),
+                  parent.bounds.width <= page.bounds.width + 4 else { break }
+            root = parent
+        }
+        let pageRect = page.convert(page.bounds, to: root)
+        let band = CGRect(x: pageRect.minX, y: max(0, pageRect.minY - 64),
+                          width: pageRect.width, height: page.safeAreaInsets.top + 128)
+        var queue = [root]; var index = 0
+        while index < queue.count, index < 1000 {
+            let view = queue[index]; index += 1
+            if view === self { continue }
+            let rect = view.convert(view.bounds, to: root)
+            guard rect.intersects(band) else { continue }
+            queue.append(contentsOf: view.subviews)
+            guard let id = view.accessibilityIdentifier,
+                  ["Context menu", "now-playing-minimize-button"].contains(id),
+                  let control = NowPlayingIOS27.nearestControl(view) else { continue }
+            let controlRect = control.convert(control.bounds, to: root)
+            guard controlRect.width <= 96, controlRect.height <= 96,
+                  controlRect.width >= 16, controlRect.height >= 16 else { continue }
+            if native.object(forKey: id as NSString) == nil { native.setObject(view, forKey: id as NSString) }
+            if !headerSnapshots.contains(where: { $0.view === control }) {
+                headerSnapshots.append(HeaderSnapshot(control))
+            }
         }
     }
 
@@ -435,6 +475,8 @@ final class ResponsivePlayerView: UIView {
         if #available(iOS 26.0, *) { lyricsHost?.detach(); lyricsHost = nil }
         for (view, hidden) in savedAccessibility { view.accessibilityElementsHidden = hidden }
         savedAccessibility.removeAll()
+        for snapshot in headerSnapshots { snapshot.view?.alpha = snapshot.alpha }
+        headerSnapshots.removeAll()
         for observer in observers { NotificationCenter.default.removeObserver(observer) }
         observers.removeAll()
         removeFromSuperview()
