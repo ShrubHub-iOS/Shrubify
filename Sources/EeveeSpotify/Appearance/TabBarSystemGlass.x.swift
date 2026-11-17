@@ -45,37 +45,76 @@ enum TabBarSystemGlass {
     /// ⚠️ 两条纪律：
     /// · **只藏内容，不藏 item 视图本身** —— 藏了它，触摸就再也到不了 Spotify 那几颗；
     /// · 每个视图记**它自己的**原 alpha，不能一律写 1（统一写回 = 永久错）。
-    private static let hiddenContent = NSHashTable<UIView>.weakObjects()
-    private static var hiddenContentAlphas: [ObjectIdentifier: CGFloat] = [:]
+    private static var hiddenContent: NSHashTable<UIView> { state.hiddenContent }
+    private static var hiddenContentAlphas: [ObjectIdentifier: CGFloat] {
+        get { state.hiddenContentAlphas }
+        set { state.hiddenContentAlphas = newValue }
+    }
 
     /// 系统栏量出来的高度**只量一次**：让出高度之后 `sizeThatFits` 会要得更多。
-    private static var measuredGlassHeight: CGFloat = 0
+    private static var measuredGlassHeight: CGFloat {
+        get { state.measuredGlassHeight }
+        set { state.measuredGlassHeight = newValue }
+    }
 
     /// UIKit 自己留的那圈内边距（**玻璃 = 宿主 − 它**）：**量一次就冻结**，见 `place`。
-    private static var glassInsets: UIEdgeInsets?
-    private static weak var measuredInsetsBar: UIView?
+    private static var glassInsets: UIEdgeInsets? {
+        get { state.glassInsets }
+        set { state.glassInsets = newValue }
+    }
+    private static var measuredInsetsBar: UIView? {
+        get { state.measuredInsetsBar }
+        set { state.measuredInsetsBar = newValue }
+    }
     /// 上面那份内边距是**按几颗量**的 —— UIKit 的浮岛玻璃按**内容**定宽，三颗与四颗的常量不同
     /// （四颗 21/21、三颗 70/70）⇒ 颗数一变就重量一次。
-    private static var glassInsetsCount = -1
+    private static var glassInsetsCount: Int {
+        get { state.glassInsetsCount }
+        set { state.glassInsetsCount = newValue }
+    }
     /// 我们是否已经把触摸交还给 Spotify（交还过就**不再收回**，避免"点一下空一下"）。
-    private static var handedBackTouches = false
+    private static var handedBackTouches: Bool {
+        get { state.handedBackTouches }
+        set { state.handedBackTouches = newValue }
+    }
     /// 从"图标视图"快照出来的图标（按视图缓存：每拍生成新图会让 `syncItems` 永远判成"形状变了"）。
-    private static var iconSnapshots: [ObjectIdentifier: UIImage] = [:]
+    private static var iconSnapshots: [ObjectIdentifier: UIImage] {
+        get { state.iconSnapshots }
+        set { state.iconSnapshots = newValue }
+    }
     /// 我们装在 **Spotify 自己那条栏**上的那只"点一下"手势（**不抢触摸**，只让气泡立刻对过去）。
     ///
     /// ⚠️ 这里只能有这一只：pan（"按住划 = 滑过哪格切哪格"）`cancelsTouchesInView = true`，
     /// 会吃掉系统玻璃要的那次触摸，还会**替用户换页**、切不动时把气泡拨回原位 ⇒ 已删除。
     /// "跟手"是系统玻璃自己接住手指之后才有的东西，不是我们画出来的。
     private static var stockTapKey: UInt8 = 0
-    private static var mirroredSelections = 0
+    private static var mirroredSelections: Int {
+        get { state.mirroredSelections }
+        set { state.mirroredSelections = newValue }
+    }
     /// 上一次"探转发路"的时刻（`ProcessInfo.systemUptime`）—— 节流用，见 `probeForwardRouteThrottled`。
-    private static var lastProbeAt: TimeInterval = 0
+    private static var lastProbeAt: TimeInterval {
+        get { state.lastProbeAt }
+        set { state.lastProbeAt = newValue }
+    }
     /// 手势诊断（各只报一次）：见 `reportTapWithoutIndex` / `noteFirstTapSeen`。
-    private static var didReportTapWithoutIndex = false
-    private static var didNoteFirstTap = false
+    private static var didReportTapWithoutIndex: Bool {
+        get { state.didReportTapWithoutIndex }
+        set { state.didReportTapWithoutIndex = newValue }
+    }
+    private static var didNoteFirstTap: Bool {
+        get { state.didNoteFirstTap }
+        set { state.didNoteFirstTap = newValue }
+    }
 
-    private static var measuredBounds = CGSize.zero
-    private static var measuredCategory = ""
+    private static var measuredBounds: CGSize {
+        get { state.measuredBounds }
+        set { state.measuredBounds = newValue }
+    }
+    private static var measuredCategory: String {
+        get { state.measuredCategory }
+        set { state.measuredCategory = newValue }
+    }
     private static var backgroundKey: UInt8 = 0
     private final class BackgroundState {
         weak var view: UIView?
@@ -84,21 +123,75 @@ enum TabBarSystemGlass {
         init(_ view: UIView) { self.view = view; color = view.backgroundColor; alpha = view.alpha }
     }
     private static weak var lastBar: UIView?
-    private static var lastSkipReason = ""
-    private static var lastSelectionIndex = -1
-    private static var lastSelectionSignal = ""
-    private static var didLogLayout = false
+    private static var lastSkipReason: String {
+        get { state.lastSkipReason }
+        set { state.lastSkipReason = newValue }
+    }
+    private static var lastSelectionIndex: Int {
+        get { state.lastSelectionIndex }
+        set { state.lastSelectionIndex = newValue }
+    }
+    private static var lastSelectionSignal: String {
+        get { state.lastSelectionSignal }
+        set { state.lastSelectionSignal = newValue }
+    }
+    private static var didLogLayout: Bool {
+        get { state.didLogLayout }
+        set { state.didLogLayout = newValue }
+    }
 
     /// 上一次打出去的"玻璃几何"那一行（只在变了的时候打，别刷屏）。
-    private static var lastGeometryLine = ""
+    private static var lastGeometryLine: String {
+        get { state.lastGeometryLine }
+        set { state.lastGeometryLine = newValue }
+    }
     /// 转发成功的次数：**只报前几次**（证明这条路通就够了，别把日志刷满）。
-    private static var forwardedTaps = 0
+    private static var forwardedTaps: Int {
+        get { state.forwardedTaps }
+        set { state.forwardedTaps = newValue }
+    }
+
+    // Mutable measurements, snapshots and forwarding fallback belong to one
+    // native bar. A second iPad window must not reuse the first window's state.
+    private final class BarState {
+        var hiddenContentAlphas: [ObjectIdentifier: CGFloat] = [:]
+        var measuredGlassHeight: CGFloat = 0
+        var glassInsets: UIEdgeInsets?
+        weak var measuredInsetsBar: UIView?
+        var glassInsetsCount: Int = -1
+        var handedBackTouches: Bool = false
+        var iconSnapshots: [ObjectIdentifier: UIImage] = [:]
+        var mirroredSelections: Int = 0
+        var lastProbeAt: TimeInterval = 0
+        var didReportTapWithoutIndex: Bool = false
+        var didNoteFirstTap: Bool = false
+        var measuredBounds: CGSize = CGSize.zero
+        var measuredCategory: String = ""
+        var lastSkipReason: String = ""
+        var lastSelectionIndex: Int = -1
+        var lastSelectionSignal: String = ""
+        var didLogLayout: Bool = false
+        var lastGeometryLine: String = ""
+        var forwardedTaps: Int = 0
+        let hiddenContent = NSHashTable<UIView>.weakObjects()
+    }
+    private static var stateKey: UInt8 = 0
+    private static let bars = NSHashTable<UIView>.weakObjects()
+    private static let detachedState = BarState()
+    private static var state: BarState {
+        guard let bar = lastBar else { return detachedState }
+        if let value = objc_getAssociatedObject(bar, &stateKey) as? BarState { return value }
+        let value = BarState()
+        objc_setAssociatedObject(bar, &stateKey, value, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+        return value
+    }
 
     // MARK: - 对外入口
     //
     // 幂等。由 `TabBarPlateHook.layoutSubviews`（栏自己每次布局）与复查节拍调用。
     static func apply(to bar: UIView) {
         lastBar = bar
+        bars.add(bar)
 
         guard isEnabled else {
             remove(reason: "switch off", in: bar)
@@ -170,14 +263,17 @@ enum TabBarSystemGlass {
 
     /// 设置页切开关 / 复查节拍用：手里那次记下的栏还在窗口里就当场重来一次。
     static func reapply() {
-        guard let bar = lastBar, bar.window != nil else { return }
-        apply(to: bar)
+        for bar in bars.allObjects {
+            if bar.window != nil { apply(to: bar) }
+            else { remove(reason: "window removed", in: bar) }
+        }
     }
 
     /// 拿走（关开关 / 页面走了）。**精确还原三件事**：系统栏与宿主、内容 alpha、`additionalSafeAreaInsets`。
     static func remove(reason: String, in bar: UIView? = nil) {
         let target = bar ?? lastBar
         if let target {
+            lastBar = target
             if let systemBar = objc_getAssociatedObject(target, &systemBarKey) as? UITabBar {
                 systemBar.delegate = nil
                 systemBar.removeFromSuperview()
