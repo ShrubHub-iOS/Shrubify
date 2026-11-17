@@ -3,7 +3,7 @@ import UIKit
 
 struct EeveeSettingsView: View {
     weak var navigationController: UINavigationController?
-    
+
     @State private var hasShownCommonIssuesTip = UserDefaults.hasShownCommonIssuesTip
     @State private var isClearingData = false
     @State private var isPresentingDevNoteSheet = false
@@ -56,9 +56,9 @@ struct EeveeSettingsView: View {
             SettingsEntry(key: "sponsorblock", icon: "forward.end.fill", color: .red) { AnyView(SponsorBlockSettingsView()) },
         ]),
         SettingsGroup(key: "settings_group_looks", entries: [
-            SettingsEntry(key: "appearance", icon: "drop.fill", color: Color(hex: "#30B0C7")) { AnyView(AppearanceSettingsView()) },
-            SettingsEntry(key: "liquid_glass", icon: "circle.hexagongrid.fill", color: EeveeTheme.accent) { AnyView(LiquidGlassSettingsView()) },
-            SettingsEntry(key: "customization", icon: "paintpalette.fill", color: Color(hex: "#64D2FF")) { AnyView(EeveeUISettingsView()) },
+            SettingsEntry(key: "appearance", icon: "drop.fill", color: Color(hex: "#30B0C7")) { AnyView(EeveeUISettingsView()) },
+            SettingsEntry(key: "Evolved UI", icon: "circle.hexagongrid.fill", color: EeveeTheme.accent) { AnyView(LiquidGlassSettingsView()) },
+            SettingsEntry(key: "Lyrics appearance", icon: "textformat.size", color: .blue) { AnyView(EeveeLyricsAppearanceSettingsView()) },
             SettingsEntry(key: "appIcon", icon: "app.badge.fill", color: .pink) { AnyView(EeveeAppIconPickerView()) },
         ]),
         SettingsGroup(key: "settings_group_advanced", entries: [
@@ -91,7 +91,7 @@ struct EeveeSettingsView: View {
                 }
             }
             EeveeSettingsVersionView()
-            
+
             if !hasShownCommonIssuesTip {
                 CommonIssuesTipView(
                     onDismiss: {
@@ -100,7 +100,7 @@ struct EeveeSettingsView: View {
                     }
                 )
             }
-            
+
             ForEach(Self.groups) { group in
                 SettingsGroupSection(group: group) { entry in
                     SettingsNavigator.push(entry.make(), title: entry.key.localized)
@@ -170,7 +170,7 @@ struct EeveeSettingsView: View {
             SpacerView()
         }
         .eeveeSettingsStyle()
-        
+
         .animation(.default, value: isClearingData)
         .animation(.default, value: hasShownCommonIssuesTip)
 

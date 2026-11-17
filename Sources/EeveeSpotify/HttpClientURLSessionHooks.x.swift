@@ -35,6 +35,7 @@ class HttpClientURLSessionHook: ClassHook<NSObject>, SpotifySessionDelegate {
             return
         }
         if url.isLyrics {
+            LyricsURLCachePurge.remember(session: session, url: url)
             let original = try? Lyrics(serializedBytes: buffer)
             loadLyricsDataAsync(url.path, originalLyrics: original) { [self] data in
                 // The modern lyrics consumer is main-actor isolated.

@@ -1,0 +1,297 @@
+import Foundation
+import Combine
+
+class NgzhwmSettingsViewModel: ObservableObject {
+    // 已删除一个 key：`ngzhwm_removeMxmInterludeSymbol` ——「删除间奏符号 ♪」。
+    //
+    // 为什么删：那颗开关对应的行为**早已是常态**——间奏行现在无条件整行丢弃
+    // （网易云 `isInterludeRow` / MxM `isMxmInterludeRow`，见两个仓库里各自的说明），
+    // 开关开着关着结果一样 ⇒ 它只是个"按了没反应"的空壳，UI 行只会让人白按一次。
+    // 键、Toggle、绑定日志与 l10n 一起摘掉（漏一处引用是编译错，不拆半拉子）。
+    // ⚠️ 它从来没进过 `ownedKeys`，所以备份/重置那三处**不用**改。
+    // 旧设备上残留的键不再被读、也不会被清（留着无害）。
+    static let disableLyricsFeatureKey = "ngzhwm_disableLyricsFeature"
+    // 已删除一个 key：`ngzhwm_neteaseRomajiLocal` ——「修改 NetEase 日语罗马字的展示方式」。
+    //
+    // 为什么删：它打开时会让仓库**不存**网易云下发的 `romalrc`，改走本地 CFS 转换。
+    // 而 `romalrc` 是人工整理的行级罗马字，汉字读音明显比本地那条管线准 ⇒
+    // 开关的默认值（关 = 用官方）本来就是对的，打开只会降级，是个能被误按的空壳。
+    // 键、Toggle、绑定日志与 l10n 一起摘掉。
+    // ⚠️ 它从来没进过 `ownedKeys`，所以备份/重置那三处**不用**改。
+    // 旧设备上残留的键不再被读、也不会被清（留着无害）。
+    /// 键名里的 `netease` 是历史：这一项早先只管网易云的翻译按钮，现在对**所有源**生效。
+    /// 字符串值不能跟着改名 —— 它已经在用户盘上，改了等于把所有人的选择重置。
+    static let hideLyricsTranslationKey = "ngzhwm_neteaseHideTranslation"
+    static let wordByWordLyricsKey = "ngzhwm_wordByWordLyrics"
+    static let betterWordByWordLyricsKey = "ngzhwm_betterWordByWordLyrics"
+    /// 「歌词 → 文字」两档倍率：字号 / 行距。默认 1.0（等于各档量出来的原值）。
+    static let lyricsTextScaleKey = "ngzhwm_lyricsTextScale"
+    static let lyricsLineSpacingScaleKey = "ngzhwm_lyricsLineSpacingScale"
+    /// 「AMLL 优先」的 UserDefaults 键。
+    ///
+    /// ⚠️**恢复**：曾因用户一句"感觉没什么用"把整条链删掉
+    /// （提交 `50528cd`，8 个文件），用户随后要求加回来。键名沿用旧名
+    /// （`ngzhwm_amllPreferred`），设备上可能还留着上次的值。
+    static let amllPreferredKey = "ngzhwm_amllPreferred"
+    // 已删除一个 key：`ngzhwm_syntheticLineTiming` —— 「补全歌词时间轴」。
+    //
+    // 为什么删：真机 A/B（用户关掉它跑了一整场）结论是"差不多、或略好一点"，而**给本来就
+    // 没有时间轴的源（Genius / Petit 纯文本）伪造一层时间轴本身就不合语义** ——
+    // 估算出来的 offset 只会让整首都不准。现在：
+    // · **真实歌词源一律不再合成时间轴**（`LyricsDto.toSpotifyLyricsData` 里那段已删）；
+    // · 只有**占位文案**仍然补（`makeUnavailableLyrics` 里写死）——
+    // 那是"未找到歌词"这一行能不能显示出来的前提，不是给某个源伪造时间轴。
+    // 旧设备上残留的键不再被读、也不会被清（留着无害）。
+    // 「补充模块5」（往元素列表里补 `5` = 保留官方布局时那个歌词预览模块）—— 见 `isLyricsCardElementInjectionEnabled`。
+    //
+    // ⚠️**恢复为真开关**（曾一度写死启用）：的真机日志
+    // 显示这个元素在部分曲目上渲染成了「即将发布 / 已预收藏」卡，需要 A/B 才能定性。
+    // 沿用旧 key 名，设备上残留的值会被重新读起来。
+    static let injectLyricsCardElementKey = "ngzhwm_injectLyricsCardElement"
+    /// 「把服务端那条 `lyrics_entry_point_enabled` 钉成 true」—— 见 `isLyricsEntryPointFlagForced`。
+    ///
+    /// ⚠️由**写死**改为真开关：真机 A/B 已经排除了「补卡片元素」那一处
+    /// （关掉它之后那张过期的「即将发布」卡**依然出现**），于是剩下的、唯一还能影响
+    /// 正在播放页卡片渲染的我们自家改动就是这条 flag。留开关就是为了判定它。
+    static let lyricsEntryPointFlagKey = "ngzhwm_lyricsEntryPointFlag"
+    // 已移除一个 key：`ngzhwm_hideOfficialLyrics` ——
+    // 它对应的行为已在下面**写死启用**，不再读 UserDefaults。
+    // 旧设备上残留的键不再被读、也不会被清（留着无害）。
+    static let blurredLyricsBackdropKey = "ngzhwm_blurredLyricsBackdrop"
+    static let lyricsBackdropMaterialKey = "ngzhwm_lyricsBackdropMaterial"
+
+    static var isLyricsFeatureDisabled: Bool {
+        UserDefaults.standard.bool(forKey: disableLyricsFeatureKey)
+    }
+
+    /// 设备主语言是否为中文（简体/繁体）。
+    static var isChineseDevice: Bool {
+        Locale.preferredLanguages.first?.lowercased().hasPrefix("zh") == true
+    }
+
+    /// 读取带默认值的布尔开关：key 尚未写入时返回 defaultValue，否则返回已存值。
+    private static func bool(forKey key: String, defaultValue: Bool) -> Bool {
+        UserDefaults.standard.object(forKey: key) == nil
+            ? defaultValue
+            : UserDefaults.standard.bool(forKey: key)
+    }
+
+    /// 读取带默认值、并夹到给定范围的数值开关。
+    ///
+    /// 夹范围放在**读**这一侧：盘上的值可能来自旧版本、也可能被导入的备份改过。
+    /// 渲染层拿到的倍率一旦越界（0 或 10），字会直接消失或撑爆版面，而那看起来像"渲染坏了"。
+    private static func double(
+        forKey key: String,
+        defaultValue: Double,
+        range: ClosedRange<Double>
+    ) -> Double {
+        guard let number = UserDefaults.standard.object(forKey: key) as? NSNumber else {
+            return defaultValue
+        }
+        let value = number.doubleValue
+        guard value.isFinite else { return defaultValue }
+        return min(max(value, range.lowerBound), range.upperBound)
+    }
+
+    static var isWordByWordLyricsEnabled: Bool {
+        bool(forKey: wordByWordLyricsKey, defaultValue: true)
+    }
+
+    // MARK: -逐语言罗马化 / 译文的键
+    //
+    // 三颗**逐语言**罗马化开关（设置 → 歌词 那一页）—— 与 `LyricLinesAdapter
+    // .romanizationSwitchesFingerprint`、`LyricsDto`、`AmllLyricsMapper`、
+    // `NeteaseLyricsRepository` / `MusixmatchLyricsRepository` 里读的**是同一批键**。
+    //
+    // ⚠️ 那几处目前仍是**字面量**（本轮没一起改，避免把一次"加开关"扩成一次全仓重构）。
+    // 这里的三颗都只为写默认值/迁移用：日/韩的默认值是开，中文是关（见下面两个
+    // `apply…IfNeeded`）。
+    static let japaneseRomanizationKey = "ngzhwm_japaneseRomanization"
+    static let chineseRomanizationKey = "ngzhwm_chineseRomanization"
+    static let koreanRomanizationKey = "ngzhwm_koreanRomanization"
+
+    /// 我们自己绘制的歌词层要不要画译文行（**不分来源**）。
+    ///
+    /// 默认跟随设备语言：中文（简/繁都算）设备默认**显示**，其余默认**隐藏** ——
+    /// 这些源给的译文基本都是中文，英文用户看到只会是噪声。
+    static var isHideLyricsTranslationEnabled: Bool {
+        bool(forKey: hideLyricsTranslationKey, defaultValue: !isChineseDevice)
+    }
+
+    /// （**日/韩罗马化与歌词翻译默认开启，中文罗马化默认关闭**）——
+    /// 一次性把这两类默认值**写进键里**，且**只对从没写过的键**动手。
+    ///
+    /// 中文不写：华语歌词本来就是汉字，多出来的拼音行会把当前行挤下一格，观感代价大于收益；
+    /// 日/韩的罗马字则是多数人真需要的。
+    ///
+    /// ⚠️ 为什么不是"把读取处的默认值改成 true"就完事：这几颗开关在别处是**按字面量键**
+    /// 读的（`LyricLinesAdapter` / `LyricsDto` / 两个歌词源，见上面「逐语言罗马化 / 译文的键」
+    /// 那段说明），只改扩展页那个合成 getter 会做出一个**骗人的开关**（显示开着、歌词里却没有
+    /// 罗马音）✗。写键才是"真开"。
+    ///
+    /// 做法与 `LyricsOptions.applyGeniusFallbackDefaultIfNeeded` /
+    /// `UserDefaults.applyTabBarSystemGlassDefaultIfNeeded` **完全一致**：
+    /// 只跑一次（marker 记着），之后**尊重用户自己的开关** —— 已经手动关过的键不动。
+    static func applyRomanizationAndTranslationDefaultsIfNeeded() {
+        let marker = "ngzhwm_romanizationTranslationDefaultsApplied"
+        guard !UserDefaults.standard.bool(forKey: marker) else { return }
+        UserDefaults.standard.set(true, forKey: marker)
+
+        // 「展示罗马化歌词」：日/韩两颗，只有**从没写过**的才写成开。
+        for key in [japaneseRomanizationKey, koreanRomanizationKey]
+        where UserDefaults.standard.object(forKey: key) == nil {
+            UserDefaults.standard.set(true, forKey: key)
+        }
+
+        // 「展示歌词翻译」与「隐藏译文」是**同一个键的反相**。
+        // 写的是**设备相关**的默认值（与 getter 里的 `!isChineseDevice` 同口径）：
+        // 中文设备写 false（显示），其余写 true（隐藏）—— 这些源给的译文基本都是中文。
+        // ⚠️ 旧版本这里写死 false，等于把"英文设备默认隐藏"那条 getter 默认值架空了。
+        // 已经跑过旧迁移的设备（键已被写成 false）保持原样：分不清那是迁移写的还是用户关的。
+        if UserDefaults.standard.object(forKey: hideLyricsTranslationKey) == nil {
+            UserDefaults.standard.set(!isChineseDevice, forKey: hideLyricsTranslationKey)
+        }
+
+        writeDebugLog(
+            "[INIT] romanization / translation defaults applied once"
+                + " — only keys that had never been written; a device that chose otherwise keeps its choice"
+        )
+    }
+
+    /// **一次性**把盘上的「中文罗马化」关掉 —— 为「默认值由开改成关」补一刀。
+    ///
+    /// 为什么要单独一条：上面那个迁移在旧版本里已经把 `true` 写进了这颗键，盘上是一个具体的
+    /// 值，只改默认值追不到它（读处拿到的是 `true`，`?? false` 不会被用上）。
+    ///
+    /// 只发生一次（标记键），之后设置页那颗开关是唯一真相。做法与
+    /// `UserDefaults.applyTabBarSystemGlassDefaultIfNeeded` 一致。
+    static func applyChineseRomanizationOffDefaultIfNeeded() {
+        let marker = "ngzhwm_chineseRomanizationDefaultOffApplied"
+        guard !UserDefaults.standard.bool(forKey: marker) else { return }
+        UserDefaults.standard.set(true, forKey: marker)
+
+        guard UserDefaults.standard.bool(forKey: chineseRomanizationKey) else { return }
+        UserDefaults.standard.set(false, forKey: chineseRomanizationKey)
+        writeDebugLog(
+            "[INIT] Chinese romanization switched off once (the stored switch said on)"
+                + " — from here on the switch in Settings → Lyrics decides"
+        )
+    }
+
+    /// 「AMLL 优先」：开启后先向 AMLL 要逐词歌词，没正常返回再回退到用户在来源选择器里
+    /// 设置的那个源（连同它的相关设置）。
+    ///
+    /// 回退到「用户自己选的源」而不是硬编码一条回退链：哪个源适合兜底完全取决于地区与
+    /// 语言 —— 日本用户设 PetitLyrics、大陆用户设网易云、其它地区设 SpicyLyrics，各自
+    /// 回退到最合适的地方，不需要我们再维护地区判断。
+    ///
+    /// **默认开**。
+    ///
+    /// ⚠️ `bool(forKey:defaultValue:)` 只对**从没写过这个键**的设备用默认值 ⇒ 已经手动
+    /// 关过它的设备保持他关的那一档（不覆盖）。
+    static var isAmllPreferred: Bool {
+        bool(forKey: amllPreferredKey, defaultValue: true)
+    }
+
+    /// 「隐藏 Spotify 官方歌词」：我方来源取不到词时，**不再把 Spotify 的原始响应放行**，
+    /// 而是用我们自己的一小段「未找到歌词」占位顶上去。
+    ///
+    /// 为什么需要：钩子在取词失败时原本是 `customLyricsData ?? buffer`，于是界面上显示的是
+    /// **Spotify 自己的歌词** —— 日区那批的来源写着「プチリリ」（Spotify 的日文歌词供应商，
+    /// **不带 (EeveeSpotify) 后缀**），而且不会跟着我们的罗马化设置走，
+    /// 看起来就像"来源设置没生效 / 罗马化设置失效"。
+    ///
+    /// ⚠️ **写死为 true**：这已经是修好的行为，不再是可选项 ——
+    /// 选定了某个来源，预期就是"要么显示这个来源的词，要么什么都不显示"，
+    /// 而不是"取不到就悄悄换成 Spotify 的"。
+    /// 想明确看官方歌词的模式仍然在：来源里选「禁用歌词替换」（`.notReplaced`）。
+    static var isOfficialLyricsHidden: Bool { true }
+
+    /// 「模糊封面背景」是否生效。
+    ///
+    /// **不再是独立开关**：需求是"更好的逐词歌词启用时，这两个背景功能就跟着启用"，
+    /// 所以它直接派生自 `isBetterWordByWordLyricsEnabled`。
+    /// 既有的 `blurredLyricsBackdropKey` 不再参与判断（保留 key 常量与 VM 属性只是为了
+    /// 不破坏旧数据、少一处无谓改动）。
+    static var isLyricsBlurredBackdropEnabled: Bool {
+        isBetterWordByWordLyricsEnabled
+    }
+
+    /// 「更好的逐词歌词」：Apple Music 风格的独立渲染层（需 iOS 26+）。
+    ///
+    /// 从「默认关闭」改成「**默认开启**」。
+    ///
+    /// 原话：「2 也默认打开吧」—— 因为当时它是「歌词进播放器」的第一道门禁，那个开关默认开着，
+    /// 这个若还默认关，全新安装上就是"键看得见、点了没反应"。
+    ///
+    /// （歌词按钮点不动→「自己画的这套视图塞不进去单纯的逐词吗」）：
+    /// **那道门禁已经拿掉了**（`NowPlayingLyricsPlate` 现在只判「歌词进播放器」+ iOS 26）。
+    /// 理由：播放器那一层**画的就是**这套渲染，在里面没有第二种渲染可选 ⇒ 把这颗开关当它的闸门
+    /// 只会造成两种错误结果之一（键点不动 / 整层退出、kumone 版式消失）。
+    /// 它现在的职责是**Spotify 原生歌词页用哪套渲染**：
+    /// 开着 = `AppleMusicLyricsOverlay`（AM 风格），关掉 = 旧 UIKit overlay（`LyricsWordByWord`）。
+    ///
+    /// 顺带把两个派生值也一起带开：`isLyricsBlurredBackdropEnabled`（模糊封面底）与
+    /// `isLyricsBackdropMaterialEnabled`（系统材质压色带）—— 它们本来就写死跟随这一个开关。
+    ///
+    /// 当初默认关闭的理由（"这是整体重写，先让用户显式开启；出问题一键回到旧实现"）
+    /// 现在的状态：用户在真机上已经用了几十轮、并逐步把这块指定成主界面。
+    /// 想回到旧实现的人仍然可以在这里关掉它（关掉即 Spotify 原生歌词页回退旧 overlay）。
+    ///
+    /// ⚠️ 它需要 **iOS 26+**（`#available(iOS 26.0, *)`）—— 低版本设备上这个开关
+    /// **开着也不会生效**，走的是旧实现那条路（见 `AppleMusicLyricsOverlay` 的可用性判断）。
+    static var isBetterWordByWordLyricsEnabled: Bool {
+        bool(forKey: betterWordByWordLyricsKey, defaultValue: true)
+    }
+
+    /// 「歌词 → 文字」里那一档字号倍率（0.8…1.3）。
+    static var lyricsTextScale: Double {
+        double(forKey: lyricsTextScaleKey, defaultValue: 1, range: 0.8...1.3)
+    }
+
+    /// 行距倍率（0.7…1.5）。只作用于块间距与折行间距，见 `LyricsTypographyScale.applyingUserScale`。
+    static var lyricsLineSpacingScale: Double {
+        double(forKey: lyricsLineSpacingScaleKey, defaultValue: 1, range: 0.7...1.5)
+    }
+
+    /// 是否在模糊封面之上再叠一层系统材质压色带。
+    /// 与 `isLyricsBlurredBackdropEnabled` 同理，跟随「更好的逐词歌词」。
+    static var isLyricsBackdropMaterialEnabled: Bool {
+        isBetterWordByWordLyricsEnabled
+    }
+
+    /// 「补充模块5」（往元素列表里补 `5` = 保留官方布局时那个歌词预览模块）。
+    ///
+    /// 背景：`scrollsita/v1/scroll/spotify:track:<id>`（正在播放页的**元素列表**）
+    /// 只在"Spotify 自己有官方歌词"的曲目上多下发一个元素（内层字段号 5，只引用曲目 URI）。
+    /// 补上之后，缺这一项的响应会被写入这一项（byte 级，只在能完整解析时动手，
+    /// 任何异常都原样放行）。见 `ScrollsitaLyricsElementInjector`。
+    ///
+    /// ⚠️**恢复为真开关**（此前一度写死 `true`）。默认 **ON** ——
+    /// 保持"404 曲目也有歌词卡片"的既有行为不变。
+    ///
+    /// 在 404 曲目上我们补的这一个元素
+    /// 是那份响应里**唯一**多出来的东西，而这些曲目上会间歇出现一张
+    /// 「即将发布 / 已预收藏」卡（日期早已过期，甚至有 2021 年的）。
+    /// 关掉它即可判定：那张卡到底是这个元素渲出来的，还是另一条路来的。
+    static var isLyricsCardElementInjectionEnabled: Bool {
+        bool(forKey: injectLyricsCardElementKey, defaultValue: true)
+    }
+
+    /// 是否把服务端下发的 `lyrics_entry_point_enabled`（scope `ios-feature-lyrics`）钉成 true。
+    ///
+    /// 默认 **ON** —— 保持"9.1.86 上歌词卡片能出现"的既有行为不变。
+    ///
+    /// 为什么要留开关：排查那张**日期早已过期**的「即将发布 / 已预收藏」卡。
+    /// 三条路已经排掉了两条：
+    /// · **元素列表** —— 假卡出现在原生只有 `[2,3,4]`、连 `12`（正版预热卡）都没有的曲目上；
+    /// · **补卡片元素**（`isLyricsCardElementInjectionEnabled`）—— 真机关掉它，假卡**照样出现**；
+    /// 连 metadata / entity 类接口都不存在，那份数据 100% 在客户端本地。
+    ///
+    /// ⇒ 我们唯一还可能"让客户端多渲染一张卡"的就是这条 flag。关掉它即可判定：
+    /// 假卡消失 = 是它；假卡还在 = 与我们无关，那是 Spotify 自己拿着过期的专辑
+    /// prerelease 记录渲出来的。
+    static var isLyricsEntryPointFlagForced: Bool {
+        bool(forKey: lyricsEntryPointFlagKey, defaultValue: true)
+    }
+}

@@ -131,6 +131,7 @@ final class ShrubifyReplayStore: ObservableObject {
         let rate = (info[MPNowPlayingInfoPropertyPlaybackRate] as? NSNumber)?.doubleValue
             ?? (KaraokePlaybackTracker.shared.isPlaying() ? 1 : 0)
         guard rate > 0 else { previousStamp = nil; return }
+        KaraokeSeek.player = statefulPlayer as AnyObject?
         let playback = KaraokeSeek.refresh()
         let legacyKey = artist.lowercased() + "\u{001F}" + title.lowercased()
         let uri = playback.trackID.map { "spotify:track:" + $0 }

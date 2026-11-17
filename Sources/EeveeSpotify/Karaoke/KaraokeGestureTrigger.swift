@@ -16,7 +16,7 @@ final class KaraokeGestureTrigger: NSObject {
         lastSearch = now
         guard let barClass = Self.barClass,
               let window = UIApplication.shared.connectedScenes.compactMap({ $0 as? UIWindowScene }).flatMap(\.windows).first(where: \.isKeyWindow),
-              let view = window.eeveeFirst(UIView.self, where: { ($0.next as? UIViewController)?.isKind(of: barClass) == true })
+              let view = window.shrubFirst(where: { ($0.next as? UIViewController)?.isKind(of: barClass) == true })
         else { return }
         bar = view
         guard objc_getAssociatedObject(view, &Self.attachedKey) == nil else { return }
@@ -35,8 +35,16 @@ final class KaraokeGestureTrigger: NSObject {
         if UserDefaults.standard.object(forKey: "ShrubifyPanelLongPress3") as? Bool ?? true {
             UIImpactFeedbackGenerator(style: .light).impactOccurred()
             ShrubifyPanelPresenter.present()
-        } else if KaraokeOverlayPresenter.isAvailableForCurrentTrack() {
-            KaraokeOverlayPresenter.present()
         }
+    }
+}
+
+private extension UIView {
+    func shrubFirst(where predicate: (UIView) -> Bool) -> UIView? {
+        if predicate(self) { return self }
+        for child in subviews {
+            if let found = child.shrubFirst(where: predicate) { return found }
+        }
+        return nil
     }
 }

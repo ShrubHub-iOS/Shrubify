@@ -224,11 +224,11 @@ struct ShrubifyQueueView: View {
     }
 
     private func openSpotifyQueue() {
-        guard CustomTabs.available, CustomTabs.dispatcher != nil else {
+        guard SpotifyURIOpener.isReady else {
             message = "The in-app queue navigator isn't available with this Spotify version or configuration. Use Spotify's queue button instead."
             return
         }
-        CustomTabs.open(CustomTab(title: "Queue", uri: "spotify:now-playing:queue", sfSymbol: "list.bullet"))
+        _ = SpotifyURIOpener.open("spotify:now-playing:queue")
         message = "Requested Spotify's queue."
     }
 }
@@ -242,11 +242,11 @@ struct ShrubifySessionView: View {
             Section(header: Text("Saved listening snapshot"), footer: Text("A snapshot is a list of songs, not a restored Spotify playback queue. A song opens only if a valid Spotify track URI was captured.")) {
                 ForEach(session.tracks) { track in
                     Button {
-                        guard let uri = track.spotifyURI, CustomTabs.available, CustomTabs.dispatcher != nil else {
+                        guard let uri = track.spotifyURI, SpotifyURIOpener.isReady else {
                             note = "Can't navigate to this track in this Spotify build."
                             return
                         }
-                        CustomTabs.open(CustomTab(title: track.title, uri: uri, sfSymbol: "music.note"))
+                        _ = SpotifyURIOpener.open(uri)
                     } label: {
                         HStack {
                             VStack(alignment: .leading, spacing: 3) {
@@ -348,12 +348,11 @@ struct ShrubifyPanelView: View {
                             SettingsLabel(title: "Sleep timer", subtitle: "Wind down with a playback countdown", icon: "moon.zzz.fill", color: .purple)
                         }
                     }
-                    if KaraokeOverlayPresenter.isAvailableForCurrentTrack() {
-                        Button {
-                            dismiss()
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { KaraokeOverlayPresenter.present() }
-                        } label: {
-                            SettingsLabel(title: "Word-synced lyrics", icon: "text.quote", color: .green)
+                    if embeddedInSettings {
+                        SettingsLink(title: "Lyrics sources", icon: "text.quote", color: .green) { EeveeLyricsSettingsView() }
+                    } else {
+                        NavigationLink(destination: EeveeLyricsSettingsView()) {
+                            SettingsLabel(title: "Lyrics sources", icon: "text.quote", color: .green)
                         }
                     }
                     Text("ShrubPanel never requires an account or sends your Replay history anywhere.")

@@ -48,7 +48,7 @@ print("V4 beta behavior checks passed")
 check(LyricsFallbacks.chain(primary: .spicylyrics, fallbacks: [.lrclib, .spicylyrics, .lrclib, .genius]) == [.spicylyrics, .lrclib, .genius], "fallback order deduplicates and keeps primary first")
 check(LyricsFallbacks.chain(primary: .notReplaced, fallbacks: [.spicylyrics]).isEmpty, "Spotify-only setting prevents provider calls")
 check(LyricsFallbacks.unique([.notReplaced, .lrclib, .lrclib]) == [.lrclib], "invalid fallback removed")
-check(LyricsSource.defaultSource == .spicylyrics, "default provider stays SpicyLyrics")
+check([LyricsSource.autoSelect, .petit].contains(LyricsSource.defaultSource), "Evolved default is region-aware auto select")
 struct TestLyricsOptions { let geniusFallback = false }
 extension UserDefaults {
     static var container: UserDefaults { UserDefaults.standard }

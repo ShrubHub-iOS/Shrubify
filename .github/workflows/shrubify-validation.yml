@@ -33,11 +33,13 @@ jobs:
         python3 -m unittest discover -s scripts/tests -p 'test_*.py'
         python3 scripts/check_ios14_swiftui.py
         python3 scripts/check_shrubify_branding.py
-        swiftc -frontend -parse Sources/EeveeSpotify/Shrubify3/*.swift
+        find Sources/EeveeSpotify -name '*.swift' -print0 | xargs -0 -n 40 swiftc -frontend -parse
     - name: Test beta migration, timing, search and cache behavior
       run: bash scripts/test_v4_beta.sh
     - name: Test sleep timer deadline, replacement and cancellation
       run: bash scripts/test_listening_tools.sh
+    - name: Test Evolved providers and lyrics rendering rules
+      run: bash scripts/test_evolved_lyrics.sh
     - name: Checkout Theos
       uses: actions/checkout@v4
       with:

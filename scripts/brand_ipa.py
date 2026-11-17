@@ -37,6 +37,12 @@ def should_drop(filename, app_prefix):
     return False
 
 
+def minimum_ios_version(current):
+    value = str(current or '0')
+    parts = tuple(int(part) for part in value.split('.'))
+    return value if parts >= (17, 4) else '17.4'
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('ipa')
@@ -65,6 +71,7 @@ def main():
                 raise ValueError('Missing or invalid CFBundleExecutable in app Info.plist')
             if app_prefix + executable not in zin.namelist():
                 raise ValueError('App executable missing: ' + app_prefix + executable)
+            original['MinimumOSVersion'] = minimum_ios_version(original.get('MinimumOSVersion'))
             original['CFBundleIdentifier'] = 'com.shrubify.client'
             original['CFBundleName'] = 'Shrubify'
             original['CFBundleDisplayName'] = 'Shrubify'
