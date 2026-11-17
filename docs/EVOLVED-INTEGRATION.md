@@ -78,7 +78,8 @@ sample text is original. Artwork displayed by the UI comes from the playing trac
 - `bash scripts/test_evolved_lyrics.sh` runs twelve imported upstream suites for
   matching, Spicy JSON/attribution, QQ QRC decoding, KuGou romanization, AMLL/Apple
   TTML, line splitting, interludes, wrapping, lyrics-door state and missing-lyrics notices.
-- Existing settings migration, playback bridge and sleep timer tests remain in native CI.
+- `bash scripts/test_evolved_migration.sh` checks preservation of provider selections, credentials, accent colors, legacy layout archives and Replay opt-in, plus migration idempotence.
+- Existing settings, playback bridge, request-buffer and sleep timer tests remain in native CI.
 - The native workflow parses every Swift source and builds a rootless tweak on macOS.
 
 Before release, test cold launch, player opening/dismissal, all transport/footer

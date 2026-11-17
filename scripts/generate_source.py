@@ -30,7 +30,7 @@ def source_for(repo, releases, branch="main"):
            'date':(release.get('published_at') or datetime.now(timezone.utc).isoformat())[:10],
            'localizedDescription':f'Shrubify v{matched["tweak"]} for Spotify {version}. Studio presets, ShrubPanel, opt-in Replay, queue shortcuts and supported Liquid Glass. Compatibility depends on Spotify version.',
            'downloadURL':asset['browser_download_url'],'size':int(asset['size']),
-           'minOSVersion':'16.1'
+           'minOSVersion':'17.4'
         })
         if len(versions)>=75:break
     return {'name':'Shrubify','subtitle':'Made by shrubbery & the ShrubHub team',

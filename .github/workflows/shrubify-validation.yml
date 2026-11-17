@@ -40,6 +40,10 @@ jobs:
       run: bash scripts/test_listening_tools.sh
     - name: Test Evolved providers and lyrics rendering rules
       run: bash scripts/test_evolved_lyrics.sh
+    - name: Test release buffering and Replay boundaries
+      run: bash scripts/test_release_support.sh
+    - name: Test Evolved migration preserves credentials and privacy choices
+      run: bash scripts/test_evolved_migration.sh
     - name: Checkout Theos
       uses: actions/checkout@v4
       with:
