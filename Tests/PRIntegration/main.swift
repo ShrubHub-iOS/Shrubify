@@ -8,6 +8,7 @@ func check(_ value: @autoclosure () -> Bool, _ message: String) {
 }
 check(LyricsActivationPolicy.shouldReplaceLyrics(replacementSelected: true, officialExperiment: false, disabled: false), "Custom lyrics must work independently of premium patching")
 check(LyricsActivationPolicy.shouldReplaceLyrics(replacementSelected: false, officialExperiment: true, disabled: false), "Official experiment overrides native-source selection")
+check(LyricsActivationPolicy.shouldHandleLyricsTraffic(replacementSelected: false, officialExperiment: false, disabled: true), "Disabling all lyrics must still intercept and suppress the native response")
 check(!LyricsActivationPolicy.shouldReplaceLyrics(replacementSelected: false, officialExperiment: false, disabled: false), "Native-only mode must not call providers")
 check(!LyricsActivationPolicy.shouldReplaceLyrics(replacementSelected: true, officialExperiment: true, disabled: true), "Explicit disable must win")
 check(!LyricsResultPolicy.matchesRequestedTrack(requested: "A", current: "B"), "A delayed lookup must not overwrite the next track")

@@ -67,7 +67,7 @@ class HttpClientURLSessionHook: ClassHook<NSObject>, SpotifySessionDelegate {
             orig.URLSession(session, dataTask: task, didReceiveResponse: ok, completionHandler: handler)
             return
         }
-        if url.isLyrics, BaseLyricsGroup.isActive, UserDefaults.shouldReplaceLyrics {
+        if url.isLyrics, UserDefaults.shouldHandleLyricsTraffic {
             // A missing native lyric may still have a valid custom/fallback result.
             // Buffer a zero-byte native response too. Do not synthesize completion here.
             URLSessionHelper.shared.setOrAppend(Data(), for: task)

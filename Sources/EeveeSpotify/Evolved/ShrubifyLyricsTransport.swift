@@ -20,6 +20,13 @@ func prefetchLyricsIfNeeded(trackId: String) {
 
 func loadLyricsDataAsync(_ path: String, originalLyrics: Lyrics? = nil, force: Bool = false,
                          completion: @escaping (Data?) -> Void) {
+    if NgzhwmSettingsViewModel.isLyricsFeatureDisabled {
+        let blocked = try? Lyrics.with { lyrics in
+            lyrics.data = LyricsData()
+        }.serializedData()
+        DispatchQueue.main.async { completion(blocked) }
+        return
+    }
     evolvedLyricsWorker.async {
         let signature = LyricsResponseCache.currentSignature
         let cache = LyricsResponseCache.shared
