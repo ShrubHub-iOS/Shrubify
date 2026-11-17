@@ -286,6 +286,7 @@ final class SponsorBlockSkipper {
 
     private func checkAndSkip(reportedPosition pos: Double, options: SponsorBlockOptions) {
         guard options.enabled else { resetState(); return }
+        guard lastIsPlaying else { return }
         guard !currentSegments.isEmpty else { return }
         // Safety guard: never seek if we are not on an episode track.
         guard currentEpisodeID != nil else { return }

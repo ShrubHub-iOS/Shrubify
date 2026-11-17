@@ -75,6 +75,7 @@ final class ResponsivePlayerView: UIView {
     private var savedAccessibility: [(UIView, Bool)] = []
     private var lastDiscovery: TimeInterval = 0
     private var showingLyrics = false
+    private var seekingTrackID: String?
     private var displayLink: CADisplayLink?
     private var hostStorage: AnyObject?
     @available(iOS 26.0, *)
@@ -127,7 +128,12 @@ final class ResponsivePlayerView: UIView {
         scroll.addSubview(title); scroll.addSubview(artist)
         progress.minimumValue = 0; progress.maximumValue = 1
         progress.accessibilityLabel = "Playback position"
+        progress.addAction(UIAction { [weak self] _ in self?.seekingTrackID = self?.trackID }, for: .touchDown)
         progress.addAction(UIAction { [weak self] _ in self?.seek() }, for: [.touchUpInside, .touchUpOutside])
+        progress.addAction(UIAction { [weak self] _ in
+            guard let self, !self.progress.isTracking else { return }
+            self.seek()
+        }, for: .valueChanged)
         scroll.addSubview(progress)
         for label in [elapsed, remaining] {
             label.font = UIFont.monospacedDigitSystemFont(ofSize: 12, weight: .medium)
@@ -214,8 +220,8 @@ final class ResponsivePlayerView: UIView {
             artist.setTitle(track.artistTitle(), for: .normal)
             title.accessibilityLabel = "Album for " + track.trackTitle()
             artist.accessibilityLabel = "Artist: " + track.artistTitle()
-            title.isEnabled = track.metadata()["album_uri"] != nil
-            artist.isEnabled = track.metadata()["artist_uri"] != nil
+            title.isEnabled = track.metadata()["album_uri"] != nil && SpotifyURIOpener.isReady
+            artist.isEnabled = track.metadata()["artist_uri"] != nil && SpotifyURIOpener.isReady
         }
         discoverNative(in: page)
         let ready = ["SPTNowPlayingPlayButton", "SPTNowPlayingPreviousTrackButton", "SPTNowPlayingNextTrackButton"].allSatisfy {
@@ -241,7 +247,8 @@ final class ResponsivePlayerView: UIView {
             button.isEnabled = source != nil
             button.alpha = source == nil ? 0.35 : 1
             button.isSelected = (source as? UIControl)?.isSelected ?? false
-            button.accessibilityValue = button.isSelected ? "On" : nil
+            button.accessibilityValue = source?.accessibilityValue ?? (button.isSelected ? "On" : nil)
+            button.tintColor = button.isSelected ? .systemGreen : .white
         }
         close.isEnabled = native.object(forKey: "now-playing-minimize-button") != nil
         menu.isHidden = native.object(forKey: "Context menu") == nil
@@ -295,6 +302,8 @@ final class ResponsivePlayerView: UIView {
     }
 
     private func seek() {
+        defer { seekingTrackID = nil }
+        guard (seekingTrackID ?? trackID) == NowPlayingLyricsPlate.currentTrackId() else { return }
         let state = KaraokeSeek.refresh()
         guard state.durationMs > 0 else { return }
         if let slider = native.object(forKey: "SPTNowPlayingSliderV2") as? UISlider {
@@ -375,9 +384,9 @@ final class ResponsivePlayerView: UIView {
         // column on wide screens. Controls keep their own reserved region.
         let extra = layout.wide ? max(0, panel.height - (large ? 360 : 300)) : 0
         let textY = panel.minY + extra
-        let titleHeight: CGFloat = large ? 60 : 44
+        let titleHeight = max(44, (title.titleLabel?.font.lineHeight ?? 32) + 12)
         title.frame = CGRect(x: panel.minX, y: textY, width: panel.width, height: titleHeight)
-        artist.frame = CGRect(x: panel.minX, y: title.frame.maxY, width: panel.width, height: large ? 52 : 44)
+        artist.frame = CGRect(x: panel.minX, y: title.frame.maxY, width: panel.width, height: max(44, (artist.titleLabel?.font.lineHeight ?? 24) + 12))
         progress.frame = CGRect(x: panel.minX, y: artist.frame.maxY + 4, width: panel.width, height: 44)
         elapsed.frame = CGRect(x: panel.minX, y: progress.frame.maxY - 6, width: panel.width / 2, height: 20)
         remaining.frame = CGRect(x: panel.midX, y: elapsed.frame.minY, width: panel.width / 2, height: 20)

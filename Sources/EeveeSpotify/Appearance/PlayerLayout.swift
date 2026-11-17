@@ -1,4 +1,7 @@
 import Foundation
+#if canImport(CoreGraphics)
+import CoreGraphics
+#endif
 
 /// Geometry belongs to the visible player container, never to a screen model.
 struct PlayerLayout {

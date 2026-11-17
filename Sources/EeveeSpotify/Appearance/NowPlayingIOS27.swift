@@ -295,6 +295,7 @@ enum NowPlayingIOS27 {
     /// 蹭 `DeclutterChrome` 既有的 0.3s 复查节拍（**不新开定时器**，本仓库纪律）。
     @discardableResult
     static func reconcile() -> Bool {
+        guard isEnabled else { ResponsivePlayer.removeAll(); return false }
         if let track = NowPlayingLyricsPlate.currentTrackId() { refreshMetadataArtwork(trackId: track) }
         return ResponsivePlayer.reconcile()
     }
