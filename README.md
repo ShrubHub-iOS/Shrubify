@@ -1,6 +1,6 @@
 > **Evolved UI port:** Evolved’s player, glass tab bar/mini-player, page designs, lyrics renderer and complete provider layer now replace the previous glass/material integrations. **iOS 17.4+; system glass on iOS 26+.** See [port scope, licenses and validation limits](docs/EVOLVED-INTEGRATION.md).
 
-# Shrubify 4.1.1 — Listening is easy with Shrubify!
+# Shrubify 4.1.2 — Listening is easy with Shrubify!
 
 **Created and maintained by shrubbery and the ShrubHub team.**
 
@@ -17,11 +17,11 @@ Shrubify is an **unofficial, community-developed iOS/iPadOS tweak** based on an 
 | **Evolved UI** | Apple Music-style player, fading artwork backdrop, glass tabs and mini-player, and redesigned home/library/album/playlist/artist pages. | Private UI hooks require version-specific device checks. Spotify style remains selectable. |
 | **Compatibility & Diagnostics** | Optional Stability Mode, version reporting, issue links and debug-log export. | Cannot guarantee compatibility with all Spotify builds or eliminate every crash. |
 
-Shrubify 4.1.1 repairs responsive player layout, glass navigation, lyrics request handling and playback tools. It includes crash guards and regression checks; device validation remains necessary for the Spotify version you use. Existing contributor credits and compatibility controls remain intact.
+Shrubify 4.1.2 repairs responsive player layout, glass navigation, lyrics request handling and playback tools. It includes crash guards and regression checks; device validation remains necessary for the Spotify version you use. Existing contributor credits and compatibility controls remain intact.
 
 ## Install and build
 
-- **Shrubify 4.1.1 release notes:** [RELEASE-4.1.1.md](RELEASE-4.1.1.md)
+- **Shrubify 4.1.2 release notes:** [RELEASE-4.1.2.md](RELEASE-4.1.2.md)
 
 - **Source and full setup:** [SHRUBIFY-SETUP.md](SHRUBIFY-SETUP.md)
 - **Changes in this release:** [CHANGELOG.md](CHANGELOG.md)

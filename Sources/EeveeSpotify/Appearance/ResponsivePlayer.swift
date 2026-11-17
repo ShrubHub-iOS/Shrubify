@@ -224,18 +224,19 @@ final class ResponsivePlayerView: UIView {
             artwork.image = image
             background.image = NowPlayingIOS27.backdrop(from: image)
         }
-        if let track = statefulPlayer?.currentTrack() {
+        let info = SafeTrackMetadata(track: statefulPlayer?.currentTrack() as AnyObject?)
+        if let info {
             title.titleLabel?.font = UIFont.preferredFont(forTextStyle: .title2)
             artist.titleLabel?.font = UIFont.preferredFont(forTextStyle: .body)
-            title.setTitle(track.trackTitle(), for: .normal)
-            artist.setTitle(track.artistTitle(), for: .normal)
-            title.accessibilityLabel = "Album for " + track.trackTitle()
-            artist.accessibilityLabel = "Artist: " + track.artistTitle()
-            title.isEnabled = track.metadata()["album_uri"] != nil && SpotifyURIOpener.isReady
-            artist.isEnabled = track.metadata()["artist_uri"] != nil && SpotifyURIOpener.isReady
+            title.setTitle(info.title, for: .normal)
+            artist.setTitle(info.artist, for: .normal)
+            title.accessibilityLabel = "Album for " + info.title
+            artist.accessibilityLabel = "Artist: " + info.artist
+            title.isEnabled = info.metadata["album_uri"] != nil && SpotifyURIOpener.isReady
+            artist.isEnabled = info.metadata["artist_uri"] != nil && SpotifyURIOpener.isReady
         }
         discoverNative(in: page)
-        let ready = ["SPTNowPlayingPlayButton", "SPTNowPlayingPreviousTrackButton", "SPTNowPlayingNextTrackButton", "now-playing-minimize-button"].allSatisfy {
+        let ready = info != nil && ["SPTNowPlayingPlayButton", "SPTNowPlayingPreviousTrackButton", "SPTNowPlayingNextTrackButton", "now-playing-minimize-button"].allSatisfy {
             native.object(forKey: $0 as NSString).flatMap { NowPlayingIOS27.nearestControl($0) } != nil
         }
         isHidden = !ready
@@ -355,7 +356,8 @@ final class ResponsivePlayerView: UIView {
     }
 
     private func openMetadata(_ key: String) {
-        guard let value = statefulPlayer?.currentTrack()?.metadata()[key], let url = URL(string: value) else { return }
+        guard let info = SafeTrackMetadata(track: statefulPlayer?.currentTrack() as AnyObject?),
+              let value = info.metadata[key], let url = URL(string: value) else { return }
         _ = SpotifyURIOpener.open(url.absoluteString)
     }
 

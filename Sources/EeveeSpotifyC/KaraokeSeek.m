@@ -37,6 +37,28 @@ static id ShrubPlaybackObject(id object, NSString *name) {
     return ((id (*)(id, SEL))objc_msgSend)(object, selector);
 }
 
+// Spotify renamed the artist getter. Never invoke a protocol declaration as
+// proof that a private runtime object implements that selector or return ABI.
+NSDictionary *ShrubReadTrackMetadata(id track) {
+    if (!track) return nil;
+    @try {
+        id title = ShrubPlaybackObject(track, @"trackTitle");
+        if (![title isKindOfClass:NSString.class] || [title length] == 0) return nil;
+        id artist = ShrubPlaybackObject(track, @"artistName");
+        if (![artist isKindOfClass:NSString.class]) artist = ShrubPlaybackObject(track, @"artistTitle");
+        id rawMetadata = ShrubPlaybackObject(track, @"metadata");
+        NSMutableDictionary *metadata = [NSMutableDictionary dictionary];
+        if ([rawMetadata isKindOfClass:NSDictionary.class]) {
+            for (id key in rawMetadata) {
+                id value = rawMetadata[key];
+                if ([key isKindOfClass:NSString.class] && [value isKindOfClass:NSString.class]) metadata[key] = value;
+            }
+        }
+        return @{@"title": title, @"artist": [artist isKindOfClass:NSString.class] ? artist : @"",
+                 @"metadata": metadata};
+    } @catch (NSException *exception) { return nil; }
+}
+
 static NSNumber *ShrubPlaybackNumber(id object, NSString *name) {
     SEL selector = NSSelectorFromString(name);
     if (![object respondsToSelector:selector]) return nil;

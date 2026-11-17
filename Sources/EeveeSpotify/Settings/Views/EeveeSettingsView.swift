@@ -78,6 +78,13 @@ struct EeveeSettingsView: View {
 
     var body: some View {
         List {
+            if UserDefaults.standard.bool(forKey: LaunchRecoveryPolicy.recoveryKey),
+               UserDefaults.standard.bool(forKey: "ShrubifyStabilityMode") {
+                Section {
+                    Text("Recovery mode is active after an incomplete startup. Optional interface changes are paused. Your app data has not been reset.")
+                        .font(.footnote)
+                }
+            }
             Section {
                 SettingsHero()
             }

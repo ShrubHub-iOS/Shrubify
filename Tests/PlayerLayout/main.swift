@@ -29,3 +29,14 @@ check(tablet.wide && tablet.artwork.height <= 560, "Landscape iPad cannot create
 let resized = PlayerLayout(size: CGSize(width: 421, height: 818), top: 24, bottom: 21)
 check(!resized.wide && resized.artwork.width < tablet.artwork.width, "Resizing recomputes geometry without cached device assumptions")
 print("Responsive player geometry checks passed")
+
+for width in [CGFloat(320), 414, 847, 1008, 1280] {
+    for count in [3, 4] {
+        let bounds = CGRect(x: 0, y: 0, width: width, height: 83)
+        let rect = NavigationCapsuleLayout.frame(in: bounds, band: bounds, itemCount: count)
+        check(rect.width <= 352 && rect.height <= 60, "Tablet slots cannot create an oversized navigation backing")
+        check(bounds.contains(rect), "Navigation capsule stays in its own container")
+        check(abs(rect.midX - bounds.midX) < 0.01, "Navigation remains centered after resizing")
+    }
+}
+print("Bounded navigation surface checks passed")

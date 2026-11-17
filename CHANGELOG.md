@@ -1,3 +1,10 @@
+# 4.1.2
+
+- Fix the playback crash confirmed from the released 4.1.1 binary: current Spotify does not support the legacy `artistTitle` getter called by the new player and Replay. Read display metadata through an exception- and ABI-checked bridge.
+- Add recovery after an incomplete startup so optional UI hooks can be disabled on the next launch without clearing app data.
+- Bound navigation hosts by tab count, stop inflating their frames from tablet-wide measurements, clear the actual legacy blur material and restore clipping on disable.
+- Add modern/legacy/throwing metadata regressions, startup recovery tests and an iPad simulator rendering check using the production navigation surface code.
+
 # 4.1.1
 
 - Repair responsive player geometry, mini-player sizing, redundant tab backing and adaptive glass materials.
