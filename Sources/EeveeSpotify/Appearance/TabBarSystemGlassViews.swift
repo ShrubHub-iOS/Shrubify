@@ -57,6 +57,7 @@ final class TabBarSystemGlassGestureRelay: NSObject {
     @objc func stockTapped(_ recognizer: UITapGestureRecognizer) {
         onMainThreadSync {
             guard let bar = recognizer.view else { return }
+            TabBarSystemGlass.apply(to: bar)
             guard let index = TabBarSystemGlass.itemIndex(at: recognizer.location(in: bar), in: bar) else {
                 TabBarSystemGlass.reportTapWithoutIndex()
                 return

@@ -109,3 +109,12 @@ let restoredTypography = try JSONDecoder().decode(KaraokeOptions.self,
 assert(restoredTypography == customTypography)
 customTypography.fontSize = .nan
 assert(customTypography.resolvedFontSize == 30)
+
+let noArgumentPlayer = ShrubTestNoArgumentPlayer()
+check(ShrubSetPlaybackPaused(noArgumentPlayer, true), "Zero-argument pause variants are ABI checked")
+check(ShrubSetPlaybackPaused(noArgumentPlayer, false), "Zero-argument resume variants are ABI checked")
+check(!ShrubSeekPlaybackSeconds(ShrubTestIntegerSeekPlayer(), 20), "Never pass a double to an integer seek selector")
+let podcastFacts = ShrubReadLivePlayback(ShrubTestLongPodcast())!
+check((podcastFacts["duration"] as? NSNumber)?.doubleValue == 10800, "Long podcast duration remains seconds")
+check((podcastFacts["position"] as? NSNumber)?.doubleValue == 7200, "Long podcast playhead remains seconds")
+print("Pause ABI and long podcast regression checks passed")

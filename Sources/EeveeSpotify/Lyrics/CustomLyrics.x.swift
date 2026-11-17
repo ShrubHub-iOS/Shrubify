@@ -459,9 +459,10 @@ private func loadCustomLyricsForCurrentTrack() throws -> Lyrics {
             var resultDto: LyricsDto?
             var requestError: Error?
 
+            let cancellation = LyricsRequestBudget.cancellation
             DispatchQueue.global(qos: .userInitiated).async {
                 do {
-                    resultDto = try LyricsRequestBudget.withLimit(seconds: timeout) {
+                    resultDto = try LyricsRequestBudget.withLimit(seconds: timeout, cancellation: cancellation) {
                         try lyricsRepository(for: source).getLyrics(searchQuery, options: options)
                     }
                 } catch {
@@ -470,7 +471,7 @@ private func loadCustomLyricsForCurrentTrack() throws -> Lyrics {
                 semaphore.signal()
             }
 
-            if semaphore.wait(timeout: .now() + timeout) == .timedOut {
+            if !LyricsRequestBudget.waitSignal(semaphore, maximum: timeout) {
                 writeDebugLog("[Lyrics] auto select: \(source.description) timed out after \(timeout)s")
                 if firstError == nil { firstError = LyricsError.unknownError }
                 continue
@@ -1002,12 +1003,14 @@ private func loadCustomLyricsForCurrentTrack() throws -> Lyrics {
     ) throws -> Lyrics {
         try LyricsRequestBudget.check()
         let deadline = LyricsRequestBudget.deadline
+        let cancellation = LyricsRequestBudget.cancellation
         // Validate and publish on the renderer's thread as one operation. A
         // delayed provider must never overwrite the song selected in the meantime.
         let publish = { () -> LyricsDto? in
             let current = statefulPlayer?.currentTrack()?.trackIdentifier
                 ?? nowPlayingScrollViewController?.loadedTrack.trackIdentifier
-            guard LyricsResultPolicy.matchesRequestedTrack(requested: trackId, current: current),
+            guard cancellation?.isCancelled != true,
+                  LyricsResultPolicy.matchesRequestedTrack(requested: trackId, current: current),
                   deadline.map({ ProcessInfo.processInfo.systemUptime < $0 }) ?? true else { return nil }
             lyricsState.isEmpty = dto.lines.isEmpty
             lyricsState.wasRomanized = dto.romanization == .romanized || dto.romanization == .canBeRomanized

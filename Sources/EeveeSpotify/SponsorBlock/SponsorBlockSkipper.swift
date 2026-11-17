@@ -48,6 +48,8 @@ final class SponsorBlockSkipper {
     private var currentEpisodeID: String?
     private var currentSegments: [SponsorBlockSegment] = []
     private var fetchInFlight = false
+    private var fetchGeneration = UUID()
+    private var playbackGeneration = UUID()
     private var emptyEpisodeIDs: Set<String> = []
     private var lastSeekMonotonicMs: UInt64 = 0
     private var probedURIs: Set<String> = []
@@ -90,7 +92,7 @@ final class SponsorBlockSkipper {
             pendingSeekDeadline = uptimeSec() + 2.5
             dismissedUUIDs.removeAll()
             playthroughAllowed.removeAll()
-            seek(player: player, toSeconds: target)
+            guard seek(player: player, toSeconds: target) else { pendingSeekTarget = nil; preSeekPosition = nil; return }
             lastPosition = target
             lastPositionStamp = uptimeSec()
             writeDebugLog("[SB] user-initiated seek -> \(fmt(target))s")
@@ -114,17 +116,12 @@ final class SponsorBlockSkipper {
 
     func processStateChange(player: AnyObject, state: AnyObject) {
         let options = UserDefaults.sponsorBlockOptions
-        guard options.enabled else { return }
-
-        let trackObj = state.value(forKey: "track") as AnyObject?
+        guard options.enabled else { optionsChanged(); return }
+        guard let facts = ShrubPlaybackFacts(state) as? [String: Any],
+              let uriString = facts["uri"] as? String else { return }
+        let trackObj: AnyObject? = nil
         let isPodcastFlag = safeBool(trackObj, "isPodcast") ?? false
         let isVideoFlag   = safeBool(trackObj, "isVideo") ?? false
-        let uriObj        = safeRead(trackObj, "URI")
-        let uriString: String = {
-            if let s = uriObj as? String { return s }
-            if let u = uriObj as? URL { return u.absoluteString }
-            return (uriObj == nil) ? "" : String(describing: uriObj!)
-        }()
 
         if options.verboseLogging, !uriString.isEmpty {
             queue.async {
@@ -165,11 +162,13 @@ final class SponsorBlockSkipper {
             writeDebugLog("[SB] note: isPodcast=N but URI is episode — proceeding (uri=\(uriString) isVideo=\(isVideoFlag ? "Y" : "N"))")
         }
 
-        let positionRaw: Double = (state.value(forKey: "position") as? NSNumber)?.doubleValue ?? 0
-        let durationRaw: Double = (state.value(forKey: "duration") as? NSNumber)?.doubleValue ?? 0
-        let playbackSpeed: Double = (state.value(forKey: "playbackSpeed") as? NSNumber)?.doubleValue ?? 1.0
-        let isPlaying: Bool = (state.value(forKey: "isPlaying") as? Bool) ?? false
-        let positionSec = normalizeSeconds(positionRaw, durationHint: durationRaw)
+        // The validated state bridge exposes seconds. Track length is not a unit.
+        guard let positionRaw = (facts["position"] as? NSNumber)?.doubleValue,
+              positionRaw.isFinite, positionRaw >= 0 else { return }
+        let durationRaw = (facts["duration"] as? NSNumber)?.doubleValue ?? 0
+        let playbackSpeed = (facts["speed"] as? NSNumber)?.doubleValue ?? 1
+        let isPlaying = !((facts["paused"] as? NSNumber)?.boolValue ?? true)
+        let positionSec = positionRaw
 
         queue.async {
             self.lastPlayer = player
@@ -221,13 +220,16 @@ final class SponsorBlockSkipper {
             }
             self.lastPlaybackSpeed = playbackSpeed > 0 ? playbackSpeed : 1.0
             self.lastIsPlaying = isPlaying
-            let normalizedDuration = self.normalizeSeconds(durationRaw, durationHint: durationRaw)
+            let normalizedDuration = durationRaw.isFinite ? max(0, durationRaw) : 0
             if abs(normalizedDuration - self.lastDuration) > 0.5 {
                 self.lastDuration = normalizedDuration
                 self.broadcastSegments()
             }
 
             if episodeID != self.currentEpisodeID {
+                SponsorBlockToast.shared.dismissNow()
+                self.fetchGeneration = UUID()
+                self.playbackGeneration = UUID()
                 self.currentEpisodeID = episodeID
                 self.currentSegments = self.mergeWithLocal(serverSegs: [], episodeID: episodeID)
                 self.dismissedUUIDs.removeAll()
@@ -283,6 +285,7 @@ final class SponsorBlockSkipper {
     }
 
     private func checkAndSkip(reportedPosition pos: Double, options: SponsorBlockOptions) {
+        guard options.enabled else { resetState(); return }
         guard !currentSegments.isEmpty else { return }
         // Safety guard: never seek if we are not on an episode track.
         guard currentEpisodeID != nil else { return }
@@ -335,28 +338,33 @@ final class SponsorBlockSkipper {
             preSeekPosition = lastPosition
             pendingSeekTarget = targetSec
             pendingSeekDeadline = uptimeSec() + 2.5
-            seek(player: player, toSeconds: targetSec)
+            guard seek(player: player, toSeconds: targetSec) else { pendingSeekTarget = nil; preSeekPosition = nil; return }
             lastPosition = targetSec
             lastPositionStamp = uptimeSec()
             if options.showToast {
                 let segCapture = seg
+                let episode = currentEpisodeID
+                let generation = playbackGeneration
                 SponsorBlockReportingUI.presentSkipFeedback(segment: segCapture) { [weak self] in
-                    self?.undoSkip(seg: segCapture)
+                    self?.undoSkip(seg: segCapture, episode: episode, generation: generation)
                 }
             }
             return
         }
     }
 
-    private func undoSkip(seg: SponsorBlockSegment) {
+    private func undoSkip(seg: SponsorBlockSegment, episode: String?, generation: UUID) {
         queue.async {
-            guard let player = self.lastPlayer else { return }
+            guard UserDefaults.sponsorBlockOptions.enabled,
+                  self.currentEpisodeID == episode, self.playbackGeneration == generation,
+                  self.currentSegments.contains(where: { $0.uuid == seg.uuid }),
+                  let player = self.lastPlayer else { return }
             let target = max(0, seg.start - 0.25)
             self.preSeekPosition = self.lastPosition
             self.pendingSeekTarget = target
             self.pendingSeekDeadline = self.uptimeSec() + 2.5
             self.playthroughAllowed.insert(seg.uuid)
-            self.seek(player: player, toSeconds: target)
+            guard self.seek(player: player, toSeconds: target) else { self.pendingSeekTarget = nil; self.preSeekPosition = nil; return }
             self.lastPosition = target
             self.lastPositionStamp = self.uptimeSec()
             writeDebugLog("[SB] undo skip cat=\(seg.category) -> \(fmt(target))s, playthrough=\(seg.uuid)")
@@ -367,15 +375,20 @@ final class SponsorBlockSkipper {
         guard !promptedUUIDs.contains(seg.uuid) else { return }
         promptedUUIDs.insert(seg.uuid)
         let title = "\(SponsorBlockFormatters.categoryShortName(seg.category)) (\(Int(seg.duration))s)"
+        let episode = currentEpisodeID
+        let generation = playbackGeneration
         SponsorBlockToast.shared.showAction(message: title, actionTitle: "Skip") { [weak self] in
             self?.queue.async {
                 guard let self else { return }
-                guard let player = self.lastPlayer else { return }
+                guard UserDefaults.sponsorBlockOptions.enabled,
+                      self.currentEpisodeID == episode, self.playbackGeneration == generation,
+                      self.currentSegments.contains(where: { $0.uuid == seg.uuid }),
+                      let player = self.lastPlayer else { return }
                 let targetSec = seg.end + 0.05
                 self.preSeekPosition = self.lastPosition
                 self.pendingSeekTarget = targetSec
                 self.pendingSeekDeadline = self.uptimeSec() + 2.5
-                self.seek(player: player, toSeconds: targetSec)
+                guard self.seek(player: player, toSeconds: targetSec) else { self.pendingSeekTarget = nil; self.preSeekPosition = nil; return }
                 self.lastPosition = targetSec
                 self.lastPositionStamp = self.uptimeSec()
                 writeDebugLog("[SB] manual-skip accepted cat=\(seg.category) -> \(fmt(targetSec))s")
@@ -386,12 +399,16 @@ final class SponsorBlockSkipper {
     private func fetchSegments(for episodeID: String, options: SponsorBlockOptions) {
         guard !fetchInFlight else { return }
         fetchInFlight = true
+        let requestGeneration = UUID()
+        fetchGeneration = requestGeneration
         writeDebugLog("[SB] fetching segments for \(episodeID)")
         SponsorBlockAPI.fetchSegments(episodeID: episodeID, options: options) { [weak self] result in
             guard let self else { return }
             self.queue.async {
+                guard self.fetchGeneration == requestGeneration,
+                      episodeID == self.currentEpisodeID,
+                      UserDefaults.sponsorBlockOptions.enabled else { return }
                 self.fetchInFlight = false
-                if episodeID != self.currentEpisodeID { return }
                 switch result {
                 case .success(let segs):
                     let merged = self.mergeWithLocal(serverSegs: segs, episodeID: episodeID)
@@ -431,38 +448,36 @@ final class SponsorBlockSkipper {
         }
     }
 
-    private func seek(player: AnyObject, toSeconds seconds: Double) {
-        let sel = resolveSeekSelector(on: player)
-        guard let sel else {
-            writeDebugLog("[SB] no seek selector on \(String(cString: class_getName(object_getClass(player))))")
-            return
-        }
-        let cls = object_getClass(player)
-        guard let method = class_getInstanceMethod(cls, sel) else { return }
-        // Spotify variants pass seek as either seconds (Double) or ms (Double).
-        // Read the encoded arg type to pick the right unit instead of guessing.
-        let argType: String = {
-            guard let raw = method_copyArgumentType(method, 2) else { return "?" }
-            defer { free(raw) }
-            return String(cString: raw)
-        }()
-        let argDouble = (argType == "d") ? seconds : seconds * 1000.0
-        writeDebugLog("[SB] seek -[\(String(cString: class_getName(cls))) \(NSStringFromSelector(sel))] arg=\(fmt(argDouble)) (type=\(argType))")
-        EeveeSBInvokeSeekDouble(player, sel, argDouble)
+    private func seek(player: AnyObject, toSeconds seconds: Double) -> Bool {
+        guard UserDefaults.sponsorBlockOptions.enabled,
+              let episode = currentEpisodeID,
+              let live = ShrubReadLivePlayback(player),
+              let uri = live["uri"] as? String,
+              extractEpisodeID(fromURI: uri) == episode else { return false }
+        // Known seconds selector and an ABI-checked invocation. Unknown signatures
+        // are unsupported instead of receiving guessed units/register arguments.
+        return ShrubSeekPlaybackSeconds(player, seconds)
     }
 
-    private func resolveSeekSelector(on player: AnyObject) -> Selector? {
-        if let cached = seekSelectorCached, player.responds(to: cached) {
-            return cached
+    func optionsChanged() {
+        queue.async {
+            self.emptyEpisodeIDs.removeAll()
+            if !UserDefaults.sponsorBlockOptions.enabled { self.resetState() }
         }
-        for name in ["seekTo:", "seekToPosition:", "seekToMs:"] {
-            let s = NSSelectorFromString(name)
-            if player.responds(to: s) {
-                seekSelectorCached = s
-                return s
-            }
-        }
-        return nil
+    }
+
+    private func resetState() {
+        stopPolling()
+        fetchGeneration = UUID()
+        playbackGeneration = UUID()
+        fetchInFlight = false
+        currentEpisodeID = nil
+        currentSegments.removeAll()
+        dismissedUUIDs.removeAll(); promptedUUIDs.removeAll(); playthroughAllowed.removeAll()
+        pendingSeekTarget = nil; preSeekPosition = nil
+        lastPlayer = nil; lastIsPlaying = false; lastDuration = 0
+        SponsorBlockToast.shared.dismissNow()
+        broadcastSegments()
     }
 
     private func safeRead(_ obj: AnyObject?, _ key: String) -> Any? {
@@ -518,14 +533,6 @@ final class SponsorBlockSkipper {
             return String(uri[r.upperBound...]).split(separator: "?").first.map(String.init)
         }
         return nil
-    }
-
-    // Some player observers report seconds, others ms. Use 10_000 as the gate:
-    // any audio > 2.7h would exceed this in seconds, but Spotify episodes don't.
-    private func normalizeSeconds(_ raw: Double, durationHint: Double) -> Double {
-        if raw > 10_000 { return raw / 1000.0 }
-        if durationHint > 10_000 { return raw / 1000.0 }
-        return raw
     }
 
     private func monotonicMs() -> UInt64 {

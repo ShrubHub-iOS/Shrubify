@@ -39,3 +39,24 @@ id ShrubTestPlayer(void) {
     return player;
 }
 id ShrubTestThrowingPlayer(void) { return [ShrubThrowingPlayer new]; }
+
+@interface ShrubNoArgumentPlayer : NSObject
+@property BOOL paused;
+@end
+@implementation ShrubNoArgumentPlayer
+- (void)pause { self.paused = YES; }
+- (void)resume { self.paused = NO; }
+@end
+@interface ShrubIntegerSeekPlayer : NSObject
+@end
+@implementation ShrubIntegerSeekPlayer
+- (void)seekTo:(NSInteger)value { [NSException raise:@"InvalidABI" format:@"Integer seek must never be invoked as a double"]; }
+@end
+id ShrubTestNoArgumentPlayer(void) { return [ShrubNoArgumentPlayer new]; }
+id ShrubTestIntegerSeekPlayer(void) { return [ShrubIntegerSeekPlayer new]; }
+id ShrubTestLongPodcast(void) {
+    ShrubFixturePlayer *player = ShrubTestPlayer();
+    player.state.duration = 10800;
+    player.state.positionAsOfTimestamp = 7200;
+    return player;
+}

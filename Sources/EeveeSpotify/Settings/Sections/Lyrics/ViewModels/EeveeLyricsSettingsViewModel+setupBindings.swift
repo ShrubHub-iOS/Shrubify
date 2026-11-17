@@ -22,18 +22,35 @@ extension EeveeLyricsSettingsViewModel {
 
         $lyricsOptions
             .map(\.lrclibUrl)
+            .removeDuplicates()
+            .debounce(for: .milliseconds(350), scheduler: DispatchQueue.main)
             .map { urlString -> AnyPublisher<LrclibURLState, Never> in
-                guard let url = URL(string: urlString) else {
+                guard let url = URL(string: urlString), url.scheme == "https",
+                      url.host?.isEmpty == false else {
                     return Just(.invalidURL).eraseToAnyPublisher()
                 }
 
-                if url.host == "lrclib.net" {
+                if urlString.trimmingCharacters(in: CharacterSet(charactersIn: "/")) == LrclibLyricsRepository.originalApiUrl {
+                    LrclibLyricsRepository.shared.apiUrl = LrclibLyricsRepository.originalApiUrl
+                    invalidateLyricsForSourceChange()
                     return Just(.originalURL).eraseToAnyPublisher()
                 }
-
-                return URLSession.shared.dataTaskPublisher(for: url)
-                    .map { _ in
+                var probe = URLComponents(url: url.appendingPathComponent("get"), resolvingAgainstBaseURL: false)
+                probe?.queryItems = [URLQueryItem(name: "track_name", value: "Shrubify endpoint check"),
+                                     URLQueryItem(name: "artist_name", value: "Shrubify")]
+                guard let probeURL = probe?.url else { return Just(.invalidURL).eraseToAnyPublisher() }
+                var request = URLRequest(url: probeURL)
+                request.timeoutInterval = 5
+                return URLSession.shared.dataTaskPublisher(for: request)
+                    .receive(on: DispatchQueue.main)
+                    .map { data, response in
+                        guard let http = response as? HTTPURLResponse,
+                              [200, 404].contains(http.statusCode),
+                              (try? JSONSerialization.jsonObject(with: data)) != nil else {
+                            return LrclibURLState.unreachableURL
+                        }
                         LrclibLyricsRepository.shared.apiUrl = urlString
+                        invalidateLyricsForSourceChange()
                         return LrclibURLState.ok
                     }
                     .catch { _ in Just(LrclibURLState.unreachableURL) }
@@ -49,6 +66,12 @@ extension EeveeLyricsSettingsViewModel {
             .sink { [weak self] tokenString in
                 guard let self = self else { return }
 
+                if tokenString.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    UserDefaults.musixmatchToken = ""
+                    UserDefaults.musixmatchTokenIsAnonymous = false
+                    invalidateLyricsForSourceChange()
+                    return
+                }
                 if let token = self.getMusixmatchTokenFromDebugInfo(tokenString) {
                     self.musixmatchToken = token
                     return

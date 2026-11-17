@@ -64,13 +64,36 @@ final class ShrubifySleepTimer: ObservableObject {
         if countdown.consumeExpiry(at: now) {
             stopSource()
             remaining = nil
-            // Explicit pause is idempotent; a toggle could start paused music.
-            let paused = KaraokeSeek.setPaused(true)
-                || (statefulPlayer.map { ShrubSetPlaybackPaused($0, true) } ?? false)
-            message = paused ? "Timer ended. Pause requested." : "Timer ended, but playback controls are unavailable in this Spotify build."
-            writeDebugLog("[SleepTimer] expired; pause supported: \(paused)")
+            let token = generation
+            let track = statefulPlayer?.currentTrack()?.trackIdentifier
+            confirmPause(token: token, trackID: track, until: now + 5)
+
         } else {
             remaining = countdown.remaining(at: now)
         }
     }
+
+    private func confirmPause(token: UInt64, trackID: String?, until deadline: TimeInterval) {
+        guard token == generation else { return }
+        if let trackID, let current = statefulPlayer?.currentTrack()?.trackIdentifier, current != trackID {
+            message = "Timer ended. Track changed before pause could be confirmed."
+            return
+        }
+        if let player = statefulPlayer,
+           let facts = ShrubReadLivePlayback(player), (facts["paused"] as? NSNumber)?.boolValue == true {
+            message = "Timer ended. Playback paused."
+            return
+        }
+        guard ProcessInfo.processInfo.systemUptime < deadline else {
+            message = "Timer ended, but playback could not be confirmed paused in this Spotify build."
+            return
+        }
+        KaraokeSeek.player = statefulPlayer as AnyObject?
+        let supported = KaraokeSeek.setPaused(true)
+        message = supported ? "Timer ended. Confirming pause…" : "Timer ended. Waiting for playback controls…"
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+            self?.confirmPause(token: token, trackID: trackID, until: deadline)
+        }
+    }
+
 }

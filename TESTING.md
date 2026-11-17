@@ -1,4 +1,4 @@
-# Shrubify 4.1.0 testing checklist
+# Shrubify 4.1.1 testing checklist
 
 This checklist is for **real builds on devices**; passing source-only syntax tests does not mean installation, hooks or user flows have been verified.
 
@@ -11,7 +11,7 @@ This checklist is for **real builds on devices**; passing source-only syntax tes
 - [ ] Confirm install works when official Spotify is also installed.
 - [ ] Verify login/session survival across cold restarts.
 
-## Shrubify 4.1.0 features
+## Shrubify 4.1.1 features
 
 - [ ] Studio opens Evolved player, tab/mini-player, page and lyrics controls.
 - [ ] Previous layout archives remain stored and are not applied to the new renderer.
@@ -40,3 +40,9 @@ Spotify changes private classes between releases. Hook compatibility and login b
 ## Evolved-inspired listening tools
 
 See [integration notes](docs/EVOLVED-INTEGRATION.md#validation) for timer, typography and Replay device checks. Run `bash scripts/test_listening_tools.sh` alongside the beta regression harness on a machine with Swift installed.
+
+## 4.1.1 regression acceptance
+
+Run `scripts/test_pr_integration.sh` for responsive geometry and obsolete-request cancellation, plus `scripts/test_v4_beta.sh` for ABI-checked native pause/seek and long-podcast clock fixtures. Run the full native validation workflow before shipping.
+
+On device: compare iPhone portrait/landscape and iPad fullscreen/Split View/Stage Manager; rotate and resize with lyrics open; test large text, VoiceOver, Reduce Motion and Reduce Transparency; confirm one menu, readable artwork/controls, reachable footer, native fallback and native-size mini-player controls. Exercise all transport/queue/output/save/seek controls, short tracks in Replay, endpoint resets, token deletion, source changes, rapid track skips, network recovery, old SponsorBlock action toasts, disabling SponsorBlock while playing and sleep-timer pause confirmation in foreground/background.

@@ -157,7 +157,7 @@ struct SettingsGroupSection: View {
                             : entry.key == "ShrubQueue" ? "In-app queue and saved listening snapshots"
                             : entry.key == "ShrubPanel" ? "Quick access to Shrubify tools"
                             : entry.key == "Evolved UI" ? "Player, tabs, mini-player and page designs"
-                            : "\(entry.key)_subtitle".localized,
+                            : settingsSubtitle(for: entry.key),
                         icon: entry.icon,
                         color: entry.color,
                         chevron: true
@@ -277,4 +277,12 @@ struct ShrubifyGlassSurface: ViewModifier {
             )
         }
     }
+}
+
+private func settingsSubtitle(for key: String) -> String? {
+    let explicit = ["Sleep timer": "sleep_timer_subtitle", "Lyrics timing": "lyrics_timing_subtitle",
+                    "Lyrics appearance": "lyrics_appearance_subtitle"]
+    let subtitleKey = explicit[key] ?? "\(key)_subtitle"
+    let value = subtitleKey.localized
+    return value == subtitleKey ? nil : value
 }

@@ -30,12 +30,18 @@ enum LyricsLinesBudget {
         let semaphore = DispatchSemaphore(value: 0)
         let box = Box()
 
+        let token = LyricsCancellationToken(parent: LyricsRequestBudget.cancellation)
+        let remaining = LyricsRequestBudget.remaining(maximum: budget)
         queue.async {
-            box.lines = try? work()
+            box.lines = try? LyricsRequestBudget.withLimit(seconds: remaining, cancellation: token) {
+                try LyricsRequestBudget.check()
+                return try work()
+            }
             semaphore.signal()
         }
 
-        if semaphore.wait(timeout: .now() + budget) == .timedOut {
+        if !LyricsRequestBudget.waitSignal(semaphore, maximum: remaining) {
+            token.cancel()
             return nil
         }
 

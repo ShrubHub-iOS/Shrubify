@@ -12,13 +12,20 @@ class UIApplicationLiveContainerSharingHook: ClassHook<UIApplication> {
             UIPasteboard.general.addItems([[UTType.url.identifier: url]])
             
             let data = url.dataRepresentation
-            let liveContainerUrl = URL(string: "livecontainer://open-url?url=\(data.base64EncodedString())")!
+            var components = URLComponents()
+            components.scheme = "livecontainer"
+            components.host = "open-url"
+            components.queryItems = [URLQueryItem(name: "url", value: data.base64EncodedString())]
+            guard let liveContainerUrl = components.url else {
+                completionHandler?(false)
+                return
+            }
             
             orig.openURL(
                 liveContainerUrl,
                 options: options,
                 completionHandler: { success in
-                    completionHandler?(true)
+                    completionHandler?(success)
                     
                     if !success.boolValue {
                         PopUpHelper.showPopUp(

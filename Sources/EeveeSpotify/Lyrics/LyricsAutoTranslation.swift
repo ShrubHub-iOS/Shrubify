@@ -1,4 +1,5 @@
 import Foundation
+import CryptoKit
 
 /// 「歌词自动翻译」的调度层：决定**这一首要不要翻**、翻过没有、翻完了怎么塞回去。
 ///
@@ -34,9 +35,10 @@ enum LyricsAutoTranslation {
         guard !trackId.isEmpty else { return }
 
         let language = OnDeviceLyricsTranslation.targetLanguageTag()
-        let key = "\(trackId)|\(language)"
+        let revision = contentRevision(dto)
+        let key = "\(trackId)|\(language)|\(revision)"
         if let cached = cache[key] {
-            apply(cached, for: trackId, language: language)
+            apply(cached, for: trackId, language: language, revision: revision)
             return
         }
         guard !running.contains(key) else { return }
@@ -51,8 +53,15 @@ enum LyricsAutoTranslation {
                     writeDebugLog("[Lyrics] system translation skipped — \(result.message ?? "unknown reason")")
                     return
                 }
+                guard UserDefaults.lyricsAutoTranslate,
+                      OnDeviceLyricsTranslation.targetLanguageTag() == language,
+                      let current = currentLyricsDto, contentRevision(current) == revision else { return }
+                if cache.count >= 32, let oldest = order.first {
+                    cache.removeValue(forKey: oldest); order.removeFirst()
+                }
                 cache[key] = translated
-                apply(translated, for: trackId, language: language)
+                order.removeAll { $0 == key }; order.append(key)
+                apply(translated, for: trackId, language: language, revision: revision)
             }
         }
     }
@@ -68,8 +77,11 @@ enum LyricsAutoTranslation {
     }
 
     /// 写回当前 dto。**只在"还是同一首"时写** —— 翻译跑在后台，回来时用户可能已经切歌。
-    private static func apply(_ translated: [String], for trackId: String, language: String) {
-        guard currentLyricsDtoTrackId == trackId, var dto = currentLyricsDto else { return }
+    private static func apply(_ translated: [String], for trackId: String, language: String, revision: String) {
+        guard UserDefaults.lyricsAutoTranslate,
+              OnDeviceLyricsTranslation.targetLanguageTag() == language,
+              currentLyricsDtoTrackId == trackId, var dto = currentLyricsDto,
+              contentRevision(dto) == revision else { return }
         guard dto.translation == nil, dto.lines.count == translated.count else { return }
         dto.translation = LyricsTranslationDto(languageCode: language, lines: translated)
         currentLyricsDto = dto
@@ -81,6 +93,11 @@ enum LyricsAutoTranslation {
     }
 
     /// 曲目 + 语言 → 译文（只在内存里；重启要重新翻，与"纯本地、不留痕"一致）。
+    private static func contentRevision(_ dto: LyricsDto) -> String {
+        let content = dto.lines.map { $0.content }.joined(separator: "\u{001F}")
+        return SHA256.hash(data: Data(content.utf8)).map { String(format: "%02x", $0) }.joined()
+    }
+    private static var order: [String] = []
     private static var cache: [String: [String]] = [:]
     /// 正在翻的（同一首连点两次歌词按钮不重复跑）。
     private static var running: Set<String> = []

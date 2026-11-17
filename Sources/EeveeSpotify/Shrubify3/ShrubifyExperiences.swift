@@ -365,25 +365,36 @@ struct ShrubifyPanelView: View {
 }
 
 enum ShrubifyPanelPresenter {
-    private static weak var presented: UIViewController?
+    private static let presentations = NSMapTable<UIWindowScene, UIViewController>.weakToWeakObjects()
 
-    static func present() {
-        guard Thread.isMainThread else { DispatchQueue.main.async { present() }; return }
-        guard presented == nil,
-              let window = UIApplication.shared.connectedScenes.compactMap({ $0 as? UIWindowScene }).flatMap({ $0.windows }).first(where: { $0.isKeyWindow }),
+    static func present(from source: UIView? = nil) {
+        guard Thread.isMainThread else { DispatchQueue.main.async { present(from: source) }; return }
+        guard let window = source?.window ?? WindowHelper.shared.window,
+              let scene = window.windowScene, scene.activationState == .foregroundActive,
+              presentations.object(forKey: scene) == nil,
               let root = window.rootViewController else { return }
         var top = root
-        while let next = top.presentedViewController { top = next }
-        guard !(top is UIAlertController) else { return }
-        let controller = UIHostingController(rootView: ShrubifyPanelView(dismiss: { dismiss() }))
+        while true {
+            if let next = top.presentedViewController { top = next }
+            else if let nav = top as? UINavigationController, let visible = nav.visibleViewController { top = visible }
+            else if let tabs = top as? UITabBarController, let selected = tabs.selectedViewController { top = selected }
+            else { break }
+        }
+        guard !(top is UIAlertController), !top.isBeingDismissed else { return }
+        weak var presentedController: UIViewController?
+        let controller = UIHostingController(rootView: ShrubifyPanelView(dismiss: {
+            presentedController?.dismiss(animated: true)
+        }))
+        presentedController = controller
         controller.modalPresentationStyle = .pageSheet
-        presented = controller
+        presentations.setObject(controller, forKey: scene)
         top.present(controller, animated: true)
     }
 
     static func dismiss() {
         guard Thread.isMainThread else { DispatchQueue.main.async { dismiss() }; return }
-        presented?.dismiss(animated: true)
-        presented = nil
+        guard let scene = WindowHelper.shared.window?.windowScene else { return }
+        presentations.object(forKey: scene)?.dismiss(animated: true)
+        presentations.removeObject(forKey: scene)
     }
 }

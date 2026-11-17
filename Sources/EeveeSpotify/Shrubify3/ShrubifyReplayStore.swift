@@ -128,11 +128,18 @@ final class ShrubifyReplayStore: ObservableObject {
             previousPosition = nil
             return
         }
-        let rate = (info[MPNowPlayingInfoPropertyPlaybackRate] as? NSNumber)?.doubleValue
-            ?? (KaraokePlaybackTracker.shared.isPlaying() ? 1 : 0)
-        guard rate > 0 else { previousStamp = nil; return }
         KaraokeSeek.player = statefulPlayer as AnyObject?
         let playback = KaraokeSeek.refresh()
+        let rate = (info[MPNowPlayingInfoPropertyPlaybackRate] as? NSNumber)?.doubleValue
+            ?? (playback.isPlaying ? 1 : 0)
+        guard rate.isFinite, rate > 0 else { previousStamp = nil; return }
+        // MPNowPlayingInfo can lag a native track transition. Do not combine identities.
+        if let track = statefulPlayer?.currentTrack() {
+            guard track.trackTitle() == title,
+                  [track.artistTitle(), track.artistName()].contains(artist) else {
+                previousKey = nil; previousPosition = nil; return
+            }
+        }
         let legacyKey = artist.lowercased() + "\u{001F}" + title.lowercased()
         let uri = playback.trackID.map { "spotify:track:" + $0 }
         let key = uri ?? legacyKey
@@ -168,7 +175,9 @@ final class ShrubifyReplayStore: ObservableObject {
         } else {
             archive.tracks.append(ShrubifyTrackRecord(id: key, title: title, artist: artist, seconds: seconds, plays: 0, lastPlayed: date, spotifyURI: uri))
         }
-        if currentPlaySeconds >= 25 && !countedCurrentPlay {
+        let trackSeconds = Double(playback.durationMs) / 1000
+        let playThreshold = trackSeconds > 0 ? min(25, max(1, trackSeconds * 0.5)) : 25
+        if currentPlaySeconds >= playThreshold && !countedCurrentPlay {
             countedCurrentPlay = true
             if let idx = archive.tracks.firstIndex(where: { $0.id == key }) { archive.tracks[idx].plays += 1 }
         }
@@ -209,14 +218,20 @@ final class ShrubifyReplayStore: ObservableObject {
     }
 
     func bookmarkCurrent() -> Bool {
+        KaraokeSeek.player = statefulPlayer as AnyObject?
+        let playback = KaraokeSeek.refresh()
         guard let info = MPNowPlayingInfoCenter.default().nowPlayingInfo,
               let title = info[MPMediaItemPropertyTitle] as? String,
               let artist = info[MPMediaItemPropertyArtist] as? String,
               !title.isEmpty, !artist.isEmpty else { return false }
-        let key = KaraokePlaybackTracker.shared.playerReportedTrackId().map { "spotify:track:" + $0 }
+        if let track = statefulPlayer?.currentTrack() {
+            guard track.trackTitle() == title,
+                  [track.artistTitle(), track.artistName()].contains(artist) else { return false }
+        }
+        let key = playback.trackID.map { "spotify:track:" + $0 }
             ?? (artist.lowercased() + "\u{001F}" + title.lowercased())
         var entry = archive.tracks.first(where: { $0.id == key }) ?? ShrubifyTrackRecord(id: key, title: title, artist: artist, seconds: 0, plays: 0, lastPlayed: Date(), spotifyURI: nil)
-        if let id = KaraokePlaybackTracker.shared.playerReportedTrackId(), !id.isEmpty { entry.spotifyURI = "spotify:track:" + id }
+        if let id = playback.trackID, !id.isEmpty { entry.spotifyURI = "spotify:track:" + id }
         if !archive.tracks.contains(where: { $0.id == key }) { archive.tracks.append(entry) }
         let snapshot = ShrubifySession(id: UUID(), savedAt: Date(), title: "Saved track · \(title)", tracks: [entry])
         archive.sessions.insert(snapshot, at: 0)

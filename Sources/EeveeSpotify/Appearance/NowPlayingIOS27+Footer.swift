@@ -543,7 +543,7 @@ extension NowPlayingIOS27 {
     ///
     /// 只在第一次（以及那颗键随页面重建消失时）做一次全树查找 —— 这条每 0.3s 会跑，
     /// 每次都 BFS 一遍播放页太贵。
-    private static func lyricsEntryTarget(in page: UIView) -> UIView? {
+    static func lyricsEntryTarget(in page: UIView) -> UIView? {
         if let cached = lyricsEntryView, cached.window != nil, cached.alpha > 0.01 {
             return cached
         }

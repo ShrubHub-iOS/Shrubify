@@ -8,4 +8,7 @@ BOOL ShrubRegisterPlaybackObserver(id player, id observer);
 id ShrubTestPlayer(void);
 id ShrubTestThrowingPlayer(void);
 
+id ShrubTestNoArgumentPlayer(void);
+id ShrubTestIntegerSeekPlayer(void);
+id ShrubTestLongPodcast(void);
 NS_ASSUME_NONNULL_END

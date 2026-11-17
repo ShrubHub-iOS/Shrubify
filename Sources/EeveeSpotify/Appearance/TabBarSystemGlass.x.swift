@@ -74,7 +74,16 @@ enum TabBarSystemGlass {
     private static var didReportTapWithoutIndex = false
     private static var didNoteFirstTap = false
 
-    private static var lastBar: UIView?
+    private static var measuredBounds = CGSize.zero
+    private static var measuredCategory = ""
+    private static var backgroundKey: UInt8 = 0
+    private final class BackgroundState {
+        weak var view: UIView?
+        let color: UIColor?
+        let alpha: CGFloat
+        init(_ view: UIView) { self.view = view; color = view.backgroundColor; alpha = view.alpha }
+    }
+    private static weak var lastBar: UIView?
     private static var lastSkipReason = ""
     private static var lastSelectionIndex = -1
     private static var lastSelectionSignal = ""
@@ -120,6 +129,7 @@ enum TabBarSystemGlass {
         // ② 先同步系统栏 —— **顺序要紧**：下面"藏什么"取决于"镜像到了什么"
         // （拿不到图标的那一颗，原图标要留着当安全网）。
         let systemBar = ensureBar(in: bar)
+        clearStockBacking(in: bar, except: systemBar)
         let mirrored = syncItems(on: systemBar, from: items)
 
         // ① 藏内容（**不是整颗 item**）：只藏那些已经镜像过去的图标，以及文字。
@@ -185,6 +195,10 @@ enum TabBarSystemGlass {
                 objc_setAssociatedObject(target, &stockTapKey, nil, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
             }
             restoreRoom(in: target)
+            if let states = objc_getAssociatedObject(target, &backgroundKey) as? [BackgroundState] {
+                for state in states { state.view?.backgroundColor = state.color; state.view?.alpha = state.alpha }
+                objc_setAssociatedObject(target, &backgroundKey, nil, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+            }
         }
         restoreStockContent()
         measuredGlassHeight = 0
@@ -202,6 +216,36 @@ enum TabBarSystemGlass {
         lastSelectionSignal = ""
         lastGeometryLine = ""
         forwardedTaps = 0
+    }
+
+    /// Remove only the original bar's bounded backing; preserve its views and
+    /// layout/insets for native action dispatch. SystemBar owns the sole material.
+    private static func clearStockBacking(in bar: UIView, except systemBar: UIView) {
+        var states = objc_getAssociatedObject(bar, &backgroundKey) as? [BackgroundState] ?? []
+        func record(_ view: UIView) {
+            if !states.contains(where: { $0.view === view }) { states.append(BackgroundState(view)) }
+        }
+        var parent: UIView? = bar
+        for _ in 0..<3 {
+            guard let root = parent, root.bounds.height <= 160 else { break }
+            record(root); root.backgroundColor = .clear
+            for child in root.subviews where child !== systemBar.superview && child !== bar {
+                let name = NSStringFromClass(type(of: child))
+                guard child.bounds.height <= 160,
+                      child.bounds.width >= bar.bounds.width * 0.8,
+                      child is UIVisualEffectView || name.contains("Background") else { continue }
+                // A background that actually owns controls is not decorative.
+                var nodes = [child]; var index = 0; var ownsControl = false
+                while index < nodes.count, index < 128 {
+                    let node = nodes[index]; index += 1
+                    if node is UIControl { ownsControl = true; break }
+                    nodes.append(contentsOf: node.subviews)
+                }
+                if !ownsControl { record(child); child.alpha = 0 }
+            }
+            parent = root.superview
+        }
+        objc_setAssociatedObject(bar, &backgroundKey, states, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
     }
 
     // MARK: - ① 藏 Spotify 自己的内容（**不藏 item 本身**）
@@ -500,7 +544,11 @@ enum TabBarSystemGlass {
         // 没有任何用途，只会让命中区域跑到栏外。
         let visibleCount = TabBarGlassPlate.findTabsStack(in: bar)
             .map { TabBarGlassPlate.visibleItems(in: $0).count } ?? 0
-        if measuredInsetsBar !== bar || glassInsetsCount != visibleCount {
+        let category = bar.traitCollection.preferredContentSizeCategory.rawValue
+        if measuredInsetsBar !== bar || glassInsetsCount != visibleCount || measuredBounds != bar.bounds.size || measuredCategory != category {
+            measuredBounds = bar.bounds.size
+            measuredCategory = category
+            measuredGlassHeight = 0
             measuredInsetsBar = bar
             glassInsets = nil
             glassInsetsCount = visibleCount
@@ -639,12 +687,13 @@ enum TabBarSystemGlass {
     // 为什么必须转发：系统栏**接管了触摸** ⇒ 手指再也落不到 Spotify 那几颗上。
     // 不转发就是那条红线（"看得见、点不动"）。
     static func forwardSelection(from systemBar: UITabBar, item: UITabBarItem) {
-        guard let bar = lastBar, let stack = TabBarGlassPlate.findTabsStack(in: bar) else {
+        guard let bar = systemBar.superview?.superview, let stack = TabBarGlassPlate.findTabsStack(in: bar) else {
             writeDebugLog("[\(logTag)] ⚠️ a tab was picked but the stock row is gone — nothing to forward to")
             return
         }
         // ⚠️ 与 `syncItems` 用的是**同一份列表**（`visibleItems`）：`item.tag` 就是它的下标。
         // 藏掉「创建」之后这里是三颗 —— 拿 `stack.subviews` 会把第 3 颗转发到第 4 颗上。
+        lastBar = bar
         let items = TabBarGlassPlate.visibleItems(in: stack)
         let index = item.tag
         guard index >= 0, index < items.count else {

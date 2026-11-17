@@ -12,3 +12,7 @@ swiftc Sources/EeveeSpotify/Lyrics/Models/LyricsActivationPolicy.swift \
 swiftc Sources/EeveeSpotify/Shared/Helpers/DebugLogSanitizer.swift \
   Tests/DebugLogRedaction/main.swift -o "$TEST_BUILD/redaction-tests"
 "$TEST_BUILD/redaction-tests"
+
+swiftc Sources/EeveeSpotify/Appearance/PlayerLayout.swift \
+  Tests/PlayerLayout/main.swift -o "$TEST_BUILD/player-layout-tests"
+"$TEST_BUILD/player-layout-tests"

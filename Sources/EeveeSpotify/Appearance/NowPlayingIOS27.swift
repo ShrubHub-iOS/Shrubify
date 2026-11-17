@@ -295,27 +295,8 @@ enum NowPlayingIOS27 {
     /// 蹭 `DeclutterChrome` 既有的 0.3s 复查节拍（**不新开定时器**，本仓库纪律）。
     @discardableResult
     static func reconcile() -> Bool {
-        // 页面真的不在窗口里了 ⇒ 把写过的每一处还回去（cell 会被复用）。
-        // ⚠️ 这一步**不能**放在 `isEnabled` 后面：可能"先离开播放器、再在设置里关掉"。
-        if let page = lastPage, page.window == nil {
-            // **别立刻收尾**：换歌 / 转场里旧页会被短暂摘出窗口，`restore` 会把原生封面、
-            // 原生行、我们的字形统统放回去，下一拍 `apply` 又重装 —— 那一两拍就是那一闪。
-            // 先数拍：连续 3 拍（≈0.9s，`DeclutterChrome` 是 0.3s 一拍）都还是"页面不在"，
-            // 才认为真的离开了播放器（回收的 cell 不能留着 alpha = 0）。
-            pageMissingTicks += 1
-            if pageMissingTicks >= 3 {
-                restore(reason: "page disappeared")
-            }
-        } else {
-            pageMissingTicks = 0
-        }
-
-        // 页内歌词模式**不接管整页** —— 这一层照常每拍重铺，只是 `updateArtwork` /
-        // `placeTitleRow` / `updateLyricsStage` 按模式换几何，所以没有"让位/恢复"的分支。
-
-        guard isEnabled else { return false }
-        guard let page = lastPage, page.window != nil else { return false }
-        return layout(in: page)
+        if let track = NowPlayingLyricsPlate.currentTrackId() { refreshMetadataArtwork(trackId: track) }
+        return ResponsivePlayer.reconcile()
     }
 
     /// 点底排那颗歌词气泡 = **开/关页内歌词**。
@@ -521,92 +502,10 @@ enum NowPlayingIOS27 {
 
     @discardableResult
     private static func layout(in page: UIView) -> Bool {
-        var changed = false
-        // 封面壳还没认出来时也要让"元数据封面"开始加载（它不依赖壳）。
-        if let trackId = NowPlayingLyricsPlate.currentTrackId() {
-            refreshMetadataArtwork(trackId: trackId)
-        }
-        // **先摆不依赖封面壳的那几行**：换歌 / 关歌词的头一两拍，新的封面 cell 还没挂到
-        // 页面上（`resolvedShell` 返回 nil），若"先 resolve 封面、拿不到就 return"，
-        // 标题行根本不回来、底排也不重排。这几样只认控件自己的 id，与封面无关。
-        //
-        // ⚠️ 顺序不能动：`placeBottomStack` 的 -55pt 是 `placeTitleRow` 量自然位置的
-        // 前提（标题行就长在这个 stack 里）。
-        if placeBottomStack(in: page) { changed = true }
-        if placeTitleRow(in: page) { changed = true }
-        // Canvas 页自带的歌词卡 / 页顶歌名压在我们的版式上，每拍按下去。
-        if placeCanvasChrome(in: page) { changed = true }
-        // `setLyricsMode` 那一拍标题可能还没量到（换歌转场/页面重建）⇒ 它把"亮歌词"挂起；
-        // 这里每一拍重试，标题真到缩略图旁边了才铺歌词。
-        if lyricsModeActive, !lyricsModeRevealed, lyricsRevealPending,
-           lyricsSceneReady(in: page) {
-            lyricsRevealPending = false
-            lyricsModeRevealed = true
-            changed = true
-        }
-        if placeNavChrome(in: page) { changed = true }
-        // 进度条（4pt 轨 + 藏圆钮 + 等宽时间），见 `NowPlayingIOS27+Progress.swift`。
-        // 它只换 UISlider 的三张图与两颗标签的字体，不碰几何、不碰手势。
-        if placeProgress(in: page) { changed = true }
-        // 工具行排成 AM 的三颗（歌词 / 隔空播放 / 队列），见 `NowPlayingIOS27+Footer.swift`。
-        // ⚠️ 必须排在传输行前面：循环那颗圆钮是**按我们画的那颗队列字形**定位的。
-        if placeFooter(in: page) { changed = true }
-        // 页内歌词容器：缩略图下沿 + 16 → 进度条上沿 − 18。它也不依赖封面壳，
-        // 封面晚到也要能看词。
-        // 开歌词时**等封面缩完再挂**（`lyricsModeRevealed`），否则歌词和宿主第一帧的
-        // 深色底会压在那张还没缩小的封面上。
-        if lyricsModeActive, lyricsModeRevealed, updateLyricsStage(in: page) { changed = true }
-        // 歌词区左下角那块「歌词来源 / 提供者/翻译者」。
-        // 收起时保留视图、alpha 归 0（和歌词一起淡出），下一次打开直接淡入。
-        if placeLyricsCredit(in: page) { changed = true }
-        // 页内歌词时，歌名/艺人那两行只是原生 label，不吃触摸 ——
-        // 在它们上面各盖一颗透明按钮（点歌名开专辑、点艺人开艺人页）。
-        // ⚠️ 必须排在 `updateLyricsStage` / `placeLyricsCredit` **之后**：歌词宿主每拍都会
-        // 把自己的容器 `bringSubviewToFront` 一次，排在它前面的话按钮下一拍就又被压在下面；
-        // 排最后才能保证这一拍结束时按钮在最上层（两者不重叠，但层序必须是我们占先）。
-        if placeTitleTapTargets(in: page) { changed = true }
-
-        guard let shell = resolvedShell(in: page) else {
-            // **别在没图的时候硬留一个洞**。兜底找一次原生封面：
-            // · 我们自己已经有东西可画 ⇒ 把兜底那张按下去（避免两张同屏）；
-            // · 我们自己什么都没画出来 ⇒ **让原生封面先露着**（宁可这一拍是原生封面，
-            // 也不要一片空）。无条件 hideShell 会让原生和我们的都被藏掉。
-            if let fallback = fallbackCoverShell(in: page) {
-                if artworkView != nil || lastArtworkImage != nil {
-                    hideShell(fallback)
-                } else {
-                    revealShell(fallback)
-                }
-            }
-            // 这一拍没有壳 ⇒ `updateArtwork` 整条不跑。只处理"缩略图长回满屏"那一向的话，
-            // **开**歌词那一向（缩成 64pt）就永远没人做 ⇒ 歌词、标题、署名都出来了，
-            // 封面还停在整幅帧（"又回溶底"）。两向都走同一条：按当前模式摆好。
-            if syncArtworkFrameWithoutShell(in: page) { changed = true }
-            if !didLogMissingCover {
-                didLogMissingCover = true
-                writeDebugLog("[\(logTag)] no on-screen artwork yet — nothing new to draw this tick")
-            }
-            return changed
-        }
-        didLogMissingCover = false
-        // 认出来了就先按下去（不等 `updateArtwork` 的图）—— 首次进页面时图往往比壳晚一拍，
-        // 这一拍不按，屏幕上就是"Spotify 原生大封面闪一下"。
-        hideShell(shell)
-        artworkShell = shell
-
-        if updateArtwork(shell, in: page) { changed = true }
-        // 壳认出来了，`updateArtwork` 仍可能因为量不到整页宿主 / 还没图而提前返回。
-        // 模式几何再兜一次 —— 幂等：已经是对的就只做一次比较。
-        // ⚠️ 代价是"壳正常"那条路每拍多跑两次 `convert` + 一次 scrim 比较。故意的：
-        // `updateArtwork` 的返回值语义是 "changed"，稳态下本来就是 false，拿它当
-        // "几何有没有走到"的判据会反过来每拍都去兜底。宁可多两次换算。
-        if syncArtworkFrameWithoutShell(in: page) { changed = true }
-        if mountField(in: page) { changed = true }
-        if !didLogFrames {
-            didLogFrames = true
-            logFrames(in: page)
-        }
-        return changed
+        let trackID = NowPlayingLyricsPlate.currentTrackId() ?? ""
+        refreshMetadataArtwork(trackId: trackID)
+        ResponsivePlayer.apply(in: page, image: metadataArtworkImage, trackID: metadataArtworkTrackId)
+        return true
     }
 
     /// 页内歌词容器的框（页面坐标）：**缩略图下沿 + 16 → 进度条上沿 − 18**。
@@ -973,12 +872,9 @@ enum NowPlayingIOS27 {
     /// 单独抽出来是给「化开层」（`beginLyricsDissolve`）用的：它要的永远是满幅，
     /// 而那时 `lyricsModeActive` 已是 true —— 直接调 `artworkFrame` 会拿到 64pt。
     private static func fullBleedArtworkFrame(in page: UIView, host: UIView) -> CGRect {
-        let coverWidth = page.bounds.width
-        let coverHeight = max(
-            coverWidth,
-            min(page.bounds.height * Self.artworkHeightRatio, coverWidth * Self.artworkMaxAspect)
-        )
-        return host.convert(CGRect(x: 0, y: 0, width: coverWidth, height: coverHeight), from: page)
+        let side = min(max(0, page.bounds.width - 56), max(0, page.bounds.height * 0.45))
+        return host.convert(CGRect(x: (page.bounds.width - side) / 2,
+                                   y: page.safeAreaInsets.top + 60, width: side, height: side), from: page)
     }
 
     /// 封面在**当前模式**下的 frame（宿主坐标）。
@@ -1745,7 +1641,9 @@ enum NowPlayingIOS27 {
             button.backgroundColor = .clear
             button.accessibilityIdentifier = identifier
             // 无障碍交给下面原生那两行 label；这颗只是透明命中区，别让读屏多读一条。
-            button.isAccessibilityElement = false
+            button.isAccessibilityElement = true
+            button.accessibilityTraits = .link
+            button.accessibilityLabel = identifier.contains("artist") ? "Open artist" : "Open album"
             button.addAction(
                 UIAction { _ in action() },
                 for: .touchUpInside
@@ -2108,6 +2006,7 @@ enum NowPlayingIOS27 {
     //
     // 关开关 / 离开页面：把写过的每一处写回去，拆掉我们自己的视图。
     static func restore(reason: String) {
+        ResponsivePlayer.removeAll()
         // 页内歌词先收（它不参与 `hadState` 的账，但必须先拆掉容器与化开层）。
         lyricsDissolveView?.removeFromSuperview()
         lyricsDissolveView = nil

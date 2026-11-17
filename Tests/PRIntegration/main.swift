@@ -60,3 +60,17 @@ check(ProcessInfo.processInfo.systemUptime - start < 2, "The shared budget must 
 check(networkFinished.wait(timeout: .now() + 2) == .success, "Cancellation must reach URLSession")
 session.invalidateAndCancel()
 print("PR integration, stale-track, memo-identity and request-cancellation checks passed")
+
+let cancellation = LyricsCancellationToken()
+let started = ProcessInfo.processInfo.systemUptime
+LyricsRequestBudget.withLimit(seconds: 10, cancellation: cancellation) {
+    DispatchQueue.global().asyncAfter(deadline: .now() + 0.02) { cancellation.cancel() }
+    check(!LyricsRequestBudget.waitSignal(DispatchSemaphore(value: 0), maximum: 10), "Track change cancels a blocking provider wait")
+    check(LyricsRequestBudget.remaining(maximum: 10) == 0, "Cancellation is inherited by nested work")
+    LyricsRequestBudget.withLimit(seconds: 5) {
+        check(LyricsRequestBudget.cancellation === cancellation, "Nested helpers retain the cancellation token")
+    }
+}
+check(ProcessInfo.processInfo.systemUptime - started < 1, "Obsolete work must not consume its full timeout")
+check(LyricsRequestBudget.cancellation == nil, "Cancellation context is restored after the request")
+print("Cancellation and nested provider-budget checks passed")

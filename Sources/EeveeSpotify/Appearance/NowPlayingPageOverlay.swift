@@ -78,7 +78,7 @@ enum NowPlayingPageOverlay {
     /// 「选择沉浸式的那几个按键，全部写默认开启」——
     /// 二级菜单删除，音量条不再看 `nowPlayingVolume`：任一布局开着就显示。
     static var isEnabled: Bool {
-        UserDefaults.nowPlayingIOS27 || UserDefaults.nowPlayingLayout
+        !UserDefaults.nowPlayingIOS27 && UserDefaults.nowPlayingLayout
     }
 
     // MARK: - 对外入口

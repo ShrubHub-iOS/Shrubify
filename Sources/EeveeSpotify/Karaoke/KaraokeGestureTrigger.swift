@@ -15,7 +15,7 @@ final class KaraokeGestureTrigger: NSObject {
         guard now - lastSearch >= 1 else { return }
         lastSearch = now
         guard let barClass = Self.barClass,
-              let window = UIApplication.shared.connectedScenes.compactMap({ $0 as? UIWindowScene }).flatMap(\.windows).first(where: \.isKeyWindow),
+              let window = WindowHelper.shared.window,
               let view = window.shrubFirst(where: { ($0.next as? UIViewController)?.isKind(of: barClass) == true })
         else { return }
         bar = view
@@ -34,7 +34,7 @@ final class KaraokeGestureTrigger: NSObject {
         guard sender.state == .began else { return }
         if UserDefaults.standard.object(forKey: "ShrubifyPanelLongPress3") as? Bool ?? true {
             UIImpactFeedbackGenerator(style: .light).impactOccurred()
-            ShrubifyPanelPresenter.present()
+            ShrubifyPanelPresenter.present(from: sender.view)
         }
     }
 }

@@ -108,8 +108,8 @@ enum MiniBarGlassPlate {
         }
 
         // ② 内容等比缩进胶囊（两条等宽的唯一办法；只动 transform，不动布局）。
-        let scale = contentScale(contentWidth: content.bounds.width, capsuleWidth: width)
-        let wanted = CGAffineTransform(scaleX: scale, y: scale)
+        let scale: CGFloat = 1
+        let wanted = CGAffineTransform.identity
         if content.transform != wanted { content.transform = wanted }
 
         // ③ 底色：从源头吃掉 —— 给这一层的 CALayer 换一个实例子类，
@@ -202,9 +202,8 @@ enum MiniBarGlassPlate {
     // 标签栏还没摆过（冷启动第一帧）时退回兜底比例。上限是宿主自己的宽。
     @MainActor
     private static func capsuleWidth(in host: UIView) -> CGFloat {
-        let ratio = TabBarGlassPlate.capsuleWidthRatio
-        let usable = (ratio > 0.4 && ratio < 1.0) ? ratio : fallbackWidthRatio
-        return min(host.bounds.width, max(160, host.bounds.width * usable))
+        guard let content = findContent(in: host) else { return host.bounds.width }
+        return min(host.bounds.width, max(160, content.bounds.width + sideInset * 2))
     }
 
     /// 内容要等比缩到多少：让它左右各留 `sideInset` 之后正好放进胶囊。

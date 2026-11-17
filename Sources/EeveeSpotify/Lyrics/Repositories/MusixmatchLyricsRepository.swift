@@ -294,8 +294,9 @@ class MusixmatchLyricsRepository: LyricsRepository {
         }
 
         return translations.reduce(into: [:]) { dictionary, translation in
-            dictionary[translation["subtitle_matched_line"] as! String] =
-                translation["description"] as? String
+            guard let line = translation["subtitle_matched_line"] as? String,
+                  let text = translation["description"] as? String else { return }
+            dictionary[line] = text
         }
     }
 
