@@ -1,3 +1,10 @@
+# 4.1.1
+
+- Repair responsive player geometry, mini-player sizing, redundant tab backing and adaptive glass materials.
+- Fix unsafe lyrics/Siri parsing, lyrics cancellation/deadlines, endpoint changes, token clearing and translation cache invalidation.
+- Correct SponsorBlock disable/seek/action handling, Replay identity/counting, sleep-timer confirmation and scene-aware panel presentation.
+- Add player geometry, cancellation, pause ABI and long-podcast regressions; align current version labels and documentation on 4.1.1.
+
 # 4.1.0
 
 - Replace the old glass renderer and Taurus/Vitrine material integrations with Evolved’s player, tab bar, mini-player and home/library/album/playlist/artist UI.

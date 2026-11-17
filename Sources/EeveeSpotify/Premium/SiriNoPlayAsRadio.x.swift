@@ -3,29 +3,20 @@ import Intents
 
 class INMediaItemHook: ClassHook<INMediaItem> {
     typealias Group = PremiumUIHooksGroup
-    
+
     func identifier() -> String {
-        var identifier = orig.identifier()
-        
-        if identifier.contains("play-command") {
-            let components = identifier.components(separatedBy: ":")
-            let jsonData = Data(base64Encoded: components[2])!
-            var json = try! JSONSerialization.jsonObject(with: jsonData) as! [String: Any]
-                
-            if let feedbackDetails = json["feedback_details"] as? [String: Any],
-               feedbackDetails["restriction"] as? String == "play-as-radio" {
-                var context = json["context"] as! [String: Any]
-                
-                let urlString = context["url"] as! String
-                context["url"] = urlString.removeMatches(":station")
-                
-                json["context"] = context
-                
-                let newData = try! JSONSerialization.data(withJSONObject: json)
-                identifier = "spotify:play-command:\(newData.base64EncodedString())"
-            }
-        }
-        
-        return identifier
+        let identifier = orig.identifier()
+        guard identifier.hasPrefix("spotify:play-command:") else { return identifier }
+        let encoded = String(identifier.dropFirst("spotify:play-command:".count))
+        guard let data = Data(base64Encoded: encoded),
+              var json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
+              let feedback = json["feedback_details"] as? [String: Any],
+              feedback["restriction"] as? String == "play-as-radio",
+              var context = json["context"] as? [String: Any],
+              let url = context["url"] as? String else { return identifier }
+        context["url"] = url.removeMatches(":station")
+        json["context"] = context
+        guard let result = try? JSONSerialization.data(withJSONObject: json) else { return identifier }
+        return "spotify:play-command:" + result.base64EncodedString()
     }
 }

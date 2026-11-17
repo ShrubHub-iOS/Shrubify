@@ -93,7 +93,12 @@ final class NowPlayingLyricsHost {
         hosting.view.translatesAutoresizingMaskIntoConstraints = false
         hosting.view.accessibilityIdentifier = "eevee-npv-lyrics"
 
+        var responder: UIResponder? = container
+        while responder != nil && !(responder is UIViewController) { responder = responder?.next }
+        let parent = responder as? UIViewController
+        parent?.addChild(hosting)
         container.addSubview(hosting.view)
+        hosting.didMove(toParent: parent)
         // **加进容器之后再重申一次**。
         // 宿主视图在第一次布局前偶尔会把底色写成系统的不透明底（深色模式下就是一块黑），
         // 只设一次不够；`isOpaque = false` 一起写死，`alpha` 淡入才盖得住那一帧。
@@ -163,8 +168,8 @@ final class NowPlayingLyricsHost {
         var queue: [UIView] = [root]
         var visited = 0
         var scrollCount = 0
-        while !queue.isEmpty, visited < 400 {
-            let view = queue.removeFirst()
+        while visited < queue.count, visited < 400 {
+            let view = queue[visited]
             visited += 1
             // 兜底：宿主里如果混进了系统的边缘模糊视图 / 歌词背景层，也一并藏掉
             // （这一层只该有歌词文字；背景由播放器自己的 field 负责）。
@@ -239,7 +244,9 @@ final class NowPlayingLyricsHost {
     func detach() {
         releasePerFrameClock()
         guard let hosting = hostingController else { return }
+        hosting.willMove(toParent: nil)
         hosting.view.removeFromSuperview()
+        hosting.removeFromParent()
         hostingController = nil
         renderedVersion = -1
         renderedTrackId = ""

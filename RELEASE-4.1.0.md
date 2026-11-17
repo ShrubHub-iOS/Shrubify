@@ -1,3 +1,5 @@
+> Archived release document. Current release: [Shrubify 4.1.1](RELEASE-4.1.1.md).
+
 # Shrubify 4.1.0
 
 The Evolved UI and expanded lyrics release.

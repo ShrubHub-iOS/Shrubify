@@ -111,6 +111,7 @@ struct SponsorBlockSettingsView: View {
         .animation(.default, value: options)
         .onChange(of: options) { newValue in
             UserDefaults.sponsorBlockOptions = newValue
+            SponsorBlockSkipper.shared.optionsChanged()
             NotificationCenter.default.post(name: SponsorBlockSkipper.segmentsChangedNotification, object: nil)
         }
     }

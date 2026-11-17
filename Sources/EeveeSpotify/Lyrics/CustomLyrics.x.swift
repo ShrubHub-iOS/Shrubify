@@ -459,9 +459,10 @@ private func loadCustomLyricsForCurrentTrack() throws -> Lyrics {
             var resultDto: LyricsDto?
             var requestError: Error?
 
+            let cancellation = LyricsRequestBudget.cancellation
             DispatchQueue.global(qos: .userInitiated).async {
                 do {
-                    resultDto = try LyricsRequestBudget.withLimit(seconds: timeout) {
+                    resultDto = try LyricsRequestBudget.withLimit(seconds: timeout, cancellation: cancellation) {
                         try lyricsRepository(for: source).getLyrics(searchQuery, options: options)
                     }
                 } catch {
@@ -470,7 +471,7 @@ private func loadCustomLyricsForCurrentTrack() throws -> Lyrics {
                 semaphore.signal()
             }
 
-            if semaphore.wait(timeout: .now() + timeout) == .timedOut {
+            if !LyricsRequestBudget.waitSignal(semaphore, maximum: timeout) {
                 writeDebugLog("[Lyrics] auto select: \(source.description) timed out after \(timeout)s")
                 if firstError == nil { firstError = LyricsError.unknownError }
                 continue
@@ -1002,12 +1003,14 @@ private func loadCustomLyricsForCurrentTrack() throws -> Lyrics {
     ) throws -> Lyrics {
         try LyricsRequestBudget.check()
         let deadline = LyricsRequestBudget.deadline
+        let cancellation = LyricsRequestBudget.cancellation
         // Validate and publish on the renderer's thread as one operation. A
         // delayed provider must never overwrite the song selected in the meantime.
         let publish = { () -> LyricsDto? in
             let current = statefulPlayer?.currentTrack()?.trackIdentifier
                 ?? nowPlayingScrollViewController?.loadedTrack.trackIdentifier
-            guard LyricsResultPolicy.matchesRequestedTrack(requested: trackId, current: current),
+            guard cancellation?.isCancelled != true,
+                  LyricsResultPolicy.matchesRequestedTrack(requested: trackId, current: current),
                   deadline.map({ ProcessInfo.processInfo.systemUptime < $0 }) ?? true else { return nil }
             lyricsState.isEmpty = dto.lines.isEmpty
             lyricsState.wasRomanized = dto.romanization == .romanized || dto.romanization == .canBeRomanized
@@ -1033,6 +1036,7 @@ private func loadCustomLyricsForCurrentTrack() throws -> Lyrics {
 //
 // URLSession 钩子侧的兜底 payload 计数器。
 private var urlSessionFallbackCount = 0
+private let urlSessionFallbackLock = NSLock()
 
 /// 歌词请求的**响应兜底**：只要 URL 是 `color-lyrics/v2`，钩子就必须交给 Spotify
 /// 一个可解析的 `Lyrics` —— 这是 910 时代 `InterceptionContext` 那条底线。
@@ -1054,11 +1058,20 @@ private var urlSessionFallbackCount = 0
 /// - Returns: 可直接投给 `didReceiveData` 的字节；只有序列化失败这种理论上不会发生的
 /// 情况才返回 nil（那时调用方退回原始响应）。
 func unavailableLyricsBytes(original: Lyrics?, note: String? = nil) -> Data? {
-    var lyrics = makeUnavailableLyrics(originalColors: original?.colors, note: note)
-    // 404 场景下没有原始歌词可继承配色，给一套中性配色，
-    // 避免客户端拿到全 0 颜色把整页刷成纯黑。
-    if original == nil {
-        lyrics.colors = LyricsColors.with {
+    // Response completion can run while a cancelled provider is still unwinding.
+    // Build this envelope from arguments only; do not read its mutable provider
+    // attribution, native track, colors or timing state from another thread.
+    let lyrics = Lyrics.with { payload in
+        payload.data = LyricsData.with { data in
+            data.timeSynchronized = true
+            data.restriction = .unrestricted
+            var texts = ["lyrics_unavailable".localized]
+            if let note, !note.isEmpty { texts.append(note) }
+            data.lines = texts.enumerated().map { index, text in
+                LyricsLine.with { $0.content = text; $0.offsetMs = Int32(index * 1000) }
+            }
+        }
+        payload.colors = original?.colors ?? LyricsColors.with {
             $0.backgroundColor = 0xFF12_1212
             $0.lineColor = 0xFF9E_9E9E
             $0.activeLineColor = 0xFFFF_FFFF
@@ -1070,9 +1083,12 @@ func unavailableLyricsBytes(original: Lyrics?, note: String? = nil) -> Data? {
         return nil
     }
 
+    urlSessionFallbackLock.lock()
     urlSessionFallbackCount += 1
-    if urlSessionFallbackCount <= 5 || urlSessionFallbackCount % 20 == 0 {
-        writeDebugLog("[Lyrics] serving fallback payload for this response (#\(urlSessionFallbackCount))")
+    let count = urlSessionFallbackCount
+    urlSessionFallbackLock.unlock()
+    if count <= 5 || count % 20 == 0 {
+        writeDebugLog("[Lyrics] serving fallback payload for this response (#\(count))")
     }
     return data
 }

@@ -5,7 +5,7 @@ struct WindowHelper {
 
     // Resolve the active scene each time. Settings uses a separate window, and
     // a root controller may not exist yet when an early hook first asks for it.
-    private var window: UIWindow? {
+    var window: UIWindow? {
         let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
         let active = scenes.filter { $0.activationState == .foregroundActive }.flatMap(\.windows)
         return active.first(where: \.isKeyWindow)

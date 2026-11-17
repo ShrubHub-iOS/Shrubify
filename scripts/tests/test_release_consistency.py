@@ -16,7 +16,7 @@ class ReleaseConsistencyTests(unittest.TestCase):
     def test_stale_readme_and_hardcoded_app_version_are_rejected(self):
         with tempfile.TemporaryDirectory() as temp:
             fixture = Path(temp)
-            files = ['control', 'README.md', 'SHRUBIFY-SETUP.md', 'TESTING.md', 'RELEASE-4.1.0.md',
+            files = ['control', 'README.md', 'SHRUBIFY-SETUP.md', 'TESTING.md', f'RELEASE-{(ROOT / "control").read_text().split("Version: ")[1].splitlines()[0]}.md',
                      '.github/workflows/shrubify-release.yml',
                      'Sources/EeveeSpotify/Settings/Views/EeveeSettingsView.swift',
                      'Sources/EeveeSpotify/Shrubify3/ShrubifyBetaView.swift']

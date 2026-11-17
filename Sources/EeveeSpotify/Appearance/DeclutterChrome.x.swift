@@ -225,8 +225,8 @@ enum DeclutterChrome {
         var visited = 0
         var queue: [UIView] = [page]
 
-        while !queue.isEmpty, visited < maxScanNodes {
-            let view = queue.removeFirst()
+        while visited < queue.count, visited < maxScanNodes {
+            let view = queue[visited]
             visited += 1
             if let id = view.accessibilityIdentifier, nowPlayingPillIdentifiers.contains(id) {
                 notePillIfOurs(view)
@@ -271,8 +271,8 @@ enum DeclutterChrome {
         var visited = 0
         var queue: [UIView] = [root]
 
-        while !queue.isEmpty, visited < maxScanNodes {
-            let view = queue.removeFirst()
+        while visited < queue.count, visited < maxScanNodes {
+            let view = queue[visited]
             visited += 1
             if let id = view.accessibilityIdentifier, nowPlayingPillIdentifiers.contains(id) {
                 notePillIfOurs(view)

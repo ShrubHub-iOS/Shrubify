@@ -84,18 +84,21 @@ NSDictionary *ShrubReadLivePlayback(id player) {
 
 BOOL ShrubSetPlaybackPaused(id player, BOOL paused) {
     @try {
-        SEL selector = NSSelectorFromString(paused ? @"pause:" : @"resume:");
-        if (![player respondsToSelector:selector]) return NO;
-        NSMethodSignature *sig = [player methodSignatureForSelector:selector];
-        if (!sig || sig.numberOfArguments != 3 || [sig getArgumentTypeAtIndex:2][0] != '@' ||
-            (sig.methodReturnType[0] != '@' && sig.methodReturnType[0] != 'v')) return NO;
-        NSInvocation *call = [NSInvocation invocationWithMethodSignature:sig];
-        call.target = player;
-        call.selector = selector;
-        id options = nil;
-        [call setArgument:&options atIndex:2];
-        [call invoke];
-        return YES;
+        for (NSString *name in paused ? @[@"pause:", @"pause"] : @[@"resume:", @"resume"]) {
+            SEL selector = NSSelectorFromString(name);
+            if (![player respondsToSelector:selector]) continue;
+            NSMethodSignature *sig = [player methodSignatureForSelector:selector];
+            BOOL hasOptions = [name hasSuffix:@":"];
+            if (!sig || sig.numberOfArguments != (hasOptions ? 3 : 2) ||
+                (hasOptions && [sig getArgumentTypeAtIndex:2][0] != '@') ||
+                (sig.methodReturnType[0] != '@' && sig.methodReturnType[0] != 'v')) continue;
+            NSInvocation *call = [NSInvocation invocationWithMethodSignature:sig];
+            call.target = player; call.selector = selector;
+            if (hasOptions) { id options = nil; [call setArgument:&options atIndex:2]; }
+            [call invoke];
+            return YES;
+        }
+        return NO;
     } @catch (NSException *exception) { return NO; }
 }
 
