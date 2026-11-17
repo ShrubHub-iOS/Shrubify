@@ -1122,7 +1122,7 @@ func getLyricsDataForCurrentTrack(_ originalPath: String, originalLyrics: Lyrics
             break
         }
 
-        RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.05))
+        try LyricsRequestBudget.sleep(0.05)
         track = statefulPlayer?.currentTrack() ?? nowPlayingScrollViewController?.loadedTrack
         trackIdentifier = track?.trackIdentifier ?? ""
     }
