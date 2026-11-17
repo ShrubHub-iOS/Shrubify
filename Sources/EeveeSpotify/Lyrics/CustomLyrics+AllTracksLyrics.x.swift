@@ -401,16 +401,18 @@ enum InlineLyricsHostLocator {
 }
 
 class NPVScrollViewControllerHook: ClassHook<NSObject> {
-    typealias Group = ModernLyricsGroup
+    typealias Group = PlayerAppearanceGroup
     static var targetName = "NowPlaying_ScrollImpl.NPVScrollViewController"
 
     func viewWillAppear(_ animated: Bool) {
-        shouldOverrideLocalTrackURI = true
+        shouldOverrideLocalTrackURI = UserDefaults.shouldReplaceLyrics
         writeDebugLog("[Lyrics] NPV scroll — enabling local track URI override")
         orig.viewWillAppear(animated)
 
         // 9.1.x 上内嵌歌词宿主已改名，改为运行时查找（不新增 hook，避免注册期崩溃）。
-        InlineLyricsHostLocator.scheduleLookup(from: target as? UIViewController)
+        if UserDefaults.shouldReplaceLyrics && !UserDefaults.nowPlayingIOS27 {
+            InlineLyricsHostLocator.scheduleLookup(from: target as? UIViewController)
+        }
 
         // 「仿 AM 的整页取色底」——**搭在这条既有 hook 上**，不新开 hook
         // （Orion 注册期解析不到目标会崩注入工具，本仓库有先例）。

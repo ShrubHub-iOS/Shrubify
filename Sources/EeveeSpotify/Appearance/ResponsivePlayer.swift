@@ -259,8 +259,15 @@ final class ResponsivePlayerView: UIView {
             button.tintColor = button.isSelected ? .systemGreen : .white
         }
         close.isEnabled = native.object(forKey: "now-playing-minimize-button") != nil
-        if #available(iOS 26.0, *) { lyricsButton.isEnabled = true }
-        else { lyricsButton.isEnabled = NowPlayingIOS27.lyricsEntryTarget(in: page) != nil }
+        let disabled = NgzhwmSettingsViewModel.isLyricsFeatureDisabled
+        if #available(iOS 26.0, *), UserDefaults.shouldReplaceLyrics {
+            lyricsButton.isEnabled = !disabled
+        } else { lyricsButton.isEnabled = !disabled && NowPlayingIOS27.lyricsEntryTarget(in: page) != nil }
+        if disabled || !UserDefaults.shouldReplaceLyrics {
+            showingLyrics = false
+            lyrics.isHidden = true
+            if #available(iOS 26.0, *) { lyricsHost?.detach() }
+        }
         menu.isHidden = native.object(forKey: "Context menu") == nil
         updateLyrics()
         setNeedsLayout()
@@ -324,7 +331,7 @@ final class ResponsivePlayerView: UIView {
     }
 
     private func toggleLyrics() {
-        if #available(iOS 26.0, *) {
+        if #available(iOS 26.0, *), UserDefaults.shouldReplaceLyrics {
             showingLyrics.toggle()
             lyricsButton.accessibilityValue = showingLyrics ? "Shown" : "Hidden"
             lyrics.isHidden = !showingLyrics

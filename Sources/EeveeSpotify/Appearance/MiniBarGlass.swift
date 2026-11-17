@@ -203,7 +203,7 @@ enum MiniBarGlassPlate {
     @MainActor
     private static func capsuleWidth(in host: UIView) -> CGFloat {
         guard let content = findContent(in: host) else { return host.bounds.width }
-        return min(host.bounds.width, max(160, content.bounds.width + sideInset * 2))
+        return min(host.bounds.width, max(160, content.bounds.width))
     }
 
     /// 内容要等比缩到多少：让它左右各留 `sideInset` 之后正好放进胶囊。

@@ -4,9 +4,18 @@ import Foundation
 import SwiftUI
 import UIKit
 import Orion
+import ObjectiveC.runtime
+
+struct PlayerAppearanceGroup: HookGroup {}
 
 func activateEvolvedInterface() {
     _ = UserDefaults.normalizeNowPlayingLayoutKeys()
+    if let controller = NSClassFromString("NowPlaying_ScrollImpl.NPVScrollViewController"),
+       ["viewWillAppear:", "viewDidAppear:", "viewWillDisappear:"].allSatisfy({
+           class_getInstanceMethod(controller, NSSelectorFromString($0)) != nil
+       }) {
+        PlayerAppearanceGroup().activate()
+    }
     activateNewDesignYield()
     activateTabBarGlass()
     activateLibraryAppearance()
