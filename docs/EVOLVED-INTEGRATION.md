@@ -1,64 +1,91 @@
-# Listening improvements inspired by EeveeSpotifyEvolved
+# Evolved player, UI and lyrics port
 
-Reference: [zbzxbg/EeveeSpotifyEvolved](https://github.com/zbzxbg/EeveeSpotifyEvolved),
-revision `92d783486d527c20ccffb759de523d6c7b956547` (GPL-3.0).
-Shrubify base: `8a62e42734038aa6aa0d6281a9c25fcb77d14e36`.
+Imported from [zbzxbg/EeveeSpotifyEvolved](https://github.com/zbzxbg/EeveeSpotifyEvolved)
+revision `92d783486d527c20ccffb759de523d6c7b956547` under GPL-3.0.
+Original Shrubify base: `8a62e42734038aa6aa0d6281a9c25fcb77d14e36`.
 
-## Included
+## User-facing changes
 
-- **Sleep timer:** 1, 5, 10, 15, 30, 45, 60 or 90 minutes, available from
-  Listening settings and ShrubPanel. The GCD timer approach is adapted from
-  Evolved's `Sources/EeveeSpotify/Playback/SleepTimer.swift`. The implementation
-  here uses a monotonic deadline and serializes all state on the main queue.
-  Cancellation/replacement invalidate old callbacks. Expiry uses Shrubify's
-  exception-guarded explicit pause bridge, never a play/pause toggle. This avoids
-  guessed selector signatures and cannot resume already paused music.
-- **Lyrics typography:** adjustable 22–40 pt type and 8–32 pt row spacing.
-  Inspired by Evolved's typography controls and `LyricsTypographyPreview.swift`;
-  implemented using Shrubify's own `KaraokeLineView`. The iOS 16+ preview uses
-  original sample text and the same renderer and settings as custom lyrics.
-  Preview hit testing is disabled so it does not capture settings scrolling.
-  Older saved settings retain 30 pt type and 16 pt spacing. Reopen custom
-  lyrics after editing. Controls remain available on older systems; the
-  renderer preview requires the wrapping layout introduced in iOS 16.
-- **Replay summary:** 7-day, 30-day, 1-year and all-retained listening-time totals,
-  plus the number of listening days. Daily totals already held by Shrubify
-  support those summaries without collecting extra data. Song/artist rankings
-  remain lifetime totals for retained tracks and are labeled accordingly.
+The previous Liquid Glass renderer, Taurus material preset and Vitrine material
+adapter are removed. **Evolved UI** is now the appearance entry in Shrubify settings.
+The imported implementation includes:
 
-The preview and timer screens use SwiftUI shapes, gradients and SF Symbols.
-No upstream screenshots, song lyrics, logos, audio or artwork were copied.
-Existing upstream author notices and Shrubify's GPL license remain intact.
-The Evolved README's upstream credits identify Taurus as conceptual inspiration
-for its timer, with no Taurus source copied; no Taurus source was used here.
+- Evolved's Apple Music-style player: large cover with a fading artwork backdrop,
+  repositioned title and transport controls, volume/footer controls, and in-player lyrics.
+- Evolved's glass tab bar and mini-player, including label/create-button controls.
+- Home headers and shortcut tiles, library/search styling and rows.
+- Album, playlist and artist headers, artwork backgrounds, single playlist covers,
+  artist biography sheet and release navigation.
+- Evolved's full-screen and in-player lyrics renderers, word timing, interludes,
+  romanization, translation, typography previews, per-source offsets and source ordering.
 
-## Compatibility and validation
+The first launch selects the Apple Music player and Evolved page/glass settings.
+Spotify's player style remains selectable under **Evolved UI → Player design**.
+Studio opens the new player/page/lyrics controls. Old Studio layout archives remain
+stored but are not applied to the new renderer. Shrubify's branding, settings shell,
+Replay (still opt-in), ShrubPanel, ShrubQueue and diagnostics remain available.
+The earlier sleep timer and Replay summaries remain included.
 
-No new Spotify hooks, network providers or background entitlements are added.
-The timer needs a player captured by Shrubify's existing playback hooks. If the
-pause bridge is unavailable it reports that result on the timer page. It does
-not modify Spotify's native sleep timer. There is no persistence across process
-termination. GCD cannot bypass iOS suspension: expiry can be delayed until the
-app is scheduled again; foregrounding immediately checks the deadline.
+## Lyrics sources
 
-Run `bash scripts/test_listening_tools.sh` for monotonic deadline, cancellation,
-replacement and delayed-wake tests. Existing `scripts/test_v4_beta.sh` covers
-settings migration, typography bounds and round-trip persistence. The native
-validation workflow runs both before building the tweak on macOS.
+The complete imported provider layer supports **Spicy Lyrics, AMLL, PetitLyrics,
+NetEase, QQ Music, KuGou, Unison, Musixmatch, BiniLyrics, LRCLIB, Genius**, plus
+experimental **Apple Music official TTML** through the Experiments page.
 
-Local verification in the Linux workspace: 14 Python unit tests, branding and
-iOS 14 source preflights, shell syntax and diff whitespace checks passed.
-Swift, Xcode, an iOS SDK and a physical iPhone are unavailable here; native
-compilation, visual layout and actual playback behavior are not locally verified.
+Auto Select tries the configured source order and prefers richer timing and requested
+translation/romanization. Each provider retains its parser, matching rules and credits.
+Genius is plain text; LRCLIB is line-timed. Real word timing depends on the provider
+and the particular track. Spicy Lyrics requires the user's client key. Apple Music
+requires the user's own media-user-token and eligible account. These credentials
+are not bundled or fabricated. Provider availability and catalogs are external.
 
-Device checks before release:
+The first six stored source values retain their meanings, including Spicy Lyrics at
+raw value 5. Existing provider selection, client key, Musixmatch token and accent
+color are retained. Deprecated material choices are no longer read. Existing lyrics
+transport delegates still buffer by task identity and deliver provider results
+asynchronously, using a serial worker for the imported provider state.
 
-- Start a 1-minute timer, close its page, and verify a pause at expiry.
-- Cancel/restart near expiry; verify the old timer cannot affect playback.
-- Pause manually before expiry; verify the timer never resumes playback.
-- Test background playback, lock screen, suspension/foreground and force quit.
-- Confirm unsupported builds show the unavailable-controls message.
-- Adjust lyric text size, spacing and alignment; reopen lyrics and compare with
-  the preview, including long lines and RTL text. Test VoiceOver and Reduce Motion.
-- Check Replay's periods against exported daily totals; verify opt-in tracking
-  remains off on a fresh install and privacy/reset still work.
+## Platforms
+
+**Minimum iOS: 17.4. System glass effects: iOS 26+.** The deployment floor is raised
+because the imported lyrics layer links Apple's Translation framework. The tweak
+package and branded IPA both declare the floor; an input IPA with a higher minimum
+keeps that higher requirement. Branded IPAs remove the old design-compatibility plist
+key, as Evolved's glass implementation expects. A jailbreak package cannot itself
+rebuild Spotify's Info.plist; check its system-design behavior on the device.
+
+The upstream baseline is Spotify **9.2.0 / 9.1.88**. This port includes its private UI
+identifiers and per-class hook guards, but has **not** been device-tested on those
+versions. Stability Mode skips the Evolved interface activation. Private Spotify
+classes can change; a successful compile does not establish visual compatibility.
+
+## Licensing
+
+See [full upstream credits](EVOLVED-UPSTREAM-CREDITS.md), the in-app **Open-source
+licenses** page and the existing [GPL license](../LICENSE). Notices for Evolved,
+whoeevee, SideloadLabs, spoti.pw's GPL version, kumone, and provider/parser contributors
+are preserved. Evolved documents Taurus as conceptual inspiration with no Taurus
+source copied; those provenance notices remain. There is no Taurus material preset
+or Vitrine adapter in the active build.
+
+No upstream screenshot, logo, audio or album artwork is bundled. Lyrics preview
+sample text is original. Artwork displayed by the UI comes from the playing track.
+
+## Validation
+
+- Python integration guards check removal of the retired renderer/material adapter,
+  provider registration, asynchronous delegates and the deployment floor.
+- `bash scripts/test_evolved_lyrics.sh` runs twelve imported upstream suites for
+  matching, Spicy JSON/attribution, QQ QRC decoding, KuGou romanization, AMLL/Apple
+  TTML, line splitting, interludes, wrapping, lyrics-door state and missing-lyrics notices.
+- Existing settings migration, playback bridge and sleep timer tests remain in native CI.
+- The native workflow parses every Swift source and builds a rootless tweak on macOS.
+
+Before release, test cold launch, player opening/dismissal, all transport/footer
+buttons, track changes, rotation and iPad layout. Check home/library/album/artist/
+playlist navigation, light/dark appearance and iOS 26 glass. Check each provider with
+matching/missing/instrumental songs and required credentials, source switching,
+source order, timing offsets, translation and romanization. Verify long text, RTL,
+VoiceOver, Reduce Motion and Reduce Transparency. Check Stability Mode, Replay opt-in,
+queue navigation and timer expiry/cancellation. No device screenshots or playback
+verification from this port are available yet.

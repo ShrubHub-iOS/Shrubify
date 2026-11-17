@@ -71,6 +71,7 @@ def main():
                 raise ValueError('Missing or invalid CFBundleExecutable in app Info.plist')
             if app_prefix + executable not in zin.namelist():
                 raise ValueError('App executable missing: ' + app_prefix + executable)
+            original.pop('UIDesignRequiresCompatibility', None)
             original['MinimumOSVersion'] = minimum_ios_version(original.get('MinimumOSVersion'))
             original['CFBundleIdentifier'] = 'com.shrubify.client'
             original['CFBundleName'] = 'Shrubify'

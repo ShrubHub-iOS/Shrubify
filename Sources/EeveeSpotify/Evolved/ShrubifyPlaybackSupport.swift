@@ -9,3 +9,7 @@ func activateShrubifyPlaybackSupport() {
         KaraokeGestureTrigger.shared.attachIfNeeded()
     }
 }
+
+extension Notification.Name {
+    static let eeveeKaraokeLyricsChanged = Notification.Name("ShrubifyPlaybackMetadataChanged")
+}

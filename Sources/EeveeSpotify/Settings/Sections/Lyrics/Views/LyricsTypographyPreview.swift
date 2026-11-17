@@ -21,17 +21,17 @@ struct LyricsTypographyPreview: View {
     private static let lines: [LyricLine] = [
         LyricLine(
             time: 0,
-            text: "I'm tryna put you in the worst mood"
+            text: "A quiet song for the evening"
         ),
         LyricLine(
             time: 6,
-            text: "君は藍に浮かんだアルビレオ",
-            romanization: "Ki mi wa a i ni u ka n da a ru bi re o",
-            translation: "你就是浮现在蔚蓝中的天鹅座β"
+            text: "音楽と歩こう",
+            romanization: "On ga ku to a ru ko u",
+            translation: "Let’s walk with music"
         ),
         LyricLine(
             time: 12,
-            text: "And I'll be right here waiting"
+            text: "Find your own rhythm"
         )
     ]
 

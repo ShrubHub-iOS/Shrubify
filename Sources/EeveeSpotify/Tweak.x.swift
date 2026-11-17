@@ -341,7 +341,7 @@ struct EeveeSpotify: Tweak {
                 }()
 
                 BaseLyricsGroup().activate()
-                if npvOK { ModernLyricsGroup().activate() }
+                if npvOK && !stabilityMode { ModernLyricsGroup().activate() }
 
             }
 
@@ -398,10 +398,10 @@ struct EeveeSpotify: Tweak {
             BaseLyricsGroup().activate()
 
 
-            if EeveeSpotify.hookTarget == .latest {
+            if EeveeSpotify.hookTarget == .latest && !stabilityMode {
                 ModernLyricsGroup().activate()
             }
-            else {
+            else if !stabilityMode {
                 LegacyLyricsGroup().activate()
             }
         }

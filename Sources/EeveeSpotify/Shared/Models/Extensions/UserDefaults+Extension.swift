@@ -195,14 +195,7 @@ extension UserDefaults {
     private static let miniBarRoundArtworkKey = "miniBarRoundArtwork"
     private static let tabBarSystemGlassDefaultMigratedKey = "tabBarSystemGlassDefaultOn"
     private static let cachedCustomizeVersionKey = "eeveeCachedCustomizeVersion"
-    static var blockRatingPrompts: Bool {
-        get {
-            container.object(forKey: blockRatingPromptsKey) as? Bool ?? false
-        }
-        set {
-            container.set(newValue, forKey: blockRatingPromptsKey)
-        }
-    }
+
     static var enableLogRecording: Bool {
         get {
             container.bool(forKey: enableLogRecordingKey)
@@ -221,14 +214,7 @@ extension UserDefaults {
             container.set(newValue, forKey: redactSharedLogKey)
         }
     }
-    static var blockTelemetry: Bool {
-        get {
-            container.object(forKey: blockTelemetryKey) as? Bool ?? false
-        }
-        set {
-            container.set(newValue, forKey: blockTelemetryKey)
-        }
-    }
+
     static var telemetryObserveOnly: Bool {
         get {
             container.object(forKey: telemetryObserveOnlyKey) as? Bool ?? false
