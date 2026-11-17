@@ -65,7 +65,7 @@ mkdir -p Outputs/IPAS
 OUT="Outputs/IPAS/Shrubify-Spotify-${SPOT_VERSION}-v${TWEAK_VERSION}-b${BUILD}.ipa"
 # Level 3 uses standard ZIP deflate like level 9, but avoids expensive max
 # compression of a large IPA. The output IPA is validated below.
-cyan -i "$SOURCE_IPA" -o "$OUT" -f "${INJECT[@]}" -c 3 -m 15.0 -duw
+cyan -i "$SOURCE_IPA" -o "$OUT" -f "${INJECT[@]}" -c 3 -m 17.4 -duw
 ipapatch --input "$OUT" --inplace --noconfirm --dylib packages/zxPluginsInject.dylib
 bash Tools/alt-icons.sh "$OUT"
 python3 scripts/brand_ipa.py "$OUT" --build "$BUILD"

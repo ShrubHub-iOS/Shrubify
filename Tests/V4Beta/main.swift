@@ -48,7 +48,7 @@ print("V4 beta behavior checks passed")
 check(LyricsFallbacks.chain(primary: .spicylyrics, fallbacks: [.lrclib, .spicylyrics, .lrclib, .genius]) == [.spicylyrics, .lrclib, .genius], "fallback order deduplicates and keeps primary first")
 check(LyricsFallbacks.chain(primary: .notReplaced, fallbacks: [.spicylyrics]).isEmpty, "Spotify-only setting prevents provider calls")
 check(LyricsFallbacks.unique([.notReplaced, .lrclib, .lrclib]) == [.lrclib], "invalid fallback removed")
-check(LyricsSource.defaultSource == .spicylyrics, "default provider stays SpicyLyrics")
+check([LyricsSource.autoSelect, .petit].contains(LyricsSource.defaultSource), "Evolved default is region-aware auto select")
 struct TestLyricsOptions { let geniusFallback = false }
 extension UserDefaults {
     static var container: UserDefaults { UserDefaults.standard }
@@ -95,3 +95,17 @@ RunLoop.main.run(until: Date().addingTimeInterval(0.7))
 clock.processStateChange(state: ["position": 75, "paused": true] as NSDictionary)
 check(clock.currentPositionMs() == 75000, "rejected/clamped seek reconciles promptly")
 print("Seek rejection and pause reconciliation checks passed")
+
+// Existing archives keep the original type scale; malformed sizes are bounded.
+assert(old.fontSize == 30 && old.lineSpacing == 16)
+let typography = try JSONDecoder().decode(KaraokeOptions.self,
+    from: Data("{\"fontSize\":9000,\"lineSpacing\":-100}".utf8))
+assert(typography.resolvedFontSize == 40 && typography.resolvedLineSpacing == 8)
+var customTypography = KaraokeOptions()
+customTypography.fontSize = 36
+customTypography.lineSpacing = 24
+let restoredTypography = try JSONDecoder().decode(KaraokeOptions.self,
+    from: JSONEncoder().encode(customTypography))
+assert(restoredTypography == customTypography)
+customTypography.fontSize = .nan
+assert(customTypography.resolvedFontSize == 30)

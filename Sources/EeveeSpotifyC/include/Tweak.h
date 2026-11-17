@@ -1,5 +1,4 @@
 #import <UIKit/UIKit.h>
-#import "VitrineGlass.h"
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -22,4 +21,5 @@ BOOL ShrubSetPlaybackPaused(id player, BOOL paused);
 
 BOOL ShrubRegisterPlaybackObserver(id player, id observer);
 
+void EeveeRestoreBackground(UIView *view);
 NS_ASSUME_NONNULL_END

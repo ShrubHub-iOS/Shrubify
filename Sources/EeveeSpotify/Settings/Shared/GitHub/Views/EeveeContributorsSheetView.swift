@@ -98,7 +98,6 @@ struct EeveeContributorsSheetView: View {
                 }
 
                 Section(header: Text("Liquid Glass integration")) {
-                    ShrubifyCreditRow(credit: .init(username: "My-Name-Is-Jeff", title: "Vitrine", role: "Liquid Glass material and pane design · GPL-3.0"))
                 }
 
                 Section(header: Text("Upstream contributors"), footer: Text("Shrubify builds on open-source contributions. Original authors and licenses remain credited; the names above do not imply endorsement of Shrubify.")) {

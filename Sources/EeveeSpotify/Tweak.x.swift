@@ -5,7 +5,7 @@ import Foundation
 import ObjectiveC.runtime
 
 func writeDebugLog(_ message: String) {
-    EeveeLog.write("[Shrubify] " + message)
+    EeveeLog.write("[Shrubify] " + DebugLogSanitizer.sanitize(message))
 }
 
 // Kept in the environment so Orion reinits in the same process don't restart the 30s auth window.
@@ -27,6 +27,7 @@ func exitApplication() {
 }
 
 // Split so bootstrap patching survives UI hooks breaking on a given Spotify build.
+struct ResponseTransportGroup: HookGroup { }
 struct PremiumBootstrapGroup: HookGroup { }
 struct PremiumUIHooksGroup: HookGroup { }
 
@@ -57,7 +58,7 @@ func activateV91ServerSidedReminderIfAvailable() {
 
 func activatePremiumPatchingGroup() {
     BasePremiumPatchingGroup().activate()
-    
+
     if EeveeSpotify.hookTarget == .lastAvailableiOS14 {
         IOS14PremiumPatchingGroup().activate()
     }
@@ -71,7 +72,7 @@ func activatePremiumPatchingGroup() {
     }
     else {
         NonIOS14PremiumPatchingGroup().activate()
-        
+
         if EeveeSpotify.hookTarget == .lastAvailableiOS15 {
             IOS14And15PremiumPatchingGroup().activate()
         }
@@ -189,24 +190,24 @@ struct EeveeSpotify: Tweak {
     static let buildNumber = "1"
     static let spotifyVersion = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "?"
     static let repoSlug = GeneratedConfig.repoSlug
-    
+
     static var hookTarget: VersionHookTarget {
         let version = spotifyVersion
-        
+
         eeveeLog("[Shrubify] Detected Spotify version: \(version)")
-        
+
         switch version {
         case "9.0.48":
             return .lastAvailableiOS15
         case "8.9.8":
             return .lastAvailableiOS14
-        case _ where version.contains("9.1"):
+        case _ where version.hasPrefix("9.1.") || version.hasPrefix("9.2."):
             return .v91
         default:
             return .latest
         }
     }
-    
+
     // MARK: - Non-fatal hook error handling
     // Orion's default fatalErrors on any failed hook, including DefaultGroup hooks activated before init().
     static func handleError(_ error: OrionHookError) {
@@ -223,6 +224,7 @@ struct EeveeSpotify: Tweak {
             UserDefaults.overwriteConfiguration = false
             UserDefaults.standard.set(4, forKey: "ShrubifyConfigurationSchema")
         }
+        ShrubifyEvolvedMigration.apply()
         // A stale flag cancels the next bootstrap and hangs the splash screen.
         UserDefaults.hasPatchedBootstrap = false
 
@@ -239,20 +241,19 @@ struct EeveeSpotify: Tweak {
         // Local-only premium force; independent of patching, so premium UI survives everything else being off.
         activateEeveePremiumForce()
 
+        if LyricsActivationPolicy.shouldCapturePlayer(replacingLyrics: UserDefaults.shouldReplaceLyrics,
+            stabilityMode: stabilityMode) {
+            PlaybackCaptureGroup().activate()
+        }
+        if UserDefaults.patchType.isPatching || UserDefaults.shouldHandleLyricsTraffic {
+            ResponseTransportGroup().activate()
+        }
         activateTelemetryBlock()
         activateTheme()
         // Lightweight, opt-in local statistics timer. No private Spotify hooks required.
         DispatchQueue.main.async { ShrubifyReplayStore.shared.start() }
         if !stabilityMode {
-            activateLiquidGlass()
-            activatePlayerGestures()
-            activatePlayerHaptics()
-            activateHomeDeclutter()
-            activateGlassCustomTabs()
-            activateHomeGradient()
-            activateArtistHides()
-            activatePlaylistHides()
-            HideJam.activate()
+            activateEvolvedInterface()
             activateRemoteFlags()
         }
         activateRatingPromptBlock()
@@ -329,16 +330,9 @@ struct EeveeSpotify: Tweak {
                 activateV91ServerSidedReminderIfAvailable()
             }
 
-            let lyricsEnabled = UserDefaults.lyricsSource.isReplacingLyrics
+            let lyricsEnabled = UserDefaults.shouldReplaceLyrics
 
             if lyricsEnabled {
-                let fullscreenOK: Bool = {
-                    if let cls = NSClassFromString("Lyrics_FullscreenElementPageImpl.FullscreenElementViewController") {
-                        return class_getInstanceMethod(cls, #selector(UIViewController.viewDidLoad)) != nil
-                    }
-                    return false
-                }()
-
                 let npvOK: Bool = {
                     if let cls = NSClassFromString("NowPlaying_ScrollImpl.NPVScrollViewController") {
                         return class_getInstanceMethod(cls, #selector(UIViewController.viewWillAppear(_:))) != nil
@@ -347,17 +341,8 @@ struct EeveeSpotify: Tweak {
                     return false
                 }()
 
-                if fullscreenOK {
-                    BaseLyricsGroup().activate()
-                } else {
-                    writeDebugLog("[INIT] Skipped BaseLyricsGroup (fullscreen VC missing)")
-                }
-
-                if npvOK {
-                    V91LyricsGroup().activate()
-                } else {
-                    writeDebugLog("[INIT] Skipped V91LyricsGroup (NPVScrollViewController missing)")
-                }
+                BaseLyricsGroup().activate()
+                if npvOK && !stabilityMode { ModernLyricsGroup().activate() }
 
             }
 
@@ -393,7 +378,7 @@ struct EeveeSpotify: Tweak {
                 TrueShuffleHook.install()
                 activateEeveeProbes()
                 activateSponsorBlock()
-                activateKaraokeHooks()
+                activateShrubifyPlaybackSupport()
             }
             return
         }
@@ -401,27 +386,27 @@ struct EeveeSpotify: Tweak {
         if UserDefaults.experimentsOptions.showInstagramDestination {
             InstgramDestinationGroup().activate()
         }
-        
+
         if UserDefaults.darkPopUps {
             DarkPopUps().activate()
         }
-        
+
         if UserDefaults.patchType.isPatching {
             activatePremiumPatchingGroup()
         }
-        
-        if UserDefaults.lyricsSource.isReplacingLyrics {
+
+        if UserDefaults.shouldReplaceLyrics {
             BaseLyricsGroup().activate()
-            LyricsErrorHandlingGroup().activate()
-            
-            if EeveeSpotify.hookTarget == .latest {
+
+
+            if EeveeSpotify.hookTarget == .latest && !stabilityMode {
                 ModernLyricsGroup().activate()
             }
-            else {
+            else if !stabilityMode {
                 LegacyLyricsGroup().activate()
             }
         }
-        
+
         UniversalSettingsIntegrationProfileGroup().activate()
         UniversalSettingsIntegrationSettingsVCGroup().activate()
         if NSClassFromString("RootSettingsViewController") != nil {
@@ -435,6 +420,6 @@ struct EeveeSpotify: Tweak {
 
         activateEeveeProbes()
         activateSponsorBlock()
-        activateKaraokeHooks()
+        activateShrubifyPlaybackSupport()
     }
 }

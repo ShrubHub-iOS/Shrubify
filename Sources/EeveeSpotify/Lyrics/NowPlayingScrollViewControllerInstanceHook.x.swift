@@ -1,6 +1,7 @@
 import Orion
 import UIKit
-import ObjectiveC.runtime
+
+struct PlaybackCaptureGroup: HookGroup { }
 
 var statefulPlayer: StatefulPlayerImplementation?
 var backgroundViewModel: SPTNowPlayingBackgroundViewModel?
@@ -9,106 +10,84 @@ var scrollDataSource: NowPlayingScrollDataSourceImplementation?
 var nowPlayingScrollViewController: NowPlayingScrollViewController?
 var npvScrollViewController: NPVScrollViewController?
 
-// Purely introspective — enumerates method/ivar names via the ObjC runtime's
-// own reflection APIs and logs them. Never calls any of the selectors it
-// finds, so unlike guessing a `value(forKey:)` key (which can raise an
-// uncatchable NSException and crash the host app if the key doesn't exist),
-// this is safe to run against a completely unknown object. Logs through
-// writeDebugLog (not NSLog, unlike EeveeProbes.x.swift's very similar
-// dumpClass) specifically so this shows up in the same eeveespotify_debug.log
-// file already being used to diagnose the karaoke playback-tracking issue —
-// NSLog-only output isn't visible there.
-func karaokeDumpClassMethods(_ label: String, of object: AnyObject?) {
-    guard let object = object else {
-        writeDebugLog("[KaraokeProbe] \(label): object is nil")
-        return
-    }
-    guard let cls = object_getClass(object) else {
-        writeDebugLog("[KaraokeProbe] \(label): object_getClass returned nil")
-        return
-    }
-    writeDebugLog("[KaraokeProbe] \(label): class=\(NSStringFromClass(cls))")
-    var count: UInt32 = 0
-    if let methods = class_copyMethodList(cls, &count) {
-        var names: [String] = []
-        for i in 0..<Int(count) {
-            names.append(NSStringFromSelector(method_getName(methods[i])))
-        }
-        free(methods)
-        writeDebugLog("[KaraokeProbe] \(label): methods=\(names.sorted())")
-    }
-    var ivarCount: UInt32 = 0
-    if let ivars = class_copyIvarList(cls, &ivarCount) {
-        var names: [String] = []
-        for i in 0..<Int(ivarCount) {
-            let name = ivar_getName(ivars[i]).map { String(cString: $0) } ?? "?"
-            let type = ivar_getTypeEncoding(ivars[i]).map { String(cString: $0) } ?? "?"
-            names.append("\(name):\(type)")
-        }
-        free(ivars)
-        writeDebugLog("[KaraokeProbe] \(label): ivars=\(names)")
-    }
-}
+// `provideStatefulPlayerWithFeatureIdentifier:` 是 Spotify DI 的工厂方法：
+// **每个消费者各自解析一次**，一次打开全屏歌词页会构造几十个组件（ElementFactory /
+// ViewBinder / EffectHandler…），于是同一 feature 会在一瞬间刷出二三十条相同日志。
+// 这里按 feature 记数：每个 id 只记前 3 条，第 4 条提示一次后静音。
+// 加锁是因为该 hook 可能在任意线程被调用。
+private var statefulPlayerLogCounts: [String: Int] = [:]
+private let statefulPlayerLogLock = NSLock()
 
-private var didDumpStatefulPlayer = false
+private func logStatefulPlayerResolution(_ identifier: NSString) {
+    let key = identifier as String
+    statefulPlayerLogLock.lock()
+    let count = (statefulPlayerLogCounts[key] ?? 0) + 1
+    statefulPlayerLogCounts[key] = count
+    statefulPlayerLogLock.unlock()
 
-/// Class-based counterpart to karaokeDumpClassMethods(_:of:) above, for when
-/// there's no live instance to inspect (yet, or ever, if the object simply
-/// isn't reachable) but the Class itself is known — class_copyMethodList
-/// works directly on a Class, no instance required.
-func karaokeDumpClassMethods(_ label: String, ofClass cls: AnyClass) {
-    writeDebugLog("[KaraokeProbe] \(label): class=\(NSStringFromClass(cls))")
-    var count: UInt32 = 0
-    if let methods = class_copyMethodList(cls, &count) {
-        var names: [String] = []
-        for i in 0..<Int(count) {
-            names.append(NSStringFromSelector(method_getName(methods[i])))
-        }
-        free(methods)
-        writeDebugLog("[KaraokeProbe] \(label): methods=\(names.sorted())")
+    if count <= 3 {
+        writeDebugLog("[Lyrics] statefulPlayer resolved (feature: \(key)) [#\(count)]")
+    } else if count == 4 {
+        writeDebugLog("[Lyrics] statefulPlayer resolved (feature: \(key)) — further logs suppressed for this feature")
     }
 }
 
 class LegacyNowPlayingPlatformSwiftServiceImplementationHook: ClassHook<NSObject> {
-    typealias Group = IOS14PremiumPatchingGroup
+    // 原来挂在 IOS14PremiumPatchingGroup 上，而 9.1.x 分支只激活 PremiumBootstrapGroup，
+    // 结果 `statefulPlayer` 在 9.1.x 上永远抓不到。逐词歌词的播放进度、以及歌词需要的曲目元数据
+    // 都依赖它，所以改挂到歌词启用时必定激活的 BaseLyricsGroup。
+    // 目标类/方法在 9.1.x 上均存在（已核对二进制）。
+    typealias Group = PlaybackCaptureGroup
     static let targetName = "NowPlaying_PlatformImpl.NowPlayingPlatformSwiftServiceImplementation"
-    
+
     func provideStatefulPlayer() -> StatefulPlayerImplementation {
         statefulPlayer = orig.provideStatefulPlayer()
-        if !didDumpStatefulPlayer {
-            didDumpStatefulPlayer = true
-            karaokeDumpClassMethods("statefulPlayer", of: statefulPlayer as AnyObject)
+        DispatchQueue.main.async {
+            KaraokeSeek.player = statefulPlayer as AnyObject?
+            if !UserDefaults.standard.bool(forKey: "ShrubifyStabilityMode") {
+                KaraokeGestureTrigger.shared.attachIfNeeded()
+            }
         }
+        logStatefulPlayerResolution("legacy" as NSString)
         return statefulPlayer!
     }
 }
 
 class NowPlayingPlatformSwiftServiceImplementationHook: ClassHook<NSObject> {
-    typealias Group = NonIOS14PremiumPatchingGroup
+    // 同上：改挂 BaseLyricsGroup，保证 9.1.x 上也能拿到 statefulPlayer。
+    typealias Group = PlaybackCaptureGroup
     static let targetName = "NowPlaying_PlatformImpl.NowPlayingPlatformSwiftServiceImplementation"
-    
+
     func provideStatefulPlayerWithFeatureIdentifier(_ identifier: NSString) -> StatefulPlayerImplementation {
         statefulPlayer = orig.provideStatefulPlayerWithFeatureIdentifier(identifier)
-        if !didDumpStatefulPlayer {
-            didDumpStatefulPlayer = true
-            karaokeDumpClassMethods("statefulPlayer", of: statefulPlayer as AnyObject)
+        DispatchQueue.main.async {
+            KaraokeSeek.player = statefulPlayer as AnyObject?
+            if !UserDefaults.standard.bool(forKey: "ShrubifyStabilityMode") {
+                KaraokeGestureTrigger.shared.attachIfNeeded()
+            }
         }
+        logStatefulPlayerResolution(identifier)
         return statefulPlayer!
     }
 }
 
 class NowPlayingScrollPrivateServiceImplementationHook: ClassHook<NSObject> {
-    typealias Group = BaseLyricsGroup
+    // 类还在，但 `provideScrollViewControllerWithDependencies:` 已被 9.1.x 移除
+    // → 隔离组，永不激活。
+    // 9.1.x 上 `nowPlayingScrollViewController` / `scrollDataSource` 因此恒为 nil，
+    // 依赖它们的路径都已有 nil 兜底。
+    typealias Group = V91UnavailableLyricsGroup
     static let targetName = "NowPlaying_ScrollImpl.NowPlayingScrollPrivateServiceImplementation"
-    
+
     func provideScrollViewControllerWithDependencies(_ dependencies: NSObject) -> UIViewController {
         let scrollViewController = orig.provideScrollViewControllerWithDependencies(dependencies)
-        
+
         if NSStringFromClass(type(of: scrollViewController)) ~= "NowPlayingScrollViewController" {
             nowPlayingScrollViewController = Dynamic.convert(
                 scrollViewController,
                 to: NowPlayingScrollViewController.self
             )
+            writeDebugLog("[Lyrics] Captured NowPlayingScrollViewController")
         }
         else {
             scrollDataSource = Ivars<NowPlayingScrollDataSourceImplementation>(target)
@@ -117,11 +96,12 @@ class NowPlayingScrollPrivateServiceImplementationHook: ClassHook<NSObject> {
                 scrollViewController,
                 to: NPVScrollViewController.self
             )
+            writeDebugLog("[Lyrics] Captured NPVScrollViewController + scrollDataSource")
         }
-        
+
         backgroundViewModel = Ivars<SPTNowPlayingBackgroundViewModel>(dependencies)
             .backgroundViewModel
-        
+
         return scrollViewController
     }
 }

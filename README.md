@@ -1,4 +1,4 @@
-> **Shrubify 4.0:** More reliable custom lyrics, loading and retry controls, independent settings navigation, safer request handling, artwork and motion improvements, and Replay/Studio fixes. See [V4-RELEASE.md](V4-RELEASE.md) for release details and device-validation limits.
+> **Evolved UI port:** Evolved’s player, glass tab bar/mini-player, page designs, lyrics renderer and complete provider layer now replace the previous glass/material integrations. **iOS 17.4+; system glass on iOS 26+.** See [port scope, licenses and validation limits](docs/EVOLVED-INTEGRATION.md).
 
 # Shrubify 3.0.4 — Listening is easy with Shrubify!
 
@@ -10,11 +10,11 @@ Shrubify is an **unofficial, community-developed iOS/iPadOS tweak** based on an 
 
 | Feature | What it does | Limitations |
 | --- | --- | --- |
-| **Shrubify Studio** | Choose Classic, Minimal, Immersive, or Custom player modes; edit artwork backdrops, artwork corner radius, lyrics cards, mini-player appearance and player elements. Save up to 12 named layouts locally. | Uses existing version-gated hooks. Some changes need a restart. Liquid Glass requires a supported iOS version. |
+| **Shrubify Studio** | Open Evolved’s player, tabs/mini-player, home/library/page and lyrics appearance controls. | Old layout archives are retained but no longer applied. iOS 17.4+; system glass requires iOS 26+. Spotify version compatibility needs device testing. |
 | **ShrubPanel** | A small in-app hub for Studio, Replay, ShrubQueue and supported lyrics tools. Reach it from Shrubify settings or (where the player observer attaches) a long press on the mini-player. | The mini-player gesture is version-dependent; the settings entry is the reliable fallback. |
 | **Shrubify Replay** | Private, opt-in local listening records: listening duration, track counts, top artists, seven-day trends and approximate plays. Includes privacy controls and a reset button. | Counts only *observed* playback while Shrubify is active, not your full Spotify history. Accuracy depends on now-playing metadata being present. No network sync. |
 | **ShrubQueue** | Shortcut to Spotify's native queue, bookmark the current song, and save a snapshot of the last 20 locally recorded tracks. | Snapshots are **not** a capture or restoration of Spotify's real queue. Opening tracks requires a captured Spotify track URI and in-app navigation support. |
-| **ShrubModes** | One-tap player presets that keep Spotify's original palette and honor chosen accent colors. | Some hooks change between Spotify versions. |
+| **Evolved UI** | Apple Music-style player, fading artwork backdrop, glass tabs and mini-player, and redesigned home/library/album/playlist/artist pages. | Private UI hooks require version-specific device checks. Spotify style remains selectable. |
 | **Compatibility & Diagnostics** | Optional Stability Mode, version reporting, issue links and debug-log export. | Cannot guarantee compatibility with all Spotify builds or eliminate every crash. |
 
 Shrubify 4.0 focuses on the features used while listening: reliable lyrics, accessible playback controls, your saved appearance choices and private local history. Existing contributor credits and compatibility controls remain intact.
@@ -39,7 +39,8 @@ New UI additions use the existing SwiftUI settings navigation and Spotify's in-a
 
 **Project and current development:** [shrubbery](https://github.com/zoinkdoggie94) (owner and lead developer), [HakureiMango](https://github.com/HakureiMango) (co-owner and contributor), and the [ShrubHub team](https://github.com/ShrubHub-iOS) (official organization and project support).
 
-**Vitrine Glass:** The optional glass material and shaping implementation in `Sources/EeveeSpotifyC/VitrineGlass.m` is adapted from [Vitrine](https://github.com/My-Name-Is-Jeff/vitrine) (GPL-3.0). Vitrine's complete UI/Spotify hooks are **not** merged, to prevent conflicting hooks and avoid unsupported-version crashes. iOS 26+ only.
+
+**EeveeSpotifyEvolved:** [zbzxbg and contributors](https://github.com/zbzxbg/EeveeSpotifyEvolved) — GPL-3.0 player, page and glass UI implementation, lyrics renderers and complete provider layer; also the earlier sleep timer and Replay inspiration. [Source revision, scope and attribution](docs/EVOLVED-INTEGRATION.md).
 
 **Upstream work:** whoeevee, jaydenjcpy, estrogencat and the contributors documented in [contributors.json](contributors.json) and [README-UPSTREAM.md](README-UPSTREAM.md). Their contributions are substantial and remain acknowledged. The upstream GPL-3.0 obligations, original author notices, and the complete [LICENSE](LICENSE) remain in place. Shrubify is a fork, **not** a claim of authorship over the upstream codebase.
 

@@ -57,7 +57,8 @@ enum SpotifyResponsePatcher {
         let shouldReplaceLyrics = BaseLyricsGroup.isActive
         let isDAC = url.path.lowercased().contains("/dac/view/v1/")
 
-        return (shouldReplaceLyrics && UserDefaults.lyricsSource.isReplacingLyrics && url.isLyrics)
+        return (url.isLyrics && (NgzhwmSettingsViewModel.isLyricsFeatureDisabled
+                || (shouldReplaceLyrics && UserDefaults.shouldReplaceLyrics)))
             || (shouldPatchPremium && (
                 url.isBootstrap || url.isCustomize ||
                 url.isPremiumPlanRow || url.isPremiumBadge || url.isPlanOverview ||

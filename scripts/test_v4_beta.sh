@@ -12,6 +12,7 @@ swiftc -module-cache-path "$TEST_BUILD/module-cache" Sources/EeveeSpotify/Shrubi
   Sources/EeveeSpotify/Lyrics/Models/Settings/LyricsFallbacks.swift \
   Sources/EeveeSpotify/Lyrics/Models/Settings/LyricsFallbackChain.swift \
   Sources/EeveeSpotify/Karaoke/KaraokePlaybackTracker.swift \
+  Sources/EeveeSpotify/Shared/Models/Extensions/Locale+Extension.swift \
   Tests/V4Beta/main.swift -import-objc-header Tests/PlaybackBridge/PlaybackBridge.h \
   "$TEST_BUILD/playback.o" "$TEST_BUILD/fixture.o" -o "$TEST_BUILD/v4-beta-tests"
 "$TEST_BUILD/v4-beta-tests"

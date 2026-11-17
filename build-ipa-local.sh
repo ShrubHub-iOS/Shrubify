@@ -64,7 +64,7 @@ INJECT=("$DYLIB_SRC")
 [ -n "$FRAMEWORK_SRC" ] && INJECT+=("$FRAMEWORK_SRC")
 [ -n "$BUNDLE_SRC" ]    && INJECT+=("$BUNDLE_SRC")
 rm -f "$OUT_IPA"
-cyan -i "$VANILLA_IPA" -o "$OUT_IPA" -f "${INJECT[@]}" -c 9 -m 15.0 -du
+cyan -i "$VANILLA_IPA" -o "$OUT_IPA" -f "${INJECT[@]}" -c 9 -m 17.4 -du
 
 color "6/7  ipapatch LC-inject zxPluginsInject"
 ipapatch --input "$OUT_IPA" --inplace --noconfirm --dylib packages/zxPluginsInject.dylib
@@ -88,6 +88,10 @@ color "7/7  stage alternate app icons"
 # so a locally built IPA ends up with the identical icon set.
 chmod +x Tools/alt-icons.sh
 Tools/alt-icons.sh "$OUT_IPA"
+
+# Evolved UI/lyrics require the Translation framework and the system design mode.
+python3 scripts/brand_ipa.py "$OUT_IPA" --build "${SHRUBIFY_BUILD:-1}"
+python3 scripts/inspect_ipa.py "$OUT_IPA" --require-shrubify
 
 color "Done"
 ls -lh "$OUT_IPA"

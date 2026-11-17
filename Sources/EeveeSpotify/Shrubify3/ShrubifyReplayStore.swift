@@ -131,6 +131,7 @@ final class ShrubifyReplayStore: ObservableObject {
         let rate = (info[MPNowPlayingInfoPropertyPlaybackRate] as? NSNumber)?.doubleValue
             ?? (KaraokePlaybackTracker.shared.isPlaying() ? 1 : 0)
         guard rate > 0 else { previousStamp = nil; return }
+        KaraokeSeek.player = statefulPlayer as AnyObject?
         let playback = KaraokeSeek.refresh()
         let legacyKey = artist.lowercased() + "\u{001F}" + title.lowercased()
         let uri = playback.trackID.map { "spotify:track:" + $0 }
@@ -188,11 +189,18 @@ final class ShrubifyReplayStore: ObservableObject {
         Array(rankedArtists.prefix(max(0, limit)))
     }
 
-    func recentDays() -> [ShrubifyDailyTotal] {
-        (0..<7).reversed().compactMap { offset -> ShrubifyDailyTotal? in
+    func recentDays(count: Int = 7) -> [ShrubifyDailyTotal] {
+        (0..<min(366, max(0, count))).reversed().compactMap { offset -> ShrubifyDailyTotal? in
             guard let day = Calendar.current.date(byAdding: .day, value: -offset, to: Date()) else { return nil }
             let key = Self.dayKey(day)
             return ShrubifyDailyTotal(day: key, seconds: archive.dailySeconds[key] ?? 0)
+        }
+    }
+
+    func listeningDays(inLast days: Int) -> [ShrubifyDailyTotal] {
+        if days > 0 { return recentDays(count: days) }
+        return archive.dailySeconds.keys.sorted().map {
+            ShrubifyDailyTotal(day: $0, seconds: archive.dailySeconds[$0] ?? 0)
         }
     }
 

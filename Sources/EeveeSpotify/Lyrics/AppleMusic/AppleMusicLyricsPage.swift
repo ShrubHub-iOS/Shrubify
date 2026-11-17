@@ -1,0 +1,978 @@
+import SwiftUI
+import UIKit
+
+// 本项目新增（非 MeloX 移植件）：Apple Music 风格全屏歌词页。
+//
+// 分层：
+// AppleMusicLyricsContainerView — UIViewRepresentable 包装的宿主，
+// 内部用 CADisplayLink 驱动播放时间。
+// AppleMusicLyricsPage — 纯 SwiftUI 视图，消费行模型 + 播放时间。
+//
+// 为什么自己开 CADisplayLink 而不是用 MeloX 的 `TimelineView(.animation)`：
+// MeloX 用 TimelineView 是因为它没有别的时钟。本项目已经有经过真机验证的
+// `WordByWordPositionResolver`，
+// 自己驱动可以把「读播放位置」和「刷新视图」合成一次，避免两套时钟互相错拍。
+//
+// MARK: - 播放时间驱动
+//
+// 固定频率重绘的宿主视图。`onTick` 在每帧被调用，参数为当前播放秒数。
+@available(iOS 26.0, *)
+final class AppleMusicLyricsTickView: UIView {
+
+    private var displayLink: CADisplayLink?
+    var onTick: ((TimeInterval) -> Void)?
+    /// 播放位置来源。返回 nil 时保持上一次的值（例如切歌瞬间解析器还没就绪）。
+    var positionProvider: (() -> TimeInterval?)?
+    /// 暂停时不再触发重绘（省电）；恢复时先补一次。
+    var isPaused: Bool = false {
+        didSet {
+            guard isPaused != oldValue else { return }
+            displayLink?.isPaused = isPaused
+            if !isPaused { lastPosition = nil }
+        }
+    }
+
+    private var lastPosition: TimeInterval?
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        backgroundColor = .clear
+        isUserInteractionEnabled = false
+    }
+
+    required init?(coder: NSCoder) {
+        super.init(coder: coder)
+        backgroundColor = .clear
+        isUserInteractionEnabled = false
+    }
+
+    func start() {
+        guard displayLink == nil else { return }
+        let link = CADisplayLink(target: self, selector: #selector(tick))
+        link.add(to: .main, forMode: .common)
+        displayLink = link
+    }
+
+    func stop() {
+        displayLink?.invalidate()
+        displayLink = nil
+    }
+
+    @objc private func tick() {
+        guard !isPaused else { return }
+        let position = positionProvider?() ?? lastPosition ?? 0
+        lastPosition = position
+        onTick?(position)
+    }
+
+    deinit {
+        displayLink?.invalidate()
+    }
+}
+
+// MARK: - 全屏歌词页
+
+@available(iOS 26.0, *)
+struct AppleMusicLyricsPage: View {
+
+    let lines: [LyricLine]
+    /// 每帧变化的播放时间（秒）。
+    let playbackTime: TimeInterval
+    /// 背景（由调用方决定是模糊封面还是纯色）。
+    let background: AnyView
+    /// 关闭按钮回调（为 nil 时不显示关闭按钮）。
+    let onClose: (() -> Void)?
+    /// 点某一行跳转（为 nil 时不可点）。
+    let onSeek: ((TimeInterval) -> Void)?
+    /// 顶部/底部无障碍内边距。
+    let contentInsets: EdgeInsets
+    /// 排版分档（全屏 / 预览两种尺度）。
+    let typography: LyricsTypographyScale
+    /// 是否显示副唱（背景人声）。预览模式传 false。
+    let showsBackgroundVocals: Bool
+    /// 是否显示行译文。Apple Music 歌词层一律 false。
+    let showsTranslation: Bool
+    /// 歌词提供者（形如 `"AMLL"`；起不带 `(EeveeSpotify)` 后缀）。为空则不显示页脚。
+    let provider: String
+    /// **完整署名**（provider + Spicy Lyrics 社区同步的 uploader/maker）。
+    ///
+    /// 条款 §6 要求"歌词在哪署名就在哪"，所以页脚优先显示它；
+    /// 空（其它歌词源）时退回 `provider`。见 `currentLyricsCreditText`。
+    let providerCredit: String
+    /// 是否显示歌词提供者页脚。内嵌预览容器太小，不显示。
+    let showsProviderFooter: Bool
+    /// 主色（歌词文字与页脚共用）。
+    ///
+    /// 每一行会把它继续传给 `SynchronizedLyricText`；页脚也用它（取一个低不透明度），
+    /// 这样"页脚"和"歌词"在同一个色系里，换主题色时不会漏掉页脚。
+    let primaryColor: Color
+    /// 顶部固定内容（自绘的标题栏）。全屏时传入，内嵌预览为 nil。
+    ///
+    /// 为什么是内容而不是写死在这里：内嵌预览**没有壳**（那一块小卡片不该出现
+    /// 标题栏和播放键），全屏才有。用 `AnyView` 而不是泛型参数，是为了不给
+    /// `AppleMusicLyricsPage` 加第二个泛型参数（它已经被 `SomeView` 各处引用）。
+    let headerContent: AnyView?
+    /// 底部固定内容（自绘的进度条 + 播放控制）。全屏时传入，内嵌预览为 nil。
+    let footerContent: AnyView?
+    /// 右上角的自绘关闭键。给了它就顶掉内置的 `onClose` 圆按钮。
+    ///
+    /// 复用这个位置而不是另起一个浮层：它本来就在页面右上角、已经算过安全区，
+    /// 再叠一层只会多一份要维护的坐标。
+    let closeContent: AnyView?
+
+    /// **静态档**（"这一首没有时间轴"那一档 —— 歌词呢）。
+    ///
+    /// 那一档的行是**合成**出来的（时间全是 0、没有音节），排版该和有时间轴的一模一样 ——
+    /// 这个没有时间轴的歌词的滚动，展示大小什么的**不是复用有时间轴的逻辑吗**。
+    ///
+    /// 打开之后这一页只改三件事（其余全部照旧：同一套 `LazyVStack` / 字号 / 行距 / 左右内边距 /
+    /// 滚动容器）：
+    /// 1. **每一行都按"焦点行"画**（`focusStrength = 1`）—— 不高亮某一行、也不把别的行压暗糊掉；
+    /// 2. **不自动跟随**（不进 `scrollTo`）—— 用户自己滚；
+    /// 3. **点行不跳转** —— 合成行的时间是 0，点了会把歌拉回开头。
+    let isStatic: Bool
+
+    init(
+        lines: [LyricLine],
+        playbackTime: TimeInterval,
+        background: AnyView,
+        onClose: (() -> Void)? = nil,
+        onSeek: ((TimeInterval) -> Void)? = nil,
+        contentInsets: EdgeInsets = EdgeInsets(top: 60, leading: 24, bottom: 120, trailing: 24),
+        typography: LyricsTypographyScale = .fullscreen,
+        showsBackgroundVocals: Bool = true,
+        showsTranslation: Bool = false,
+        provider: String = "",
+        providerCredit: String = "",
+        showsProviderFooter: Bool = false,
+        primaryColor: Color = .white,
+        headerContent: AnyView? = nil,
+        footerContent: AnyView? = nil,
+        closeContent: AnyView? = nil,
+        headerHeight: CGFloat = 62,
+        headerTopInset: CGFloat = -30,
+        hidesShellOnScroll: Bool = true,
+        fadeBottomOpaqueRatio: CGFloat = 0.86,
+        footerHeight: CGFloat = 116,
+        fadeBottomBand: CGFloat = 40,
+        isStatic: Bool = false
+    ) {
+        self.isStatic = isStatic
+        self.lines = lines
+        self.playbackTime = playbackTime
+        self.background = background
+        self.onClose = onClose
+        self.onSeek = onSeek
+        self.contentInsets = contentInsets
+        self.typography = typography
+        self.showsBackgroundVocals = showsBackgroundVocals
+        self.showsTranslation = showsTranslation
+        self.provider = provider
+        self.providerCredit = providerCredit
+        self.showsProviderFooter = showsProviderFooter
+        self.primaryColor = primaryColor
+        self.headerContent = headerContent
+        self.footerContent = footerContent
+        self.closeContent = closeContent
+        self.headerHeight = headerHeight
+        self.headerTopInset = headerTopInset
+        self.hidesShellOnScroll = hidesShellOnScroll
+        self.fadeBottomOpaqueRatio = fadeBottomOpaqueRatio
+        self.footerHeight = footerHeight
+        self.fadeBottomBand = fadeBottomBand
+    }
+
+    private static var profile: AppleMusicLyricsMotionProfile { .iOS26_6 }
+
+    /// 滚动后暂停自动跟随的截止时间。
+    ///
+    /// 这套机制是从旧 overlay（`LyricsWordByWordOverlayView.autoScrollPauseUntil`）
+    /// 搬过来的——新层最初漏了它，表现为"手指一离开就被拉回当前行"。
+    /// 旧实现的取值：拖动中 3s、松手/减速结束各 2s；SwiftUI 这边只能拿到
+    /// "正在拖动"，所以用一个足够长的窗口覆盖松手后的惯性滚动。
+    @State private var autoScrollPauseUntil: Date = .distantPast
+    /// 拖动手势上一次活跃的时间，用来判断"用户刚松手"。
+    @State private var lastDragTime: Date = .distantPast
+    /// 上一次自动滚动的时间，用于给连续点击节流（避免多段动画互相打断）。
+    @State private var lastAutoScrollTime: Date = .distantPast
+    /// 松手后继续暂停自动跟随的时长。
+    private let postDragPauseDuration: TimeInterval = 2
+    /// 两次自动滚动之间的最小间隔。
+    private let minimumAutoScrollInterval: TimeInterval = 0.35
+
+    // MARK: 壳的占位 / 淡出带
+    //
+    // 底部淡出带高度：从「控件栏上方这么多」开始渐隐，到「控件栏顶部」完全透明。
+    //
+    // ⚠️ 预览传 0：它底部的 120pt 是**为了让内容可滚而留的空白**（当前行才能居中），
+    // 在那片空白上淡出等于白淡 —— 反而会把最后一行也一起吃掉。
+    // 预览就让 lyrics 一直清晰到卡片下缘。
+    var fadeBottomBand: CGFloat = 40
+
+    // MARK: 划动时收起壳
+    //
+    // 自绘标题栏的实际高度。默认是全屏那套（曲名 + 歌手 ≈ 62）。
+    //
+    // 内嵌预览传"卡片标题栏高度"（卡片高度 − 歌词视图高度，39pt）——
+    // 预览的标题栏只有一行「歌词」+ 两个按钮，跟全屏那两行文字不是一个高度，
+    // 写死 62 会把预览的歌词往下推一截。
+    let headerHeight: CGFloat
+
+    /// 标题栏顶端相对安全区的偏移。**负数 = 往上抬**。
+    ///
+    /// 全屏默认 -30：那一页标题上方本来就有 Spotify 自己的留白，抬一点才对得上。
+    /// ⚠️ **内嵌预览必须传 0**：卡片里 `safeArea.top == 0`，再抬 -30 就把整条标题栏
+    /// 推到卡片外面去 —— 真机上表现就是"预览歌词一个按钮都没有"（标题栏整个被裁掉）。
+    var headerTopInset: CGFloat = -30
+
+    /// 底部壳的高度（淡出遮罩拿它算"从哪开始淡"）。
+    ///
+    /// 全屏 = 116（进度条 + 时间 + 三键）；**内嵌预览 = 0**（它没有控件栏）。
+    /// 写死 116 时，320pt 高的预览卡片会从 y≈204 就开始淡出 —— 那正是
+    /// "下淡出太高"的原因。注意这条路径与 `fadeBottomOpaqueRatio` **无关**：
+    /// 预览现在也有 `headerContent`，走的是按壳占位算的 `fadeMaskStops`。
+    var footerHeight: CGFloat = 116
+
+    /// 是否启用"划动时收起壳"（收起即「全屏歌词」）。
+    ///
+    /// 只有全屏要这个行为；内嵌预览是一张小卡片，收起壳只会剩一片空白，
+    /// 而且"停下不动就淡出 / 划动就收起"那套在预览里没有意义。
+    var hidesShellOnScroll: Bool = true
+
+    /// 自绘的壳（标题栏 + 控件栏）是否被划动收起 —— 收起即「全屏歌词」。
+    @State private var isShellHidden = false
+    /// 待执行的「把壳调回来」任务；再次划动时取消，避免刚抬手就被旧定时器拉回来。
+    @State private var shellRestoreTask: Task<Void, Never>?
+    /// 松手后多久把壳调回来（这个窗口同时覆盖了松手后的惯性滚动阶段）。
+    private let shellRestoreDelay: TimeInterval = 2
+
+    /// 壳当前是否真的不可见（预览里 `hidesShellOnScroll == false`，永远可见）。
+    private var isShellEffectivelyHidden: Bool {
+        hidesShellOnScroll && isShellHidden
+    }
+
+    /// **无壳兜底路径**的顶部淡出结束位置（视口高度比例）—— 取自
+    /// MeloX 的 `topOpaque: 0.08`。全屏有壳时不用它，改用 `fadeMaskStops`
+    /// 按壳的真实占位算。
+    var fadeTopRatio: CGFloat = 0.08
+    /// **无壳兜底路径**的底部开始淡出位置。MeloX 用 0.84。
+    ///
+    /// ⚠️ 这是**比例**，所以容器越矮、淡出带越大：全屏 896pt 时 0.84 对应
+    /// 约 143pt 的淡出带，看着正常；预览卡片只有 320pt，同样比例就变成
+    /// **64pt 的淡出带**，占了卡片五分之一 —— 真机表现就是"预览的下淡出太高"。
+    /// 预览传一个更大的值（更晚开始淡出），把带子压回合理高度。
+    var fadeBottomOpaqueRatio: CGFloat = 0.86
+
+    // MARK: 间奏行（三个呼吸点）
+    //
+    // 这一首的间奏。**每首歌只推一次**，见 `refreshInterludes`。
+    @State private var interludes: [LyricInterlude] = []
+
+    /// `displayBeforeLyricID → 间奏`：间奏行驻留在**下一句歌词的上面**
+    /// （MeloX 的 `displayBeforeLyricID`），渲染时按歌词行 id 查一下就知道
+    /// 这一行头上要不要加一条。整页只建一次。
+    @State private var interludeByDisplayLyricID: [LyricLine.ID: LyricInterlude] = [:]
+
+    /// 上一次推间奏时的歌词身份 —— 换歌 / 换源 / 换时间轴后要重推。
+    @State private var interludeLyricsFingerprint: String = ""
+
+    /// 间奏判定的口径：**照 MeloX 的默认值**（`LyricsInterludePreferences`：
+    /// `defaultMode = .automatic`、`defaultMinimumInferredGapDuration = 4.0`）。
+    ///
+    /// ⚠️ 先写死、暂时不做开关：`.automatic(4)` 的含义是"连**推断**出来的 LRC 间隙
+    /// 也算，阈值 4 秒"，这是口味 —— 得先在真机上把 `.preciseTiming`（只认作者时间轴）
+    /// 与它各听一遍，才知道该给用户哪一个。在那之前露一个开关，只是多一个
+    /// 排查型开关的处置（见 `EeveeDebugSettingsViewModel`）。
+    private static let interludeDetectionPolicy: LyricInterludeDetectionPolicy =
+        .automatic(minimumInferredGapDuration: 4)
+
+    /// 歌词的"身份"：档位 + 行数 + 首尾行 id。换歌、换源、换时间轴都会变。
+    ///
+    /// ⚠️ 带上 `isStatic`：静态档（没有时间轴）**故意不推**间奏（见 `refreshInterludes`），
+    /// 若同一份行从静态档翻成有时间轴那一档，光看行数是发现不了的 —— 那就会停在
+    /// "间奏永远是空的"。带上它之后这个翻转也会触发重推。
+    ///
+    /// ⚠️ 用它而不是直接比较 `lines`：`lines` 是 `[LyricLine]`，逐字段比较一首歌要跑
+    /// 几百次字符串比较，而这一页**每帧**都会求值一次 body；这条只比几个值。
+    ///
+    /// ⚠️ 首尾 id 先取进局部变量：**插值里不要写引号**（`\(x ?? "")` 这种），
+    /// `swift_member_check.py` 的去字符串扫描器遇到它会提前收尾、把后面的英文单词
+    /// 当裸标识符误报（这个坑在 `HANDOFF` 里记着，已经浪费过一次改动）。
+    private var lyricsFingerprint: String {
+        let mode = isStatic ? "static" : "timed"
+        let firstName = lines.first?.id ?? ""
+        let lastName = lines.last?.id ?? ""
+        return "\(mode)|\(lines.count)|\(firstName)|\(lastName)"
+    }
+
+    /// 推一遍间奏（候选 + 按 id 的索引）；歌词没变就直接返回。
+    ///
+    /// 为什么不每帧算：`LyricInterludeTimeline.candidates` 要逐行估"人声唱到哪"
+    /// （字符串操作 + 逐音节取最大值），而这一页每帧都会重新求值一次 body
+    /// （`playbackTime` 是入参，宿主每帧换一个新值）。
+    private func refreshInterludes() {
+        let fingerprint = lyricsFingerprint
+        guard fingerprint != interludeLyricsFingerprint else { return }
+        interludeLyricsFingerprint = fingerprint
+
+        // 静态档（没有时间轴）不推：那些合成行的时间全是 0，`makeInterlude` 那句
+        // "间隙必须为正"本来就会把它们全挡掉，推出来是一份空数组 —— 这里只是省一次遍历。
+        guard !isStatic else {
+            interludes = []
+            interludeByDisplayLyricID = [:]
+            return
+        }
+
+        let detected = LyricInterludeTimeline.interludes(
+            in: lines,
+            detectionPolicy: Self.interludeDetectionPolicy
+        )
+        interludes = detected
+        interludeByDisplayLyricID = Dictionary(
+            detected.map { ($0.displayBeforeLyricID, $0) },
+            uniquingKeysWith: { first, _ in first }
+        )
+        // 诊断行：真机上要能一眼看出"这一首判出来几段间奏"。
+        // ⚠️ 只在**重推**时打（换歌那一次），不是每帧 —— 不然日志会被刷爆。
+        //
+        // **每段多长也带上** —— 那 17 条各占 40pt 的驻留行（`AppleMusicInterludeRow`）会造成
+        // 「歌词有额外换行」。下一份日志直接看这串数就能定阈值（现在逐字来源也用 4s）。
+        let gaps = detected.map { String(format: "%.1f", $0.gapDuration) }.joined(separator: ",")
+        writeDebugLog(
+            "[Interlude] \(detected.count) interlude(s) in \(lines.count) line(s), gaps=[\(gaps)]"
+        )
+    }
+
+    /// 当前播放位置（由纯逻辑时间轴给出，不在这里自己算）。
+    private var position: LyricPlaybackPosition {
+        LyricPlaybackTimeline.position(at: playbackTime, in: lines)
+    }
+
+    var body: some View {
+        // 用 GeometryReader 量出**真实可用宽度**再传下去。
+        // 之前直接把 constrainedWidth 传 nil、指望 SwiftUI 从父容器推断，
+        // 结果是文字不换行、直接超出屏幕宽度（尤其是 36pt 的英文长句）。
+        // 同时这也让 `LyricLineFitting` 的超宽缩放修正重新生效。
+        GeometryReader { geometry in
+            let availableWidth = max(
+                geometry.size.width
+                    - contentInsets.leading
+                    - contentInsets.trailing,
+                1
+            )
+            // ⚠️ 宿主还没布局完时（第一帧 `geometry.size.width == 0`）**不要**去排歌词。
+            //
+            // 那时 availableWidth 会被 `max(…, 1)` 夹成 1，折行构建器按 1pt 宽度算出来就是
+            // **一个字一行**，
+            // 挂载/切全屏的那一帧会闪一下"竖排字"。
+            // 这一帧干脆什么都不画（下一帧宽度就正常了），比画错再改好。
+            let hasUsableWidth = availableWidth >= 80
+            // 间奏行这一拍该显示什么 —— 整页算**一次**，别每行各算一遍
+            // （那是 O(间奏数 × 行数)，而这个值对整页是同一个）。
+            let interludePosition = LyricInterludeTimeline.position(
+                at: playbackTime,
+                in: interludes
+            )
+            // 焦点行**从这一处算一次**再往下传 —— 间奏尾巴那 1.8s 里
+            // `position.highlightedLyricID` 还指着上一句，而点阵已经画空 ⇒ 焦点必须
+            // 交给 `promotedLyricID`（下一句），否则"高亮还留在上一句"
+            // （§A·7）。两者是二选一、不是并列，判据在 `focusedLyricID`。
+            let focusedLyricID = LyricInterludeTimeline.focusedLyricID(
+                highlighted: position.highlightedLyricID,
+                interludePosition: interludePosition
+            )
+            // 自绘壳占掉的高度：从安全区再往里让，避免歌词钻到标题栏/控件栏底下。
+            //
+            // 62 / 116 是量出来的，不是拍的：
+            // 顶部 = 标题(15pt 一行) + 歌手(12pt 一行) + 间距 ≈ 40，再留 22 呼吸
+            // 底部 = 进度条(11) + 时间行(11+3) + 间距(12) + 三键(56) ≈ 100，再留 16
+            // 这两块**不参与滚动**，所以它们的高度必须在这里一次性让出来。
+            let safeArea = geometry.safeAreaInsets
+            let scrollInsets = EdgeInsets(
+                top: (headerContent == nil
+                    ? contentInsets.top
+                    : safeArea.top + headerHeight) + contentInsets.top,
+                leading: contentInsets.leading,
+                bottom: (footerContent == nil
+                    ? contentInsets.bottom
+                    : safeArea.bottom + footerHeight) + contentInsets.bottom,
+                trailing: contentInsets.trailing
+            )
+
+            // 上下淡出带的渐变停靠点。
+            // 上：从「歌曲标题顶部」透明 → 到「歌手名字下方」完全不透明
+            // 下：从「控件栏上方 fadeBottomBand」完全不透明 → 到「控件栏顶部」透明
+            // 中间整段清晰。以前直接用整屏比例（0.08 / 0.80 / 1.0），淡出落在整屏的
+            // 顶和底，跟壳的位置没关系 —— 现在改成按壳的真实占位算。
+            let maskStops = fadeMaskStops(size: geometry.size, safeArea: safeArea)
+
+            ZStack {
+                background
+                    .ignoresSafeArea()
+
+                // 宽度还没量出来（第一帧）→ 不排歌词，见上面 `hasUsableWidth` 的说明。
+                if hasUsableWidth {
+                    ScrollViewReader { proxy in
+                    ScrollView(.vertical, showsIndicators: false) {
+                        LazyVStack(
+                            alignment: .leading,
+                            // 行块之间用「行距 + 一点额外留白」，而不是 Apple Music
+                            // 全屏页那个 39pt 段间距 —— 那个在短容器里会把一屏的行数
+                            // 压到只剩 3 行。
+                            spacing: typography.lineSpacing
+                                + max(typography.lineSpacing * 0.6, 4)
+                        ) {
+                            ForEach(lines) { line in
+                                // 间奏行驻留在**这一句的上面**（MeloX 的
+                                // `displayBeforeLyricID` 就是这个意思）：没有对应间奏时
+                                // `interludeRow` 一个视图都不产出，布局与改动前逐像素一致。
+                                VStack(alignment: .leading, spacing: 0) {
+                                    interludeRow(
+                                        above: line,
+                                        position: interludePosition
+                                    )
+                                    row(
+                                        for: line,
+                                        position: position,
+                                        focusedLyricID: focusedLyricID,
+                                        availableWidth: availableWidth,
+                                        proxy: proxy
+                                    )
+                                }
+                                .id(line.id)
+                            }
+
+                            // 歌词提供者页脚。
+                            //
+                            // 放在列表末尾（与旧 overlay、Spotify 原生一致）：用户往下翻
+                            // 才看到，不翻就看不到。**不参与卡拉OK** —— 它不挂 renderer、
+                            // 不挂焦点、不模糊、不填充，因为
+                            // 1. 它不是"唱出来的内容"，不该有时间轴；
+                            // 2. 一旦走焦点逻辑，非焦点行的 0.175 透明度 + 3.5pt 模糊
+                            // 会把它糊得不可读。
+                            if showsProviderFooter, !displayedProviderCredit.isEmpty {
+                                providerFooter
+                            }
+                        }
+                        .padding(.top, scrollInsets.top)
+                        .padding(.bottom, scrollInsets.bottom)
+                        .padding(.horizontal, scrollInsets.leading)
+                    }
+                    // ⚠️ 进入时必须**无条件**定位一次。
+                    //
+                    // `onChange` 只在值**变化**时触发：首次渲染时当前行已经就是高亮行，
+                    // 所以它永远不会为"初始这一行"跑一次 —— 结果全屏打开、或从预览切回全屏
+                    // 时，歌词停在最顶上而不是当前行。
+                    // 旧 overlay 没这个问题：它首帧 `activeLineIndex = -1`，
+                    // 必然走一次 `scrollToLine`。
+                    .onAppear {
+                        // 间奏要在这里首推一次：`onChange` 只在值**变化**时触发，
+                        // 而首帧的 `lines` 就是最终值（没有"变化"可等）。
+                        refreshInterludes()
+                        // 静态档（没有时间轴）不跟随：整页从**第一行**开始，用户自己滚。
+                        guard !isStatic else { return }
+                        // 与 onChange 同理：首行之前高亮为 nil，这里要落到**第一行**上，
+                        // 否则全屏打开时若歌曲还在前奏，歌词会停在列表顶部。
+                        guard let id = position.highlightedLyricID ?? lines.first?.id else { return }
+                        // 延后一帧再滚：`LazyVStack` 是先物化可见区域再响应 scrollTo 的，
+                        // 在 onAppear 里立刻调用时目标行往往还没生成，会静默失效。
+                        // 延后一帧仍然是不带动画的落位。
+                        Task { @MainActor in
+                            proxy.scrollTo(id, anchor: .center)
+                            lastAutoScrollTime = Date()
+                        }
+                    }
+                    // 换歌 / 换源 / 换时间轴 ⇒ 重推间奏。
+                    //
+                    // ⚠️ 必须在**同一页**里处理：这一页不是换一首歌就重建（`NowPlayingLyricsPlate`
+                    // 那层是"就地更新 lines"），只靠 `onAppear` 会让第二首歌继续用第一首的间奏。
+                    .onChange(of: lyricsFingerprint) { _, _ in
+                        refreshInterludes()
+                    }
+                    .onChange(of: position.highlightedLyricID) { _, newValue in
+                        // 静态档不跟随（见 `isStatic`）。
+                        guard !isStatic else { return }
+                        // ⚠️ `nil` 不是"没事发生"：它表示播放位置落在**第一行之前**
+                        // （按上一首回到本曲开头、或把进度拖到 0，而首行要几秒后才开始）。
+                        // 旧写法 `guard let newValue else { return }` 把这一路直接吞掉，
+                        // 表现就是"回到开头时歌词不跟着回第一行"。
+                        guard let targetID = newValue ?? lines.first?.id else { return }
+
+                        // 回到开头这一路**绕过节流**：之后高亮会一直停在 nil（前奏可能
+                        // 十几秒），被节流吞掉就没有第二次补滚的机会。这里只避开"手指还在拖"。
+                        if newValue == nil {
+                            guard Date().timeIntervalSince(lastDragTime) > 0.15 else { return }
+                        } else {
+                            guard shouldAutoScroll() else { return }
+                        }
+
+                        lastAutoScrollTime = Date()
+                        withAnimation(
+                            .spring(
+                                duration: 0.5,
+                                bounce: 0.08,
+                                blendDuration: 0
+                            )
+                        ) {
+                            proxy.scrollTo(targetID, anchor: .center)
+                        }
+                    }
+                    // 滚动打断保护：用户一碰就暂停自动跟随。
+                    //
+                    // SwiftUI 的 DragGesture 只有 onChanged/onEnded，拿不到
+                    // UIScrollView 那套 willBeginDragging / didEndDecelerating，
+                    // 所以用"最后一次拖动时间 + 固定窗口"近似覆盖惯性滚动阶段。
+                    //
+                    // 同一对手势顺带负责「划动时收起壳」：划动中立刻收起（＝全屏歌词），
+                    // 松手后 `shellRestoreDelay` 秒再调回来。
+                    .simultaneousGesture(
+                        DragGesture(minimumDistance: 6)
+                            .onChanged { _ in
+                                lastDragTime = Date()
+                                autoScrollPauseUntil = Date()
+                                    .addingTimeInterval(postDragPauseDuration)
+                                hideShellWhileScrolling()
+                            }
+                            .onEnded { _ in
+                                lastDragTime = Date()
+                                autoScrollPauseUntil = Date()
+                                    .addingTimeInterval(postDragPauseDuration)
+                                scheduleShellRestore()
+                            }
+                    )
+                    // 上下边缘淡出。
+                    //
+                    // 这是旧 overlay 有、而我移植时漏掉的一块（它用两个
+                    // `topFadeView` / `bottomFadeView` 渐变层实现）。
+                    // 这里改用 MeloX 的做法：**遮罩歌词内容本身**，背景不参与 ——
+                    // 这样不会出现"背景渐变换色 + 内容渐变"两层叠加变脏的问题。
+                    //
+                    // 停靠点：有壳（全屏）时按壳的真实占位算，见 `fadeMaskStops`；
+                    // 无壳（内嵌预览）时退回 MeloX 的整屏比例 0.08 / 0.84 / 1.0。
+                    .mask(
+                        LinearGradient(
+                            stops: maskStops,
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    )
+                }
+                }
+
+                // 右上角：自绘关闭键优先，其次才是内置的圆按钮。
+                // 划动收起壳时它一起淡出 ——「全屏歌词」不该还留着一个按钮。
+                if let closeContent {
+                    VStack {
+                        HStack {
+                            Spacer()
+                            closeContent
+                        }
+                        Spacer()
+                    }
+                    .padding(.top, safeArea.top + 6)
+                    .padding(.trailing, 12)
+                    .opacity(isShellEffectivelyHidden ? 0 : 1)
+                    .allowsHitTesting(!isShellEffectivelyHidden)
+                } else if let onClose {
+                    closeButton(onClose)
+                }
+
+                // 自绘的壳：标题栏固定在顶部、播放控制固定在底部。
+                //
+                // 这两块**不参与滚动**，所以它们不走 `scrollInsets`，而是直接贴在
+                // 安全区边缘；歌词的留白由 `scrollInsets` 负责让出来。
+                //
+                // 划动歌词时整块淡出（＝全屏歌词），松手 `shellRestoreDelay` 秒后回来。
+                // 用透明度而不是 `if`：`if` 会把两块从层级里摘掉，歌词的可视高度跟着
+                // 变化、滚动位置会在收起/恢复之间跳一下。
+                VStack(spacing: 0) {
+                    if let headerContent {
+                        headerContent
+                            .padding(.top, safeArea.top + headerTopInset)
+                    }
+                    Spacer(minLength: 0)
+                    if let footerContent {
+                        footerContent
+                            .padding(.bottom, max(safeArea.bottom, 8))
+                    }
+                }
+                .opacity(isShellEffectivelyHidden ? 0 : 1)
+                .allowsHitTesting(!isShellEffectivelyHidden)
+            }
+        }
+    }
+
+    /// 是否允许此刻自动滚动。
+    ///
+    /// 两道闸门，都是从旧 overlay 的行为反推的：
+    /// 1. **用户滚动暂停窗口**（对应旧的 `autoScrollPauseUntil`）：
+    /// 拖动中与松手后的窗口期内绝不自动滚动，否则手感是"被拽回去"。
+    /// 2. **自动滚动节流**（旧的 0.2s 定长动画隐含了这个效果）：
+    /// 新层用 0.5s spring，若位置每帧更新都触发一次，多段动画会互相打断，
+    /// 最终停在不确定的位置——表现为"点下一行却停在上一行附近"。
+    private func shouldAutoScroll() -> Bool {
+        let now = Date()
+        guard now >= autoScrollPauseUntil else { return false }
+        // 还在拖动中（上一次拖动时间非常近）也不要动。
+        guard now.timeIntervalSince(lastDragTime) > 0.15 else { return false }
+        guard now.timeIntervalSince(lastAutoScrollTime) >= minimumAutoScrollInterval else {
+            return false
+        }
+        return true
+    }
+
+    // MARK: 划动时收起 / 恢复壳
+    //
+    // 划动中：立刻把壳收起来（标题栏 + 控件栏 + 关闭键淡出），歌词即为全屏。
+    //
+    // 预览卡片不参与这个行为（`hidesShellOnScroll == false`）—— 那张卡片上
+    // 收起壳只会剩一片空白。
+    private func hideShellWhileScrolling() {
+        guard hidesShellOnScroll else { return }
+        if !isShellHidden {
+            withAnimation(.easeOut(duration: 0.18)) {
+                isShellHidden = true
+            }
+        }
+        // ⚠️ 每次拖动都要**续上**恢复计时，而不是只在 `.onEnded` 里安排。
+        //
+        // `ScrollView` 一旦接管这次手势，SwiftUI 的 `onEnded` 有可能**根本不来**
+        // （拖动手势被滚动视图自己的 pan 识别器吃掉）。那时壳就永远停在"已收起"：
+        // 标题栏、三键、右上角收起键全部消失 —— 用户在全屏里一个按键都没有，
+        // 而我们那块实心背景又把 Spotify 原生的按键压在下面，等于被困在全屏里。
+        // 现在"最后一次拖动之后 `shellRestoreDelay` 秒"必定恢复；
+        // `onEnded` 只是让恢复早一点发生。
+        scheduleShellRestore()
+    }
+
+    /// 松手：`shellRestoreDelay` 秒后把壳调回来。
+    ///
+    /// 用「延迟任务」而不是立即恢复，是因为 SwiftUI 拿不到惯性滚动的结束时机
+    /// （见上面 DragGesture 那段说明）—— 这个固定窗口同时也盖住了减速阶段。
+    ///
+    /// ⚠️ 它同时也是**兜底**：拖动过程中的每一次 `onChanged` 都会调到这里来续期，
+    /// 所以即使 `onEnded` 没来（手势被 ScrollView 吃掉），壳也一定会回来。
+    private func scheduleShellRestore() {
+        guard hidesShellOnScroll else { return }
+        shellRestoreTask?.cancel()
+        shellRestoreTask = Task { @MainActor in
+            try? await Task.sleep(
+                nanoseconds: UInt64(shellRestoreDelay * 1_000_000_000)
+            )
+            guard !Task.isCancelled else { return }
+            withAnimation(.easeIn(duration: 0.22)) {
+                isShellHidden = false
+            }
+        }
+    }
+
+    /// 壳收着就立刻调回来（点歌词时用）。
+    private func restoreShellIfHidden() {
+        guard isShellHidden else { return }
+        shellRestoreTask?.cancel()
+        shellRestoreTask = nil
+        withAnimation(.easeIn(duration: 0.22)) {
+            isShellHidden = false
+        }
+    }
+
+    // MARK: 淡出遮罩停靠点
+    //
+    // 改动前的整屏比例停靠点（MeloX 口径）。
+    //
+    // 两个场合用它：内嵌预览（本来就没有壳），以及**划动把壳收起**时的全屏歌词 ——
+    // 壳收起后歌词占满整屏，再按壳的占位去算，淡出带会被挤到上下一小块里。
+    private var legacyFadeStops: [Gradient.Stop] {
+        [
+            .init(color: .clear, location: 0),
+            .init(color: .black, location: fadeTopRatio),
+            .init(color: .black, location: fadeBottomOpaqueRatio),
+            .init(color: .clear, location: 1),
+        ]
+    }
+
+    /// 上下淡出带的渐变停靠点（相对滚动视图高度，取值 0…1）。
+    ///
+    /// 有壳且**没被收起**时的口径：
+    /// · 上淡出：标题顶部（透明）→ 标题栏底部（不透明）
+    /// · 下淡出：控件栏顶部上方 `fadeBottomBand`（不透明）→ 控件栏顶部（透明）
+    /// 中间整段保持完全不透明 —— 也就是"歌词只在标题栏下方到控件栏上方之间淡出"，
+    /// 而不是像以前那样贴在整屏的顶和底。
+    ///
+    /// 无壳（内嵌预览）或壳被划动收起时，退回 `legacyFadeStops`（改动前的整屏比例）。
+    private func fadeMaskStops(
+        size: CGSize,
+        safeArea: EdgeInsets
+    ) -> [Gradient.Stop] {
+        let height = max(size.height, 1)
+
+        guard headerContent != nil || footerContent != nil,
+              !isShellEffectivelyHidden else {
+            return legacyFadeStops
+        }
+
+        let headerTop = safeArea.top + headerTopInset
+        let headerBottom = safeArea.top + headerHeight
+        let footerTop = height - (safeArea.bottom + footerHeight)
+        let bottomFadeStart = footerTop - fadeBottomBand
+
+        // 位置必须单调不减，否则 LinearGradient 会出现硬边（小屏 / 大字号时可能越界）。
+        let topClear = min(max(headerTop / height, 0), 1)
+        let topOpaque = min(max(headerBottom / height, topClear), 1)
+        let bottomOpaque = min(max(bottomFadeStart / height, topOpaque), 1)
+        let bottomClear = min(max(footerTop / height, bottomOpaque), 1)
+
+        return [
+            .init(color: .clear, location: topClear),
+            .init(color: .black, location: topOpaque),
+            .init(color: .black, location: bottomOpaque),
+            .init(color: .clear, location: bottomClear),
+        ]
+    }
+
+    // MARK: 歌词提供者页脚
+    //
+    // 页脚那一行到底显示什么：完整署名优先，退回源名。
+    private var displayedProviderCredit: String {
+        providerCredit.isEmpty ? provider : providerCredit
+    }
+
+    /// 静态页脚，**完全不参与**卡拉OK / 焦点 / 模糊那套。
+    ///
+    /// 参数是刻意定的，别照搬歌词行的取值：
+    /// · 字号 13pt —— 比正文小两级，明确是元信息而不是内容
+    /// · 不透明度 0.35 —— 要**高于**非焦点行的 0.175（否则它会沉进底噪里读不出来），
+    /// 又要**明显低于**已唱词的 1.0（否则它会比没唱到的歌词还亮，像多出来的标题）
+    /// · 左对齐 —— 和歌词一致；居中的页脚会读成标题
+    /// · 上间距 24pt —— 和正文拉开，形成独立的"页脚区"
+    private var providerFooter: some View {
+        // 有完整署名（含 Spicy Lyrics 社区同步的 uploader/maker）就显示它 —— 条款 §6 要的
+        // "歌词在哪署名就在哪"落在这一行；没有就退回源名。
+        //
+        // 这一行**做成可点**。条款要的是 *"credit **and link** the uploader,
+        // and the maker"* —— 光显示不算完。链接与听歌页底沿那条共用一套
+        // （`NowPlayingLyricsPlate.creditLinks`：提供者站点 + 每个带 `url` 的贡献者）；
+        // 一个链接直接开，多个弹一张选择表。
+        //
+        // ⚠️ 这一行与听歌页底沿那条**不同**：这里保留提供商（这一页没有歌手行，
+        // 提供商只能自己写出来）；听歌页底沿只写"上传者/制作者"那半（见
+        // `currentLyricsPlateCreditText`）。
+        let links = NowPlayingLyricsPlate.creditLinks()
+
+        return Text("word_by_word_lyrics_provider".localizeWithFormat(displayedProviderCredit))
+            .font(.system(size: 13))
+            .foregroundStyle(primaryColor.opacity(0.35))
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.top, 24)
+            // 整行可点：`Text` 默认只有字形区域命中，13pt 的字很难戳中。
+            .contentShape(Rectangle())
+            .onTapGesture {
+                NowPlayingLyricsPlate.openCreditLink(nil)
+            }
+            // 无障碍：有链接就按"链接"播报，与"可点"这件事保持一致。
+            .accessibilityAddTraits(links.isEmpty ? [] : .isLink)
+    }
+
+    // MARK: 点行跳转
+    //
+    // 点击某一行：seek 到它的时间，并**立刻把它滚到视口中间**。
+    //
+    // 为什么要在这里直接滚，而不是等 `onChange(of: highlightedLyricID)`：
+    // `onChange` 是唯一的滚动入口，而它被 `shouldAutoScroll` 的两道闸门挡着
+    // （用户滚动暂停窗口 + 自动滚动节流）。点击之后位置更新触发的 `onChange`
+    // 会被**节流挡掉**，表现就是"点了歌词停在原地、不回中间"。
+    //
+    // 所以点击走独立的滚动路径：
+    // 1. 清掉暂停窗口与节流（用户刚刚明确表达了"我要看这一行"）
+    // 2. 立刻把被点的这一行居中（不带动画，避免先看见一段位移）
+    // 3. 再执行 seek；若实际高亮落在别的行，`onChange` 会补一次动画滚动
+    private func handleTap(on line: LyricLine, proxy: ScrollViewProxy) {
+        autoScrollPauseUntil = .distantPast
+        lastDragTime = .distantPast
+        lastAutoScrollTime = .distantPast
+
+        // 点歌词本身就是"我要看/我要用"的表达 —— 壳收着的话顺手调回来，
+        // 免得出现"点了半天也不见按键"的困惑。
+        restoreShellIfHidden()
+
+        var transaction = Transaction()
+        transaction.disablesAnimations = true
+        withTransaction(transaction) {
+            proxy.scrollTo(line.id, anchor: .center)
+        }
+
+        onSeek?(line.time)
+        // 关键：把节流起点留在"过去"，而不是设为 now。
+        //
+        // seek 是异步的：位置更新后 `onChange(of: highlightedLyricID)` 才会触发。
+        // 如果这里把 lastAutoScrollTime 设为 now，那次 onChange 会被 0.35s 节流挡掉，
+        // 于是"点了不回中间"。留成 distantPast 是让紧接着的那次补滚动**一定**放行 ——
+        // 它最多再滚一次（目标就是刚点的这一行），是幂等的。
+        lastAutoScrollTime = .distantPast
+    }
+
+    // MARK: 单行
+    //
+    // 某一句歌词**上方**那条间奏行（三个呼吸点）。
+    //
+    // 位置沿用 MeloX 的 `displayBeforeLyricID`：间奏行属于**下一句歌词**，
+    // 也就是"这段没人唱的空白"在谱面上的位置 —— 画在两句之间，不是另起一块。
+    //
+    // 这一行没有对应间奏时**一个视图都不产出**（`EmptyView`），所以
+    // 上面那个 `VStack` 里只剩歌词行本身，布局与"没有这个功能"时完全一致；
+    // 有间奏时那条 40pt 的驻留行才出现（点阵不亮的时候它占位但不画东西）。
+    //
+    // ⚠️ `position` 是从 body 里传下来的**整页唯一那一份**，不要在这里重算
+    // （见 `interludePosition` 的说明）。
+    @ViewBuilder
+    private func interludeRow(
+        above line: LyricLine,
+        position: LyricInterludePlaybackPosition
+    ) -> some View {
+        if let interlude = interludeByDisplayLyricID[line.id] {
+            AppleMusicInterludeRow(
+                interlude: interlude,
+                position: position,
+                playbackTime: playbackTime,
+                primaryColor: primaryColor
+            )
+        }
+    }
+
+    @ViewBuilder
+    private func row(
+        for line: LyricLine,
+        position: LyricPlaybackPosition,
+        focusedLyricID: LyricLine.ID?,
+        availableWidth: CGFloat,
+        proxy: ScrollViewProxy
+    ) -> some View {
+        // 焦点行不再直接比 `position.highlightedLyricID` ——
+        // 间奏尾巴那 1.8s 里它指着上一句，而点阵已经画空，焦点要交给下一句。
+        // 判据（二选一、不是 OR）在 `LyricInterludeTimeline.focusedLyricID`，有 CI 测试。
+        let isFocused = !isStatic && focusedLyricID == line.id
+        let isActive = !isStatic && position.activeLyricIDs.contains(line.id)
+        // 静态档：每一行都按"焦点行"画（满亮度、不模糊、不缩放），只是没有焦点这一说。
+        let focusStrength = isStatic ? 1 : focusStrength(
+            isFocused: isFocused,
+            isActive: isActive
+        )
+        // 整行**贴哪一边**按歌词内容决定，不再跟系统语言走。
+        //
+        // `.leading` / `TextAlignment.leading` / `anchor: .leading` 解析用的都是
+        // **环境 layoutDirection** —— 而环境方向来自系统语言。于是"中文界面 + 阿拉伯语歌词"
+        // 必然被排到左边。
+        // 把这一行的环境方向按**歌词自己**的书写方向覆盖掉（见 `String+ScriptDirection.swift`），
+        // `.leading` 就变成"这一行自己的开头那一边"：阿拉伯语 → 贴右、中英文 → 贴左，
+        // 对唱翻转（`.trailing` ＝ 推到另一端）也跟着一起翻对。
+        let isRightToLeft = line.text.prefersRightToLeftLayout
+
+        SynchronizedLyricText(
+            syllables: line.syllables,
+            text: line.text,
+            playbackTime: playbackTime,
+            isFocused: isFocused,
+            focusStrength: focusStrength,
+            translation: line.translation,
+            // 罗马字接上 —— 渲染层把它画在主歌词**上方**。
+            // 数据由 `LyricLinesAdapter` 用仓库既有罗马化管线填好（逐语言开关已过滤，
+            // 与原文相同的行是 nil）。
+            romanization: line.romanization,
+            // 源给了逐词罗马字时，那一行也按词亮（数据见 `LyricLine.romanizationSyllables`）。
+            romanizationSyllables: line.romanizationSyllables,
+            backgroundVocal: line.backgroundVocal,
+            // 显式传真实宽度，不要再依赖 SwiftUI 推断（那正是文字溢出的原因）。
+            constrainedWidth: availableWidth,
+            alignment: .leading,
+            typography: typography,
+            primaryColor: primaryColor,
+            appliesTimingEffects: isActive,
+            showsBackgroundVocals: showsBackgroundVocals,
+            showsTranslation: showsTranslation
+        )
+        // 注：不要加 `.frame(width: availableWidth, alignment: .leading)`。
+        // 它是为了"让 SwiftUI 与折行构建器用同一个宽度"加的，**MeloX 没有这个**。
+        // 宽度已经通过 `constrainedWidth` 传给构建器与渲染器，再由
+        // `SynchronizedLyricText` 内部的 `.frame(maxWidth: .infinity)` 约束 ——
+        // 多出来的这一层硬宽度反而让 SwiftUI 与构建器各算一次折行。
+        // 焦点态：缩放 + 透明度 + 模糊。三者都跟随 focusStrength，所以
+        // 行切换时是同一条曲线，不会各走各的。
+        .scaleEffect(
+            CGFloat(
+                Self.profile.deselectedScale
+                    + (1 - Self.profile.deselectedScale) * focusStrength
+            ),
+            anchor: .leading
+        )
+        .opacity(
+            Self.profile.deselectedTextOpacity
+                + (Self.profile.selectedTextOpacity
+                    - Self.profile.deselectedTextOpacity) * focusStrength
+        )
+        .blur(radius: blurRadius(focusStrength: focusStrength))
+        .contentShape(Rectangle())
+        .onTapGesture {
+            // 静态档不做"点行跳转"：合成行的时间是 0，点了会把歌拉回开头。
+            guard !isStatic else { return }
+            handleTap(on: line, proxy: proxy)
+        }
+        .animation(
+            .spring(duration: 0.45, bounce: 0.05, blendDuration: 0),
+            value: isFocused
+        )
+        // 放在链条**最外层**：这样它同时盖住
+        // ① 行内文字的对齐（`SynchronizedLyricText` 内部的 `.frame(alignment:)`
+        // 与 `.multilineTextAlignment(alignment.textAlignment)`）；
+        // ② 上面那个 `.scaleEffect(anchor: .leading)` —— 焦点行放大时应当从
+        // "这一行自己的那一侧"长出来，而不是永远从左边。
+        .environment(
+            \.layoutDirection,
+            isRightToLeft ? .rightToLeft : .leftToRight
+        )
+    }
+
+    /// 焦点强度：焦点行 1；正在唱但不是焦点（对唱/重叠）0.7；其余 0。
+    private func focusStrength(isFocused: Bool, isActive: Bool) -> Double {
+        if isFocused { return 1 }
+        return isActive ? 0.7 : 0
+    }
+
+    /// 非焦点行的模糊：跟随焦点强度，离焦点越"远"越糊（这里只做线性过渡）。
+    ///
+    /// 「现在是未播放歌词行是模糊不清的，加个功能叫**未播放歌词行模糊化**」。
+    /// 作为「修改Spotify听歌页布局」的二级菜单项，**默认值改成开**。
+    /// 「选择沉浸式的那几个按键，全部写默认开启」——
+    /// 二级菜单删除，这一条固定开启（非当前行变淡 + 发糊）。
+    ///
+    /// 公式：`maximumNonFocusedBlurRadius × (1 − 焦点强度)`。
+    private func blurRadius(focusStrength: Double) -> CGFloat {
+        // 「选择沉浸式的那几个按键，全部写默认开启」——
+        // 「未播放歌词行模糊化」不再看 `nowPlayingBlurUnplayedLyrics`，固定开启。
+        let radius = Self.profile.nonFocusedBlurRadius
+            + (Self.profile.maximumNonFocusedBlurRadius
+                - Self.profile.nonFocusedBlurRadius)
+        return CGFloat(radius * (1 - min(max(focusStrength, 0), 1)))
+    }
+
+    // MARK: 关闭按钮
+
+    private func closeButton(_ action: @escaping () -> Void) -> some View {
+        VStack {
+            HStack {
+                Spacer()
+                Button(action: action) {
+                    Image(systemName: "chevron.down")
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundStyle(.white.opacity(0.9))
+                        .padding(12)
+                        .background(
+                            Circle().fill(Color.white.opacity(0.14))
+                        )
+                }
+                .padding(.top, 54)
+                .padding(.trailing, 20)
+            }
+            Spacer()
+        }
+    }
+}

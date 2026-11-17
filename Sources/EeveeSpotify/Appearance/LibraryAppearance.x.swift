@@ -1,0 +1,606 @@
+import Foundation
+import Orion
+import UIKit
+import ObjectiveC.runtime
+
+/// 音乐库（Your Library）的「改原生」第一批 —— 不是加层，是**改 Spotify 自己的视图**。
+///
+/// 这一批的分工（目标是 Apple Music 那一档的观感）：
+/// · **本文件**：头部 —— 大标题字号、标题贴左 + 头像/按钮贴右、收掉顶部灰纱、收掉右侧快速滚动条；
+/// · `LibraryRowsAppearance.x.swift`：列表行 / 网格卡片 —— 封面连续圆角（6/8pt）+ 行间发丝线；
+/// · `LibrarySearchAppearance.x.swift`：库内搜索页 —— 搜索框与 Cancel 变胶囊 + 收灰纱。
+/// 三片共用一个开关，关掉各自精确还原。
+///
+/// 为什么必须"复查"，不能只靠 `layoutSubviews`：
+/// 1. 不是每次变更都会再走一遍 layout —— 改完那一次之后页面上再也没有布局回合，后续的覆盖没人纠正；
+/// 2. Spotify 的界面是 Encore 的 element 系统（`ElementView` + binder 驱动），binder 在数据更新时会**把属性写回去**。
+/// 解法照本仓库既有的 `DeclutterChrome.reconcile`：常驻节拍复查（定时器 + 前台 + 布局里顺手叫一次），只是复查内容换成资料库这几项。
+///
+/// 三条纪律：
+/// 1. **全程在开关后面**，关掉完全还原（改过的值全部记下来写回）；
+/// 2. **幂等**：每次复查都先判断再写（值没变就一个字节都不动）；
+/// 3. **只改读得到的属性**（`alpha` / `backgroundColor` / `textAlignment` / `constraint.constant`），**不碰任何需要猜签名的方法**。
+struct LibraryAppearanceGroup: HookGroup {}
+
+/// 资料库这几处的排版常数。
+enum LibraryAppearanceMetrics {
+    /// 标题放大倍数（在 Spotify 原来的字号上乘）。
+    ///
+    /// 1.25 是"一眼看得出、又不至于把头部撑爆"的取值：真机 dump 里标题 label 是
+    /// `@48,7,72,34`（高 34pt，说明原生已接近 `largeTitle` 偏小的一档），
+    /// 再放大 25% 就明显是 AM 那种大标题了。
+    static let titleScale: CGFloat = 1.25
+}
+
+enum LibraryAppearance {
+
+    static var isEnabled: Bool { UserDefaults.libraryLargeTitle }
+
+    /// 复查节拍。0.5s 与 `DeclutterChrome.reconcileInterval` 同量级：
+    /// 足够快（人眼看不到跳变），又不至于每次布局都全树走一遍。
+    private static let reconcileInterval: CFAbsoluteTime = 0.5
+    private static var lastReconcileAt: CFAbsoluteTime = 0
+
+    // MARK: 施加
+    //
+    // 由 hook 在布局时调用（快路径）。幂等。
+    @MainActor
+    static func apply(to root: UIView?) {
+        guard let root else { return }
+        note(root)
+        reconcile(force: true)
+        // ⚠️ 灰纱**只在这一条快路径里收**（= 页面/头部自己的布局回合），**绝不进 0.5s 节拍** ——
+        // Spotify 会随滚动改它，每 0.5 秒强写一次就是在和滚动动画对着干（§② 记的就是那次教训）。
+        if let header = headerView ?? findHeader(in: root) {
+            headerView = header
+            clearTopEdgeScrim(in: header)
+        }
+        hideQuickScroll(in: root)
+    }
+
+    /// 登记当前这一页。weak —— 页面销毁后自动失效，不用手动摘。
+    ///
+    /// ⚠️ 页面换了（切走再回来会新建视图）就重记：只认"还在窗口里"的那一个，
+    /// 否则复查会一直对着一个已经离屏的旧视图做无用功。
+    @MainActor
+    static func note(_ root: UIView) {
+        if let existing = currentRoot, existing !== root, existing.window == nil {
+            currentRoot = root
+            lastReconcileAt = 0   // 新页面立刻生效，不等节流
+        } else if currentRoot == nil {
+            currentRoot = root
+        }
+        startReconcileTimer()
+    }
+
+    private static weak var currentRoot: UIView?
+
+    /// 复查：把该有的改动补齐。**强制档**（`force`）跳过节流，用于开关刚被切换、
+    /// 或页面刚出现的时候。
+    @MainActor
+    static func reconcile(force: Bool = false) {
+        guard let root = currentRoot else { return }
+
+        if !isEnabled {
+            restore()
+            return
+        }
+
+        let now = CFAbsoluteTimeGetCurrent()
+        if !force, now - lastReconcileAt < reconcileInterval { return }
+        lastReconcileAt = now
+
+        applyLargeTitle(in: root)
+        placeHeaderControls(in: root)
+        hideQuickScroll(in: root)
+        flushPendingLayoutInvalidation()
+    }
+
+    /// 开关被手动切换时当场落地（设置页调）。
+    @MainActor
+    static func reconcileNow() {
+        reconcile(force: true)
+    }
+
+    // MARK: ① 大标题：字号/字重拉到 AM 那一档
+
+    private static weak var titleLabel: UILabel?
+    private static var originalFont: UIFont?
+    /// 字体被 binder 写回过几次 —— 这个计数决定下一版走哪条路（见文件头说明）。
+    private static var fontResetCount = 0
+    /// 是否已经成功改过一次（用来区分"还没改"和"被写回"）。
+    private static var hasAppliedOnce = false
+    private static var didReportPersistentReset = false
+
+    /// AM 的"大标题"比 Spotify 的**更大、更重**。
+    ///
+    /// ── ⚠️ 为什么必须靠复查，而不能只改一次
+    /// 标题是 Encore 的 element（`OBJC_ONLY_Label@48,7,72,34,id=YourLibraryHeader.title`），
+    /// 由 binder 驱动；binder 在数据更新时**可能把字体写回**，那一瞬间会闪一下我们的
+    /// 字号再弹回去。所以每次复查都检查一遍（值不对就再写一次），并**数一下被写回的
+    /// 次数**打日志 —— 一直在被写回说明这条路走不通，下一版要改成"我们自己画标题"。
+    ///
+    /// 不改 `textAlignment`：那个 label 的宽度就是内容宽度（`@48,7,72,34`），
+    /// 对齐哪边都一样，肉眼永远看不出差别。
+    private static func applyLargeTitle(in root: UIView) {
+        guard let label = titleLabel ?? findTitleLabel(in: root) else { return }
+        titleLabel = label
+
+        if originalFont == nil {
+            originalFont = label.font
+        }
+        // ⚠️ `largeTitleFont(from:)` 返回的是**非 Optional** 的 `UIFont`，所以这里不能写
+        // `let target = …`（那是给 Optional 用的语法，编译期报
+        // "initializer for conditional binding must have Optional type"）。
+        guard let original = originalFont else { return }
+        let target = largeTitleFont(from: original)
+
+        // 字体被 binder 写回去了吗？（判据：当前点数 ≠ 目标点数）
+        //
+        // ⚠️ 只在这两种情况认为"被写回"：
+        // · 点数恰好等于**原生**点数（说明它刚被重置回去），或
+        // · 点数既不等于原生也不等于目标（说明别的代码在改它）。
+        // 第一次进来时 `label.font === original`，那是"还没改过"，不该算被写回。
+        if label.font.pointSize != target.pointSize {
+            if label.font.pointSize == original.pointSize, hasAppliedOnce {
+                fontResetCount += 1
+                if fontResetCount == 1 {
+                    writeDebugLog("[Library] ⚠️ title font was written back (1st time) - reconcile will write it again")
+                }
+            }
+            label.font = target
+            if !hasAppliedOnce {
+                hasAppliedOnce = true
+                writeDebugLog(
+                    "[Library] large title switched to the AM tier: \(Int(original.pointSize))pt → \(Int(target.pointSize))pt"
+                )
+            }
+        } else if fontResetCount > 0, !didReportPersistentReset {
+            // 连续被写回：说明这条"改原生字体"的路子在 Encore 的 element 下站不住。
+            // 这条日志是"下一版该不该改成自己画标题"的判据。
+            if fontResetCount >= 5, !didReportPersistentReset {
+                didReportPersistentReset = true
+                writeDebugLog(
+                    "[Library] ⚠️ title font has been written back \(fontResetCount) times - the element keeps overriding it, "
+                        + "so drawing our own title needs to be considered"
+                )
+            }
+        }
+    }
+
+    /// 在原生字号基础上"放大一档、加重一级"。
+    ///
+    /// 为什么不写死具体点数：Spotify 的标题字号随语言/动态字体变，写死会让其它语言错位。
+    /// 相对放大既保持它的层次，又一眼看得出变大。
+    private static func largeTitleFont(from font: UIFont) -> UIFont {
+        let size = min(font.pointSize * LibraryAppearanceMetrics.titleScale, 40)
+        let weight: UIFont.Weight = font.fontDescriptor.symbolicTraits.contains(.traitBold) ? .bold : .heavy
+        return UIFont.systemFont(ofSize: size, weight: weight)
+    }
+
+    private static func findTitleLabel(in view: UIView) -> UILabel? {
+        if let label = view as? UILabel,
+           label.accessibilityIdentifier?.hasPrefix("YourLibraryHeader.title") == true {
+            return label
+        }
+        for sub in view.subviews {
+            if let found = findTitleLabel(in: sub) { return found }
+        }
+        return nil
+    }
+
+    // MARK: ③ 头部重排：标题靠左、头像与按钮靠右
+    //
+    // 目标 id 与 pw 的 `Redesigned/Library/LibraryHeader.x` 是同一套（9.1.88 解密 IPA
+    // 里逐字都在）。真机结构：
+    // ```
+    // YourLibraryHeaderView
+    // ├ LiquidGlass.GradientView                       ← 顶部那层灰纱（§④ 收掉）
+    // ├ AutoLayoutStackView，48pt 高的一行
+    // │  ├ AdaptiveFaceContainer    id=Components.UI.SideDrawerButton  ← 头像（挪到最右）
+    // │  ├ YourLibraryHeader.title                                    ← 标题（挪到左沿）
+    // │  ├ (spacer)
+    // │  ├ YourLibraryHeader.recents （这个账号上隐藏）
+    // │  ├ YourLibraryHeader.search
+    // │  └ YourLibraryHeader.plus
+    // └ YourLibraryHeaderContentFiltersView            ← 筛选 chips：原样保留，一个字不动
+    // ```
+    //
+    // ── 为什么用 transform，而不是 frame
+    // 那一行是 Spotify 自己的 stack，每拍按约束摆一遍；而 Auto Layout 只写 center 与
+    // bounds、不碰 transform ⇒ 位移能活过它那一拍。位移一律从"布局摆出来的位置"算
+    // （`center` 不受 transform 影响，`frame` 会）⇒ **幂等**：值没变一个字节都不写。
+    //
+    // ⚠️ 这一行全是 **arranged subview**：绝不能把谁从 stack 里摘掉（摘一颗会让那个
+    // stack 卡在 `updateConstraints` 里）—— 所以这里只有位移，没有移除。
+    //
+    // 右侧留边 8pt：48pt 的按钮贴到右沿时，它 24pt 的字形离屏 20pt。
+    private static let headerRowInset: CGFloat = 8
+    /// 左侧留边（pw 的 `SGRSideMargin` = 16）。
+    private static let headerSideMargin: CGFloat = 16
+    /// 靠右打包的次序（读起来从左到右）；**头像排在最后 = 最右**，与 pw 的 Home/Library 一致。
+    private static let headerTrailingIdentifiers = [
+        "YourLibraryHeader.recents",
+        "YourLibraryHeader.search",
+        "YourLibraryHeader.plus",
+    ]
+
+    private static weak var headerView: UIView?
+    private static let movedHeaderControls = NSHashTable<UIView>.weakObjects()
+    private static var didLogHeaderRestyle = false
+
+    @MainActor
+    private static func placeHeaderControls(in root: UIView) {
+        guard let header = headerView ?? findHeader(in: root) else { return }
+        headerView = header
+        moveHeaderControls(in: header)
+    }
+
+    private static func findHeader(in view: UIView) -> UIView? {
+        if className(view).contains("YourLibraryHeaderView") { return view }
+        for sub in view.subviews {
+            if let found = findHeader(in: sub) { return found }
+        }
+        return nil
+    }
+
+    @MainActor
+    private static func moveHeaderControls(in header: UIView) {
+        guard header.bounds.width > 1 else { return }
+
+        // ① 右侧那一组：按钮按 id 收，头像单独认。
+        var trailing: [UIView] = []
+        for identifier in headerTrailingIdentifiers {
+            guard let control = findView(in: header, where: { $0.accessibilityIdentifier == identifier }),
+                  !control.isHidden, control.alpha > 0.01, control.bounds.width > 1 else { continue }
+            trailing.append(control)
+        }
+        let face = headerFace(in: header)
+
+        // ② 标题贴左沿 —— **只有认出头像才动**：认不出来时头像还在 Spotify 的原位
+        //    （贴左，9.1 的树是 x=16），标题也挪到 16 就会正好压在头像上。
+        //    标题仍然是 **Spotify 自己那一个**（我们只放大过它的字号，见 §①）——
+        //    不像 pw 那样另画一个：那条路要连字号/字重一起自己负责，而"字号"这一项我们已经验过。
+        if let face {
+            trailing.append(face)
+            if let title = titleLabel ?? findTitleLabel(in: header) {
+                titleLabel = title
+                place(title, atLeading: headerSideMargin, in: header)
+            }
+        } else {
+            logHeaderCandidates(header)
+        }
+
+        guard !trailing.isEmpty else { return }
+
+        var right = header.bounds.width - headerRowInset
+        for control in trailing.reversed() {
+            let width = control.bounds.width
+            place(control, atLeading: right - width, in: header)
+            right -= width
+        }
+
+        if !didLogHeaderRestyle, header.window != nil {
+            didLogHeaderRestyle = true
+            let parts = trailing.map { control in
+                "\(className(control))[\(control.accessibilityIdentifier ?? "-")]"
+            }
+            writeDebugLog(
+                "[Library] header restyled — title moved: \(face != nil),"
+                    + " \(trailing.count) control(s) packed at the trailing edge:"
+                    + " \(parts.joined(separator: " | "))"
+            )
+        }
+    }
+
+    /// 头像：9.1.88 是 `ListeningActivity_ElementsKit.AdaptiveFaceContainer`
+    /// （无障碍 id 同时是 `Components.UI.SideDrawerButton`）。9.2.0 的类名里已经没有
+    /// 那个片段，所以按"类名片段 → 无障碍 id → 接近方形 20…56pt"三档认。
+    @MainActor
+    private static func headerFace(in header: UIView) -> UIView? {
+        if let face = findView(in: header, where: {
+            className($0).contains("AdaptiveFaceContainer") && $0.bounds.width > 1
+        }) {
+            return face
+        }
+        if let face = findView(in: header, where: {
+            $0.accessibilityIdentifier == "Components.UI.SideDrawerButton" && $0.bounds.width > 1
+        }) {
+            return face
+        }
+        return findView(in: header, where: { isAvatarSized($0) })
+    }
+
+    private static func isAvatarSized(_ view: UIView) -> Bool {
+        // 头像不是控件。搜索 / ＋ 是 EncoreButton（48×48），尺寸判据会把它们认成头像，
+        // 于是"最右那颗"仍是按钮、真正的头像没被挪走 —— 按控件与类名排掉。
+        if view is UIControl { return false }
+        if className(view).contains("Button") { return false }
+        // 右侧这一组按 id 已经单独收过了，这里按 id 排除。
+        if let identifier = view.accessibilityIdentifier {
+            if headerTrailingIdentifiers.contains(identifier) { return false }
+            if identifier.contains("YourLibraryHeader.") { return false }
+        }
+        let size = view.bounds.size
+        guard size.width >= 20, size.width <= 56, size.height >= 20, size.height <= 56 else {
+            return false
+        }
+        return abs(size.width - size.height) <= 12
+    }
+
+    private static var didLogHeaderCandidates = false
+
+    /// 右侧一颗都没认出来时，把那一行打一遍（每页一次）—— 这次没有的就是下一次要补的判据。
+    @MainActor
+    private static func logHeaderCandidates(_ header: UIView) {
+        guard !didLogHeaderCandidates else { return }
+        didLogHeaderCandidates = true
+        guard let stack = findView(in: header, where: { $0 is UIStackView }) as? UIStackView else {
+            writeDebugLog("[Library] header: no trailing controls and no row stack — left as Spotify's")
+            return
+        }
+        let parts = stack.arrangedSubviews.map { part in
+            "\(className(part))[\(part.accessibilityIdentifier ?? "-")]"
+                + " \(Int(part.bounds.width))×\(Int(part.bounds.height))"
+        }
+        writeDebugLog(
+            "[Library] header: no trailing controls — left as Spotify's; row: \(parts.joined(separator: " | "))"
+        )
+    }
+
+    /// 用 transform 把一颗控件挪到"相对头部左沿 = target"的位置。**幂等**。
+    private static func place(_ control: UIView, atLeading target: CGFloat, in header: UIView) {
+        guard let host = control.superview else { return }
+        // ⚠️ 用 `center`（Auto Layout 摆出来的那个，transform 改不动它），**不要用 `frame`**
+        // （transform 一上，frame 就未定义了）。
+        let hostOriginX = host.convert(CGPoint.zero, to: header).x
+        let naturalLeading = hostOriginX + control.center.x - control.bounds.width / 2
+        let move = CGAffineTransform(translationX: target - naturalLeading, y: 0)
+        if control.transform != move { control.transform = move }
+        if !movedHeaderControls.contains(control) { movedHeaderControls.add(control) }
+    }
+
+    // MARK: ④ 顶部灰纱（只在这条快路径里收，见 `apply`）
+    //
+    // 我们收过的灰纱（弱引用）+ 各自原 alpha 的关联键（原值记在视图自己身上）。
+    private static let touchedScrims = NSHashTable<UIView>.weakObjects()
+    private static var originalScrimAlphaKey: UInt8 = 0
+
+    /// 收掉某个头部顶上那层滚边灰纱（`LiquidGlass.GradientView`）。**幂等**。
+    ///
+    /// ⚠️ 只在**页面/头部的布局回合**里写（`apply` 调），**不进 0.5s 节拍** —— 见 §②的账：
+    /// 那层是**滚动边缘效果**，Spotify 随滚动改它的 alpha，每 0.5 秒归零就是在和滚动动画对着干。
+    /// 现在这样与 pw 等价（他也是只在头部那一拍清一次），而且值已经是 0 就**一个字节都不写**。
+    ///
+    /// 音乐库页与**库内搜索页**各有自己的一层 ⇒ 判据只写这一份，原 alpha 记在**那层视图自己身上**
+    /// （关联对象），还原走一张弱表。
+    @MainActor
+    static func clearTopEdgeScrim(in header: UIView) {
+        guard let scrim = findView(in: header, where: { className($0).contains("GradientView") }) else { return }
+        if objc_getAssociatedObject(scrim, &originalScrimAlphaKey) == nil {
+            objc_setAssociatedObject(
+                scrim,
+                &originalScrimAlphaKey,
+                NSNumber(value: Double(scrim.alpha)),
+                .OBJC_ASSOCIATION_RETAIN_NONATOMIC
+            )
+            touchedScrims.add(scrim)
+            writeDebugLog(
+                "[Library] the top edge scrim is off — \(className(scrim))"
+                    + " (written on a layout pass only, never on the 0.5s tick: it follows the scroll)"
+            )
+        }
+        if scrim.alpha != 0 { scrim.alpha = 0 }
+    }
+
+    /// 有界找第一个满足条件的视图（找不到就 nil；只在头部子树里用，别拿它扫整页）。
+    static func findView(in view: UIView, where matches: (UIView) -> Bool) -> UIView? {
+        if matches(view) { return view }
+        for sub in view.subviews {
+            if let found = findView(in: sub, where: matches) { return found }
+        }
+        return nil
+    }
+
+    // MARK: ⑤ 右侧那条"快速滚动条"（可拖动、拖动时显示分组名）
+    //
+    // 真机证据：
+    // ```
+    // 17.QuickScrollView@0,0,414,896                                   ← 整页覆盖层（与 collection view 平级）
+    // ├ 18.QuickScrollIndicator@244,654,90,28,bg=#262626,id=quickscroll.indicator  ← 拖动时那个日期气泡
+    // └ 18.QuickScrollHandle@381,644,48,48,bg=#262626,id=quickscroll.handle        ← 右边那颗可拖的圆把手
+    // ```
+    // 音乐库在划动的过程中，右边会有个可以拖动的小条**这个条子可以隐藏吗**。
+    //
+    // ── 为什么是"从父视图里拿走"，不是 `alpha = 0`
+    // 它本来就会**随滚动自己显形/隐藏**
+    // ⇒ "每拍写一次 alpha"会和它的显示动画打架（灰纱那笔账的翻版，§②）。
+    // 拿走之后它再也显不出来，而且**它那块不再吃手势** —— "可拖动"也就一起关掉了（用户要的就是这个）。
+    // ⚠️ 记原父视图与下标，关开关时**按原位放回**。
+    private static let removedQuickScroll = NSHashTable<UIView>.weakObjects()
+    private static var quickScrollRestoreKey: UInt8 = 0
+    private static var didReportQuickScroll = false
+
+    private final class QuickScrollPlacement: NSObject {
+        weak var parent: UIView?
+        let index: Int
+        init(parent: UIView?, index: Int) {
+            self.parent = parent
+            self.index = index
+        }
+    }
+
+    @MainActor
+    static func hideQuickScroll(in root: UIView) {
+        guard let view = findView(in: root, where: { className($0).contains("QuickScroll") }) else { return }
+        guard !removedQuickScroll.contains(view), let parent = view.superview else { return }
+        let index = parent.subviews.firstIndex(of: view) ?? 0
+        objc_setAssociatedObject(
+            view,
+            &quickScrollRestoreKey,
+            QuickScrollPlacement(parent: parent, index: index),
+            .OBJC_ASSOCIATION_RETAIN_NONATOMIC
+        )
+        removedQuickScroll.add(view)
+        view.removeFromSuperview()
+        if !didReportQuickScroll {
+            didReportQuickScroll = true
+            writeDebugLog(
+                "[Library] the quick-scroll scrubber is off — \(className(view))"
+                    + " (taken out of the page, so nothing can bring it back; switching the toggle off puts it back)"
+            )
+        }
+    }
+
+    /// 放回原位（关开关 / 页面走了）。
+    @MainActor
+    private static func restoreQuickScroll() {
+        for view in removedQuickScroll.allObjects {
+            guard let placement = objc_getAssociatedObject(view, &quickScrollRestoreKey) as? QuickScrollPlacement,
+                  let parent = placement.parent else { continue }
+            parent.insertSubview(view, at: min(placement.index, parent.subviews.count))
+            objc_setAssociatedObject(view, &quickScrollRestoreKey, nil, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+        }
+        removedQuickScroll.removeAllObjects()
+        didReportQuickScroll = false
+    }
+
+    // MARK: ② 顶部那层滚边渐隐 —— 现在在 §④
+    //
+    // v1 是按类名把 `Reprise_LiquidGlassKit.LiquidGlass.GradientView` 的 alpha 归零，
+    // 有两条问题，§④ 已经改掉：
+    // 1. **肉眼看不出来** —— 那层本来就极淡，所以 §③ 把标题也挪到左沿，不再是"只收一层
+    //    看不见的纱"；
+    // 2. **它属于"动别人视图"那一类** —— 那层是**滚动边缘效果**，Spotify 会随滚动改它的
+    //    alpha，每 0.5 秒归零等于在和滚动动画对着干。
+    //
+    // ⇒ §④ 把频率钉死：**只在页面/头部自己的布局回合写一次**（`apply` 那条快路径），
+    // **绝不进 0.5s 节拍**，且值已是 0 就一个字节都不写。
+    //
+    // ⚠️ 只碰"alpha 与 transform"这两样能精确还原的东西；**布局与滚动机制一个字不动**
+    // （标题/头像/按钮全都是**位移**，不是改约束）。
+    //
+    // MARK: ③ 改了约束就要让 layout 重跑
+    //
+    // 改动**约束常数**之后必须告诉 Auto Layout 重新求解，否则那一处不会生效（只改值、
+    // 不调 `setNeedsLayout` 就是"看起来没任何改动"的来源之一）。
+    // 这里攒起来，在复查末尾统一触发一次（避免同一帧里反复触发）。
+    private static var needsLayoutFlush = false
+
+    /// 对外提供的"记一次待刷新"入口，给未来会改约束的项用。
+    static func markLayoutDirty() {
+        needsLayoutFlush = true
+    }
+
+    private static func flushPendingLayoutInvalidation() {
+        guard needsLayoutFlush else { return }
+        needsLayoutFlush = false
+        currentRoot?.setNeedsLayout()
+    }
+
+    // MARK: 复查节拍
+
+    private static var reconcileTimer: Timer?
+
+    private static func startReconcileTimer() {
+        guard reconcileTimer == nil else { return }
+        let timer = Timer(timeInterval: 0.5, repeats: true) { _ in
+            // Timer 的回调在 main runloop 上；`reconcile` 是 @MainActor，
+            // 这里用仓库既有的 `onMainThreadSync` 表达这件事（不自己写 assumeIsolated）。
+            onMainThreadSync {
+                LibraryAppearance.reconcile()
+            }
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        reconcileTimer = timer
+        writeDebugLog("[Library] reconcile timer started (0.5s) - this is what makes the changes stick, not optional")
+    }
+
+    // MARK: 还原
+
+    @MainActor
+    static func restore() {
+        if let label = titleLabel, let font = originalFont, label.font.pointSize != font.pointSize {
+            label.font = font
+        }
+        originalFont = nil
+        titleLabel = nil
+        hasAppliedOnce = false
+
+        // ③ 头部重排：位移回 0（那就是 Auto Layout 摆的位置）。
+        for control in movedHeaderControls.allObjects where control.transform != .identity {
+            control.transform = .identity
+        }
+        movedHeaderControls.removeAllObjects()
+
+        // ④ 灰纱：写回**它自己原来的** alpha（不是一律写 1 —— 它随滚动变，原值可能就不是 1），
+        // 然后把"记过账"这件事抹掉（关联对象也清）：下次再开开关时它是**新记的一次**，
+        // 日志也会重新报一行（"只报一次"的旗子现在挂在关联对象上，不再是一个 static bool ——
+        // 那次编译错误就是漏删了旧的 `didReportScrim`）。
+        for scrim in touchedScrims.allObjects {
+            if let original = objc_getAssociatedObject(scrim, &originalScrimAlphaKey) as? NSNumber {
+                scrim.alpha = CGFloat(original.doubleValue)
+            }
+            objc_setAssociatedObject(scrim, &originalScrimAlphaKey, nil, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+        }
+        touchedScrims.removeAllObjects()
+
+        // ⑤ 快速滚动条：按原位放回。
+        restoreQuickScroll()
+
+        didLogHeaderRestyle = false
+    }
+
+    private static func className(_ view: UIView) -> String {
+        NSStringFromClass(type(of: view))
+    }
+}
+
+// MARK: - Hook
+//
+// 音乐库页：`YourLibrary_YourLibraryXImpl.YourLibraryView`
+// （IPA `_TtC28YourLibrary_YourLibraryXImpl15YourLibraryView` ↔ 真机 dump `18.YourLibraryView`）。
+//
+// 用 `layoutSubviews` 做**快路径**（页面出现时立刻生效），**不指望它每次都跑** ——
+// 真正的保障是上面那个复查节拍。
+class LibraryAppearanceHook: ClassHook<UIView> {
+    typealias Group = LibraryAppearanceGroup
+    static let targetName = "YourLibrary_YourLibraryXImpl.YourLibraryView"
+
+    func layoutSubviews() {
+        orig.layoutSubviews()
+        // hook 方法上不写 `@MainActor`、方法体里用 `onMainThreadSync` —— 仓库成文规矩
+        // （见 `LyricsChromeVisibility.swift:3-17`）。
+        //
+        // ⚠️ 先把 `target` 取成局部量再进闭包：Orion 生成的那个属性在闭包里引用
+        // 容易踩隔离/捕获的坑，取出来最省事。
+        let view = self.target
+        onMainThreadSync {
+            LibraryAppearance.apply(to: view)
+        }
+    }
+}
+
+func activateLibraryAppearance() {
+    // 三片各自一个 hook（头部在这里，行与库内搜索在各自文件里），**同一个 group** ⇒ 这里一次激活。
+    // ⚠️ 缺哪个就照实报哪个：只有"一个都没有"才整个不装（少一片不该把另外两片也拖下水）。
+    let targets = [
+        LibraryAppearanceHook.targetName,
+        LibraryRowStyleHook.targetName,
+        LibrarySearchStyleHook.targetName,
+    ]
+    let missing = targets.filter { NSClassFromString($0) == nil }
+    if missing.count == targets.count {
+        writeDebugLog("[Library] missing \(missing.joined(separator: ", ")) — hook inactive")
+        return
+    }
+
+    LibraryAppearanceGroup().activate()
+    writeDebugLog(
+        "[Library] library native restyle installed (switch="
+            + "\(UserDefaults.libraryLargeTitle ? "ON" : "OFF"))"
+            + " — header: title font + title leading + avatar trailing + scrim off;"
+            + " rows: continuous corners + hairline; in-library search: capsules"
+            + (missing.isEmpty ? "" : " (missing targets: \(missing.joined(separator: ", ")))")
+    )
+}

@@ -156,8 +156,7 @@ struct SettingsGroupSection: View {
                             : entry.key == "Shrubify Replay" ? "On-device listening history and stats"
                             : entry.key == "ShrubQueue" ? "In-app queue and saved listening snapshots"
                             : entry.key == "ShrubPanel" ? "Quick access to Shrubify tools"
-                            : entry.key == "liquid_glass"
-                            ? (LiquidGlassSettingsView.supported ? "Native iOS 26 glass surfaces" : "Requires iOS 26")
+                            : entry.key == "Evolved UI" ? "Player, tabs, mini-player and page designs"
                             : "\(entry.key)_subtitle".localized,
                         icon: entry.icon,
                         color: entry.color,
@@ -200,6 +199,19 @@ struct SettingsLink<Destination: View>: View {
 struct SettingsResetSection: View {
     let visible: Bool
     let action: () -> Void
+
+    init(visible: Bool, action: @escaping () -> Void) {
+        self.visible = visible
+        self.action = action
+    }
+
+    init(keys: [String], afterReset: @escaping () -> Void) {
+        visible = true
+        action = {
+            for key in keys { UserDefaults.container.removeObject(forKey: key) }
+            afterReset()
+        }
+    }
 
     var body: some View {
         if visible {

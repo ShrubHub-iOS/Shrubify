@@ -58,8 +58,12 @@ def preflight(archive):
             raise ValueError('Shrubify primary icon not configured in ' + icon_section)
     if not any(n.endswith('/EeveeSpotify.dylib') for n in files):
         raise ValueError('EeveeSpotify.dylib not in IPA')
-    if not any(n.endswith('/EeveeSpotify.bundle/KaraokeBackgroundShader.metallib') for n in files):
-        raise ValueError('Lyrics background shader missing from resource bundle')
+    if not any(n.endswith('/EeveeSpotify.bundle/en.lproj/Localizable.strings') for n in files):
+        raise ValueError('UI/lyrics English resources missing from resource bundle')
+    if tuple(int(part) for part in str(p.get('MinimumOSVersion', '0')).split('.')) < (17, 4):
+        raise ValueError('IPA minimum OS is below the imported UI/lyrics deployment floor')
+    if p.get('UIDesignRequiresCompatibility'):
+        raise ValueError('IPA still requests the old system design')
     bad = archive.testzip()
     if bad:
         raise ValueError('Corrupt IPA ZIP member: ' + bad)

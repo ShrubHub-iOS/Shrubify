@@ -1,14 +1,9 @@
 import UIKit
-import Orion
 
+/// Use the active settings/player window instead of Spotify's private popup
+/// presenter, which can display behind Shrubify's independent settings window.
 struct PopUpHelper {
-    private static var isPopUpShowing = false
-    
-    static let sharedPresenter = type(
-        of: Dynamic.SPTEncorePopUpPresenter
-        .alloc(interface: SPTEncorePopUpPresenter.self)
-    )
-    .shared()
+    private static weak var currentAlert: UIAlertController?
 
     static func showPopUp(
         delayed: Bool = false,
@@ -16,42 +11,24 @@ struct PopUpHelper {
         buttonText: String,
         secondButtonText: String? = nil,
         onPrimaryClick: (() -> Void)? = nil,
-        onSecondaryClick: (() -> Void)? = nil
+        onSecondaryClick: (() -> Void)? = nil,
+        onPresented: (() -> Void)? = nil
     ) {
-        DispatchQueue.main.asyncAfter(deadline: delayed ? .now() + 3.0 : .now()) {
-            if isPopUpShowing {
-                return
-            }
-
-            let model = Dynamic.SPTEncorePopUpDialogModel
-                .alloc(interface: SPTEncorePopUpDialogModel.self)
-                .initWithTitle(
-                    "Shrubify",
-                    description: message,
-                    image: nil,
-                    primaryButtonTitle: buttonText,
-                    secondaryButtonTitle: secondButtonText
-                )
-
-            let dialog = Dynamic.SPTEncorePopUpDialog
-                .alloc(interface: SPTEncorePopUpDialog.self)
-                .`init`()
-            
-            dialog.update(model)
-            dialog.setEventHandler({ state in
-                switch (state) {
-                
-                case .primary: onPrimaryClick?()
-                case .secondary: onSecondaryClick?()
-
-                }
-
-                sharedPresenter.dismissPopupWithAnimate(true, clearQueue: false, completion: nil)
-                isPopUpShowing.toggle()
+        DispatchQueue.main.asyncAfter(deadline: delayed ? .now() + 3 : .now()) {
+            guard currentAlert == nil else { return }
+            let alert = UIAlertController(title: "Shrubify", message: message, preferredStyle: .alert)
+            alert.addAction(UIAlertAction(title: buttonText, style: .default) { _ in
+                currentAlert = nil
+                onPrimaryClick?()
             })
-
-            isPopUpShowing.toggle()
-            sharedPresenter.presentPopUp(dialog)
+            if let secondButtonText {
+                alert.addAction(UIAlertAction(title: secondButtonText, style: .cancel) { _ in
+                    currentAlert = nil
+                    onSecondaryClick?()
+                })
+            }
+            currentAlert = alert
+            if !WindowHelper.shared.present(alert, completion: onPresented) { currentAlert = nil }
         }
     }
 }

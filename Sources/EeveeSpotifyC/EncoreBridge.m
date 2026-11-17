@@ -99,39 +99,6 @@ BOOL EeveeFireTap(UIView *root) {
     return NO;
 }
 
-static char kColorSinkKey;
-
-// Instance-only subclass of the view's layer, so Spotify's later repaints (UIView or CALayer setter) land in the sink.
-BOOL EeveeInterceptBackground(UIView *view, void (^sink)(UIColor *color)) {
-    CALayer *layer = view.layer;
-    Class original = object_getClass(layer);
-    NSString *originalName = NSStringFromClass(original);
-    objc_setAssociatedObject(layer, &kColorSinkKey, sink, OBJC_ASSOCIATION_COPY_NONATOMIC);
-    if ([originalName hasPrefix:@"EeveeBG_"]) return YES;
-    if ([originalName containsString:@"."] || [originalName hasPrefix:@"NSKVONotifying_"]) return NO;
-
-    NSString *name = [@"EeveeBG_" stringByAppendingString:originalName];
-    Class subclass = NSClassFromString(name);
-    if (!subclass) {
-        subclass = objc_allocateClassPair(original, name.UTF8String, 0);
-        if (!subclass) return NO;
-        IMP setter = imp_implementationWithBlock(^(CALayer *self_, CGColorRef color) {
-            void (^current)(UIColor *) = objc_getAssociatedObject(self_, &kColorSinkKey);
-            if (current && color && CGColorGetAlpha(color) > 0.01) current([UIColor colorWithCGColor:color]);
-            struct objc_super parent = {self_, original};
-            ((void (*)(struct objc_super *, SEL, CGColorRef))objc_msgSendSuper)(&parent, @selector(setBackgroundColor:), current ? NULL : color);
-        });
-        class_addMethod(subclass, @selector(setBackgroundColor:), setter, "v@:^{CGColor=}");
-        class_addMethod(subclass, @selector(class), imp_implementationWithBlock(^Class(id self_) { return original; }), "#@:");
-        objc_registerClassPair(subclass);
-    }
-    CGColorRef existing = CGColorRetain(layer.backgroundColor);
-    object_setClass(layer, subclass);
-    layer.backgroundColor = existing;
-    CGColorRelease(existing);
-    return YES;
-}
-
 static char kPinsKey;
 
 // Instance-only subclass that forces an object setter to a pinned value, e.g. keeping a label white when Spotify repaints it.

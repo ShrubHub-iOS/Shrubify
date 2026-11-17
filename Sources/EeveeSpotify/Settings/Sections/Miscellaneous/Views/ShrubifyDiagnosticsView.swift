@@ -22,7 +22,7 @@ struct ShrubifyDiagnosticsView: View {
                         .foregroundColor(.secondary)
                 }
             }
-            Section(header: Text("ShrubPanel shortcut"), footer: Text("Long-pressing the mini-player opens ShrubPanel where the player observer is available. Turn this off to use the previous karaoke shortcut.")) {
+            Section(header: Text("ShrubPanel shortcut"), footer: Text("Long-pressing the mini-player opens ShrubPanel where the player observer is available. Turn this off to leave the mini-player’s long-press gesture unchanged.")) {
                 Toggle("Long-press for ShrubPanel", isOn: $panelGesture)
                     .onChange(of: panelGesture) { UserDefaults.standard.set($0, forKey: "ShrubifyPanelLongPress3") }
             }

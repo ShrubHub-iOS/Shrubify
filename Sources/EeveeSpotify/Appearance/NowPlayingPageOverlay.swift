@@ -1,0 +1,610 @@
+import Foundation
+import UIKit
+import MediaPlayer
+import ObjectiveC.runtime
+
+/// 听歌页**我们自己的覆盖层** —— AM 页面（kumone 那种一屏播放器）的**地基**。
+///
+/// 一层**整页透明**的 `UIView`，挂在页面根视图最上面；我们自己的控件（音量条，以后还有
+/// 头部一行 / 三个圆按钮）全放在它上面，它只提供**统一的坐标系**，**什么都不画** ——
+/// 不加模糊、不铺实心、不盖原生内容。
+///
+/// * 容器**只在音量那一行的范围内**吃触摸（`NowPlayingOverlayView.point(inside:)`）：
+///   Spotify 原生手势（下拉关闭 / 滚动 / 左右切歌）全部照常，只有放在它上面的**具体控件**
+///   才开交互。整层不吃触摸的话，里面那颗 `MPVolumeView` 也点不到 —— UIKit 的命中测试
+///   在父视图这一级就停了。
+/// * **不碰 Spotify 任何属性**（唯一会动的是"往它上面加我们自己的子视图"）⇒
+///   关掉 = 把这一层拿掉，**天然完全还原**。
+///
+/// ## 怎么定位
+///
+/// 播放器底部那一坨五行在 `13.UIStackView@4,560,406,273,id=npv.bottomStackView` 里 ——
+/// 它**有 accessibilityIdentifier**，所以靠 id 认它，不靠类名、不靠猜层级。音量条放在它
+/// **下面**、左右各内缩 4pt；找不到锚就退回页面安全区底 —— **宁可位置保守，也不要压到
+/// 原生控件上**。
+///
+/// 开关：设置 → 歌曲播放页 →「修改Spotify听歌页布局」→「展示音量条」，默认关；
+/// 日志 tag `[NPVPage]`，总开关关着时它也不出现。
+enum NowPlayingPageOverlay {
+
+    static let logTag = "NPVPage"
+
+    /// 播放器底部那一坨在真机树里的 id。
+    private static let bottomAnchorIdentifier = "npv.bottomStackView"
+    /// 锚点走查上限（本仓库纪律）。
+    private static let maxNodes = 2000
+    /// 音量那一行的尺寸。
+    ///
+    /// **原来那一版"很难看"，因为它是系统原样的
+    /// `MPVolumeView`** —— iOS 26 上那是一条玻璃胶囊轨 + 一颗大钮，铺满整宽。kumone 的是：
+    /// **约 4pt 细轨 + 小圆钮（≈14pt）+ 两端各一个小喇叭图标**，整行**左右各内缩 ≈42pt**，
+    /// 行高 24pt、夹在三键与三个圆钮之间。
+    ///
+    /// 我们照它的**观感**来（位置仍沿用既有锚点逻辑 —— 那是为"别压到原生控件/别撞 home indicator"
+    /// 定的，先不动）：细轨、小钮、两端喇叭，行左右各内缩 24pt。
+    private static let volumeRowHeight: CGFloat = 28
+    private static let volumeRowInset: CGFloat = 24
+    private static let volumeGlyphSize: CGFloat = 16
+    private static let volumeGlyphGap: CGFloat = 10
+    private static let volumeTrackHeight: CGFloat = 4
+    private static let volumeThumbDiameter: CGFloat = 14
+    private static let volumeRowIdentifier = "eevee-npv-volume-row"
+
+    /// 两端小喇叭要**比行中线高多少 pt**。
+    ///
+    /// 量出来的事实：音量轨与圆钮**同心**，只有两个喇叭字形**低 ≈4.9pt**。而代码里两者都是
+    /// "按行中线居中"摆的（`slider.y = 0`、`glyphY = 6`）—— 偏差**不在我们这边**：
+    /// **iOS 26 的 `MPVolumeView` 把那条轨画在它自己 frame 中线上方 ≈5pt**。
+    ///
+    /// 用常量补偿而不是去问它的内部 `UISlider`：那枚 slider 是**私有层级**（见下方
+    /// `styleVolumeSlider` 的纪律：不猜内部结构）。⇒ 只补偿我们**自己的**两个装饰字形
+    /// （不吃触摸、不动系统那条音量条的位置）。
+    ///
+    /// ⚠️ 这个数是**为 iOS 26 量的**；哪天系统把轨画回中线（或换了版式），改成 0 即可。
+    private static let volumeGlyphLift: CGFloat = 5
+    private static let gapBelowAnchor: CGFloat = 4
+
+    private static var overlayKey: UInt8 = 0
+
+    private static weak var lastPage: UIView?
+    private static weak var lastOverlay: UIView?
+
+    private static var didLogInstall = false
+
+    /// 音量条是「修改Spotify听歌页布局」的**二级菜单**项 ⇒
+    /// 总开关关着时它也不该出现。
+    /// **iOS 27 版重新带上这一行**（AM 的播放页就有音量条，
+    /// 位置在传输行与工具行之间 —— 见 `ios27VolumeY`）。
+    /// 「选择沉浸式的那几个按键，全部写默认开启」——
+    /// 二级菜单删除，音量条不再看 `nowPlayingVolume`：任一布局开着就显示。
+    static var isEnabled: Bool {
+        UserDefaults.nowPlayingIOS27 || UserDefaults.nowPlayingLayout
+    }
+
+    // MARK: - 对外入口
+    //
+    // 进听歌页时叫一次（蹭既有的 `NPVScrollViewControllerHook` 两个 appear 点）。
+    static func apply(in pageView: UIView) {
+        lastPage = pageView
+
+        guard isEnabled else {
+            remove(reason: "switch off")
+            return
+        }
+        guard pageView.bounds.width > 1, pageView.bounds.height > 1 else { return }
+
+        let overlay = attach(to: pageView)
+        layout(overlay: overlay, in: pageView)
+    }
+
+    /// 蹭 `DeclutterChrome` 既有的复查节拍（**不新开定时器**）。
+    ///
+    /// 为什么需要：Spotify 的布局回合会重排 subviews（把我们的层挤回下面），
+    /// 换歌 / 转场之后锚点的 frame 也会变。成本：没在听歌页时三次 weak 读；
+    /// 在听歌页时几次 frame 比较（没变就一个字节都不写）。
+    @discardableResult
+    static func reconcile() -> Bool {
+        guard isEnabled else { return false }
+        guard let page = lastPage, page.window != nil else { return false }
+
+        guard let overlay = lastOverlay, overlay.superview === page else {
+            let overlay = attach(to: page)
+            layout(overlay: overlay, in: page)
+            return true
+        }
+        return layout(overlay: overlay, in: page)
+    }
+
+    /// 设置页切开关时叫一次：页面还挂着就**当场**落地，否则等下次进听歌页。
+    static func reapply() {
+        guard let page = lastPage, page.window != nil else { return }
+        apply(in: page)
+    }
+
+    /// 关掉开关时把整层拿走（我们只加过自己的视图 ⇒ 不需要还原任何东西）。
+    static func remove(reason: String) {
+        guard let overlay = lastOverlay else { return }
+        overlay.removeFromSuperview()
+        lastOverlay = nil
+        didLogInstall = false
+        writeDebugLog("[\(logTag)] overlay removed (reason=\(reason))")
+    }
+
+    // MARK: - 建层
+    //
+    // 幂等：已经有就复用；被挤下去就重新置顶。
+    private static func attach(to page: UIView) -> UIView {
+        let overlay: UIView
+        if let existing = objc_getAssociatedObject(page, &overlayKey) as? UIView {
+            overlay = existing
+        } else {
+            overlay = NowPlayingOverlayView(frame: page.bounds)
+            overlay.backgroundColor = .clear
+            // （目前那个调节音量的按键是个装饰，能不能让它真的可以调节音量）：
+            // **不能再用 `isUserInteractionEnabled = false`。**
+            //
+            // 那一句当初是为了"不吃原生手势"（下拉关闭 / 滚动 / 左右切歌），但它有个
+            // UIKit 层面的副作用：命中测试**在父视图这一级就停了** —— 父视图关掉交互，
+            // **整个子树**都收不到触摸，包括里面那颗**真的** `MPVolumeView`
+            // ⇒ 音量条只能是装饰。
+            //
+            // 现在改成"整层开着交互、但**只有音量那一行的范围**返回 true"
+            // （`NowPlayingOverlayView.point(inside:)`）—— 与
+            // `NowPlayingLyricsContainerView.passThroughBottom` 同一个手法：
+            // 范围之外照旧全部穿透给 Spotify。
+            overlay.isUserInteractionEnabled = true
+            overlay.clipsToBounds = false
+            overlay.accessibilityIdentifier = "eevee-npv-overlay"
+            overlay.isAccessibilityElement = false
+            objc_setAssociatedObject(page, &overlayKey, overlay, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+        }
+
+        if overlay.superview !== page || page.subviews.last !== overlay {
+            // 放最上面：Spotify 重排 subviews 会把我们挤下去（同 `AmazonMusicLyricsOverlay`
+            // 那条真机教训），所以每次进来都确保一次。
+            page.addSubview(overlay)
+        }
+        ensureTapProbe(on: page)
+        lastOverlay = overlay
+        return overlay
+    }
+
+    // MARK: - 布局
+    //
+    // 把覆盖层铺满、把音量条摆到锚点下面。**返回这一拍有没有真的改东西**。
+    @discardableResult
+    private static func layout(overlay: UIView, in page: UIView) -> Bool {
+        var changed = false
+
+        let wanted = CGRect(origin: .zero, size: page.bounds.size)
+        if overlay.frame != wanted {
+            overlay.frame = wanted
+            changed = true
+        }
+
+        let target = volumeFrame(in: page, overlay: overlay)
+        if overlay.subviews.first(where: { $0.accessibilityIdentifier == volumeRowIdentifier })?.frame != target {
+            changed = true
+        }
+        layoutVolumeRow(in: overlay, frame: target)
+        // 把"唯一吃触摸的范围"告诉覆盖层（见 `NowPlayingOverlayView`）——
+        // 不更新它，音量条就还是没有触摸（这一层只在那一行里放行）。
+        if let interactive = overlay as? NowPlayingOverlayView {
+            if interactive.interactiveFrame != target {
+                interactive.interactiveFrame = target
+                changed = true
+            }
+            // 音量行以下不铺「接住但不做事」的带子：那一段的触摸由工具行替身负责，
+            // 这里再抢会把三颗字形吃掉。（原来只在已删除的「沉浸式」那一档铺。）
+            let strip = CGRect.null
+            if interactive.inertFrame != strip {
+                interactive.inertFrame = strip
+                changed = true
+            }
+        }
+
+        if !didLogInstall {
+            didLogInstall = true
+            let anchor = findBottomAnchor(in: page)
+            let anchorText = anchor.map { frameText($0.convert($0.bounds, to: page)) } ?? "not found (falling back to the safe-area bottom)"
+            let stripText = (overlay as? NowPlayingOverlayView).map {
+                $0.inertFrame.isNull ? "none" : frameText($0.inertFrame)
+            } ?? "none"
+            writeDebugLog(
+                "[\(logTag)] overlay installed \(frameText(overlay.frame))"
+                    + "; bottom anchor \(bottomAnchorIdentifier) = \(anchorText)"
+                    + "; volume slider \(frameText(target))"
+                    + "; inert strip \(stripText)"
+                    // 这一行的内部几何（系统那条 slider + 两个字形 + 抬了多少）——
+                    // 报的"喇叭和轨不一样高"就是靠这一行 + 下一张照片对出来的。
+                    + volumeRowInternals(in: overlay)
+            )
+        }
+        return changed
+    }
+
+    /// 音量那一行的内部几何（只给安装日志用）。
+    private static func volumeRowInternals(in overlay: UIView) -> String {
+        guard let row = overlay.subviews.first(where: {
+            $0.accessibilityIdentifier == volumeRowIdentifier
+        }) else { return "; volume row not found" }
+
+        let slider = row.subviews.compactMap { $0 as? MPVolumeView }.first
+        let low = row.subviews.first { $0.accessibilityIdentifier == "eevee-npv-volume-glyph-low" }
+        let high = row.subviews.first { $0.accessibilityIdentifier == "eevee-npv-volume-glyph-high" }
+
+        let sliderText = slider.map { frameText($0.frame) } ?? "not found"
+        let lowText = low.map { frameText($0.frame) } ?? "not found"
+        let highText = high.map { frameText($0.frame) } ?? "not found"
+        return "; volume row \(frameText(row.frame)) slider \(sliderText)"
+            + " glyphLow \(lowText) glyphHigh \(highText)"
+            + " (glyphs lifted \(Int(volumeGlyphLift))pt to meet the track)"
+    }
+
+    /// 把音量那一行摆好 + 给系统那条音量条**换皮**。
+    ///
+    /// 结构（我们自己的视图，Spotify 一个字节都不动）：
+    /// ```
+    /// eevee-npv-volume-row            ← 容器，不吃触摸
+    ///   ├─ 左喇叭（speaker.fill）      ← 纯装饰
+    ///   ├─ MPVolumeView                ← 唯一吃触摸的那个（系统音量只能靠它）
+    ///   └─ 右喇叭（speaker.wave.3.fill）
+    /// ```
+    private static func layoutVolumeRow(in overlay: UIView, frame: CGRect) {
+        let row = ensureVolumeRow(in: overlay)
+        if row.frame != frame { row.frame = frame }
+
+        let glyph = volumeGlyphSize
+        let sliderX = glyph + volumeGlyphGap
+        let sliderWidth = max(40, frame.width - sliderX * 2)
+        let sliderFrame = CGRect(
+            x: sliderX,
+            y: (frame.height - volumeRowHeight) / 2,
+            width: sliderWidth,
+            height: volumeRowHeight
+        )
+        let slider = volumeSlider(in: row)
+        if slider.frame != sliderFrame { slider.frame = sliderFrame }
+
+        let left = row.subviews.first { $0.accessibilityIdentifier == "eevee-npv-volume-glyph-low" }
+        let right = row.subviews.first { $0.accessibilityIdentifier == "eevee-npv-volume-glyph-high" }
+        // 两个字形要**抬到轨那条线**上（见 `volumeGlyphLift`：iOS 26 的
+        // `MPVolumeView` 把轨画在它自己 frame 中线上方 ≈5pt，直接按行中线摆会低一颗）。
+        let glyphY = (frame.height - glyph) / 2 - volumeGlyphLift
+        left?.frame = CGRect(x: 0, y: glyphY, width: glyph, height: glyph)
+        right?.frame = CGRect(x: frame.width - glyph, y: glyphY, width: glyph, height: glyph)
+    }
+
+    /// 幂等：那一行只建一次（`MPVolumeView` 走的是系统音量，Apple 自己的控件）。
+    private static func ensureVolumeRow(in overlay: UIView) -> UIView {
+        if let existing = overlay.subviews.first(where: {
+            $0.accessibilityIdentifier == volumeRowIdentifier
+        }) {
+            return existing
+        }
+
+        let row = UIView(frame: .zero)
+        // **这一行必须吃触摸**，否则里面那颗 `MPVolumeView` 一样点不到
+        // （子视图能不能收到触摸，取决于**它和它的每一个祖先**都开着交互）。
+        // 范围外的穿透由父层 `NowPlayingOverlayView.point(inside:)` 保证。
+        row.isUserInteractionEnabled = true
+        row.accessibilityIdentifier = volumeRowIdentifier
+
+        row.addSubview(volumeGlyph(named: "speaker.fill", identifier: "eevee-npv-volume-glyph-low"))
+        row.addSubview(volumeGlyph(named: "speaker.wave.3.fill", identifier: "eevee-npv-volume-glyph-high"))
+
+        let slider = MPVolumeView(frame: .zero)
+        slider.showsRouteButton = false          // 不要那枚 AirPlay 路由按钮（kumone 也没有）
+        slider.isUserInteractionEnabled = true
+        styleVolumeSlider(slider)
+        row.addSubview(slider)
+
+        overlay.addSubview(row)
+        return row
+    }
+
+    private static func volumeSlider(in row: UIView) -> MPVolumeView {
+        if let existing = row.subviews.compactMap({ $0 as? MPVolumeView }).first {
+            return existing
+        }
+        let slider = MPVolumeView(frame: .zero)
+        slider.showsRouteButton = false
+        slider.isUserInteractionEnabled = true
+        styleVolumeSlider(slider)
+        row.addSubview(slider)
+        return slider
+    }
+
+    /// 两端的小喇叭（纯装饰，不吃触摸）。
+    private static func volumeGlyph(named symbol: String, identifier: String) -> UIImageView {
+        let view = UIImageView()
+        view.image = UIImage(
+            systemName: symbol,
+            withConfiguration: UIImage.SymbolConfiguration(pointSize: 13, weight: .medium)
+        )
+        view.tintColor = UIColor.white.withAlphaComponent(0.55)
+        view.contentMode = .scaleAspectFit
+        view.isUserInteractionEnabled = false
+        view.accessibilityIdentifier = identifier
+        return view
+    }
+
+    // MARK: - 给系统音量条换皮
+    //
+    // **只走公开接口**。
+    //
+    // `MPVolumeView` 内部那枚 `UISlider` 是私有层级（改 tint 属于"猜内部结构"），
+    // 而它有三条**公开**的图片接口：`setMinimumVolumeSliderImage(_:for:)`（已播放那段）、
+    // `setMaximumVolumeSliderImage(_:for:)`（未播放那段）、`setVolumeThumbImage(_:for:)`。
+    // 用可拉伸的图片喂进去 ⇒ 想要多细就多细，且**不会**碰到它的内部视图。
+    private static func styleVolumeSlider(_ slider: MPVolumeView) {
+        guard !styledVolumeSliders.contains(slider) else { return }
+        styledVolumeSliders.add(slider)
+
+        slider.setMinimumVolumeSliderImage(
+            trackImage(color: UIColor.white.withAlphaComponent(0.92)),
+            for: .normal
+        )
+        slider.setMaximumVolumeSliderImage(
+            trackImage(color: UIColor.white.withAlphaComponent(0.22)),
+            for: .normal
+        )
+        slider.setVolumeThumbImage(thumbImage(), for: .normal)
+    }
+
+    private static let styledVolumeSliders = NSHashTable<MPVolumeView>.weakObjects()
+
+    /// 一条胶囊轨（两端半圆），中间可拉伸。
+    private static func trackImage(color: UIColor) -> UIImage {
+        let height = volumeTrackHeight
+        let size = CGSize(width: height * 3, height: height)
+        let image = UIGraphicsImageRenderer(size: size).image { _ in
+            color.setFill()
+            UIBezierPath(
+                roundedRect: CGRect(origin: .zero, size: size),
+                cornerRadius: height / 2
+            ).fill()
+        }
+        let cap = height / 2
+        return image.resizableImage(
+            withCapInsets: UIEdgeInsets(top: 0, left: cap, bottom: 0, right: cap)
+        )
+    }
+
+    /// 小圆钮（带一点投影，白钮在深色底上才站得住）。
+    private static func thumbImage() -> UIImage {
+        let side = volumeThumbDiameter
+        let size = CGSize(width: side, height: side)
+        return UIGraphicsImageRenderer(size: size).image { context in
+            context.cgContext.setShadow(
+                offset: CGSize(width: 0, height: 1),
+                blur: 3,
+                color: UIColor.black.withAlphaComponent(0.35).cgColor
+            )
+            UIColor.white.setFill()
+            UIBezierPath(ovalIn: CGRect(origin: .zero, size: size)).fill()
+        }
+    }
+
+    /// 音量条放哪：**锚点下面**；锚点不在（或空间不够）就贴安全区底。
+    private static func volumeFrame(in page: UIView, overlay: UIView) -> CGRect {
+        let width = max(120, page.bounds.width - volumeRowInset * 2)
+        let x = (page.bounds.width - width) / 2
+
+        // 安全区底：页面自己的 `safeAreaInsets` 就是最可靠的"别压到 home indicator"来源。
+        let bottomLimit = page.bounds.height - page.safeAreaInsets.bottom - 4
+
+        // iOS 27 版摆在**传输行与工具行之间**（AM 的目标位置）。
+        if UserDefaults.nowPlayingIOS27, let centred = ios27VolumeY(in: page) {
+            let y = min(centred, bottomLimit - volumeRowHeight)
+            return CGRect(x: x, y: max(0, y), width: width, height: volumeRowHeight)
+        }
+
+        var y: CGFloat
+        if let anchor = locateBottomAnchor(in: page) {
+            let frame = anchor.convert(anchor.bounds, to: overlay)
+            y = frame.maxY + gapBelowAnchor
+        } else {
+            y = bottomLimit - volumeRowHeight
+        }
+
+        // 越界就往回收，绝不叠到原生控件上。
+        if y + volumeRowHeight > bottomLimit {
+            y = max(0, bottomLimit - volumeRowHeight)
+        }
+        return CGRect(x: x, y: y, width: width, height: volumeRowHeight)
+    }
+
+    /// iOS 27 版音量行的 y：**夹在传输行下沿与工具行上沿的正中**。
+    ///
+    /// AM 在 414×896 上量出来是：播放键下沿 ≈651、工具行上沿 ≈789 ⇒ 空档 138pt，
+    /// 音量行 28pt ⇒ 摆在 `651 + (138−28)/2 = 706`，中线 720（AM ≈724）。
+    /// 三个锚（播放键 / 分享 / 队列）缺一个就返回 nil，退回既有的"锚点下面"那套。
+    ///
+    /// ⚠️ 这里**只用 UIKit 的 id 查找**，不碰 `NowPlayingLyricsPlate`（那个 enum 是 `@MainActor`，
+    /// 而本文件不是 —— 从非隔离的同步上下文调它过不了编译）。找法沿用本文件既有的三跳：
+    /// 页面 → 播放器列表（`NowPlayingOneScreen.pinnedList` 也是弱读，不涉及隔离）→ 窗口。
+    private static func ios27VolumeY(in page: UIView) -> CGFloat? {
+        let identifiers = [
+            "SPTNowPlayingPlayButton",
+            "ShareButtonNowPlayingView",
+            "QueueButtonNowPlaying",
+        ]
+        var frames: [CGRect] = []
+        for identifier in identifiers {
+            guard let view = locateAnchor(identifier, in: page) else { return nil }
+            let rect = view.convert(view.bounds, to: page)
+            guard rect.width > 1, rect.height > 1 else { return nil }
+            frames.append(rect)
+        }
+        guard frames.count == 3 else { return nil }
+        let transportBottom = frames[0].maxY
+        // （功能之间留的间隔不够，下面还空了很大一块）：
+        // 工具行那三颗**我们自己画**的字形整体下移了 `footerRowYOffset`（见
+        // `NowPlayingIOS27+Footer.placeFooter`），而原生那三颗还留在原位 ⇒ 音量条
+        // 不能再按"原生工具行上沿"居中，否则它会被挤在传输行下面 4pt。
+        // 这里把同一段偏移加上去，音量条就落在**传输行与看得见的字形之间**的正中。
+        let footerTop = min(frames[1].minY, frames[2].minY) + nowPlayingIOS27FooterRowYOffset
+        let gap = footerTop - transportBottom
+        guard gap > volumeRowHeight + 8 else { return transportBottom + gapBelowAnchor }
+        return transportBottom + (gap - volumeRowHeight) / 2
+    }
+
+    /// 按 id 找一个视图：**页面 → 播放器列表 → 窗口**（与 `locateBottomAnchor` 同一条走查）。
+    private static func locateAnchor(_ identifier: String, in page: UIView) -> UIView? {
+        if let found = findView(identifier, in: page) { return found }
+        if let list = NowPlayingOneScreen.pinnedList, let found = findView(identifier, in: list) {
+            return found
+        }
+        guard let window = page.window else { return nil }
+        return findView(identifier, in: window)
+    }
+
+    /// `npv.bottomStackView` 在哪：**页面 → 播放器列表 → 窗口**，三跳。
+    ///
+    /// 为什么要补中间那一跳：
+    /// 它**不在页面根视图的子树里**，
+    /// 而"窗口"那一跳也没命中 ⇒ 每次进页面都退回安全区底。
+    /// 列表这一跳用的是 `NowPlayingOneScreen` 认出来的那一张（判据只留一处）。
+    private static func locateBottomAnchor(in page: UIView) -> UIView? {
+        if let anchor = findBottomAnchor(in: page) { return anchor }
+        if let list = NowPlayingOneScreen.pinnedList,
+           let anchor = findBottomAnchor(in: list) {
+            return anchor
+        }
+        guard let window = page.window else { return nil }
+        return findBottomAnchor(in: window)
+    }
+
+    /// 按 `accessibilityIdentifier` 找播放器底部那一坨（有界广度优先）。
+    private static func findBottomAnchor(in root: UIView) -> UIView? {
+        findView(bottomAnchorIdentifier, in: root)
+    }
+
+    /// 按 `accessibilityIdentifier` 找一个视图（有界广度优先；`findBottomAnchor` 与
+    /// iOS 27 音量行那三个锚共用这一份）。
+    private static func findView(_ identifier: String, in root: UIView) -> UIView? {
+        var visited = 0
+        var queue: [UIView] = [root]
+
+        while !queue.isEmpty, visited < maxNodes {
+            let view = queue.removeFirst()
+            visited += 1
+
+            if view.accessibilityIdentifier == identifier { return view }
+            queue.append(contentsOf: view.subviews)
+        }
+        return nil
+    }
+
+    // MARK: - 整页覆盖层（只让音量那一行吃触摸）
+    //
+    // 铺满整页、**只在音量那一行的范围内**吃触摸的透明层。
+    //
+    // （目前那个调节音量的按键是个装饰，能不能让它真的可以调节音量）：
+    // 这一层以前是 `isUserInteractionEnabled = false`（为了不吃原生手势），而 UIKit 的命中测试
+    // **在父视图这一级就停了**：父层关掉交互 ⇒ **整个子树**（含那颗真的 `MPVolumeView`）
+    // 都收不到触摸 ⇒ 音量条只能是装饰。
+    //
+    // 现在：整层开着交互，靠 `point(inside:)` 把"可交互范围"限死在音量那一行
+    // （`interactiveFrame` 每一拍由 `layout(overlay:in:)` 更新）—— 手法与
+    // `NowPlayingLyricsContainerView.passThroughBottom` 完全一致。
+    // 范围之外返回 false ⇒ 照旧全部穿透给 Spotify（下拉关闭 / 滚动 / 左右切歌不受影响）。
+    final class NowPlayingOverlayView: UIView {
+
+        /// 唯一要吃到触摸的那条范围（本视图坐标系 = 页面坐标系，因为这一层就钉在页面原点）。
+        /// `.null` ⇒ 整层穿透（音量条还没摆好时不抢任何触摸）。
+        var interactiveFrame: CGRect = .null
+
+        /// 底部那条**接住但不做事**的空带（页面坐标）。`.null` ⇒ 不接。
+        ///
+        /// 只在沉浸式样式里用它：那套布局没有 iOS 27 的工具行替身，底排往下一直到屏幕底
+        /// 没有任何属于我们的控件，触摸会漏到 Spotify 的 NPV 视图上、触发"整页上抬"。
+        /// AM 样式不用它 —— 那条带由工具行替身负责，两层叠在一起会抢掉三颗字形。
+        var inertFrame: CGRect = .null
+
+        override func point(inside point: CGPoint, with event: UIEvent?) -> Bool {
+            guard isUserInteractionEnabled, !isHidden, alpha > 0.01 else { return false }
+            // 上下各放宽 8pt：手指落在轨/钮边上一点也该算这一行（行高只有 28pt）。
+            if !interactiveFrame.isNull,
+               interactiveFrame.insetBy(dx: -2, dy: -8).contains(point) {
+                return true
+            }
+            // 底部空带：接住、什么都不做（本层没有手势、hitTest 返回自身 ⇒ 这一下被吞掉）。
+            return !inertFrame.isNull && inertFrame.contains(point)
+        }
+    }
+
+    // MARK: - 诊断：没落到我们身上的那一下，原本是谁接走的
+    //
+    // 现象：点听歌页下半部分，Spotify 自己那一排按键会被顶上去（那些控件我们没碰过）。
+    // 那一带不在我们的命中范围里 ⇒ 既看不见、也留不下证据（`[NPVPage]` 只会报安装那一拍）。
+    //
+    // 这里在**页面**上挂一个只观察的 `UITapGestureRecognizer`（`cancelsTouchesInView = false`，
+    // 不挡任何触摸、不改任何行为）：抬手时把"原本会接住这一下的视图"重放一遍，连同祖先链
+    // 与各层手势一起打一行。按 y 每 24pt 一段，一段只报一次（一份日志足够定位，不刷屏）。
+    private final class TapProbe: NSObject {
+        private var seenBands: Set<Int> = []
+        private var reported = 0
+
+        @objc func handle(_ recognizer: UITapGestureRecognizer) {
+            guard recognizer.state == .ended, let page = recognizer.view else { return }
+            let point = recognizer.location(in: page)
+            let band = Int(point.y / 24)
+            guard reported < 12, !seenBands.contains(band) else { return }
+            seenBands.insert(band)
+            reported += 1
+
+            var hit: UIView?
+            for sub in page.subviews.reversed() {
+                if let found = sub.hitTest(sub.convert(point, from: page), with: nil) {
+                    hit = found
+                    break
+                }
+            }
+
+            var chain: [String] = []
+            var gestures: [String] = []
+            var node = hit
+            var hops = 0
+            while let current = node, hops < 6 {
+                let identifier = current.accessibilityIdentifier.map { "#\($0)" } ?? ""
+                chain.append(NSStringFromClass(type(of: current)) + identifier)
+                gestures.append(contentsOf: (current.gestureRecognizers ?? []).map {
+                    NSStringFromClass(type(of: $0))
+                })
+                node = current.superview
+                hops += 1
+            }
+            let pageGestures = (page.gestureRecognizers ?? []).map {
+                NSStringFromClass(type(of: $0))
+            }
+            writeDebugLog(
+                "[NPVPage] tap probe \(Int(point.x)),\(Int(point.y)) — underneath:"
+                    + " \(hit.map { NSStringFromClass(type(of: $0)) } ?? "nil")"
+                    + " id=\(hit?.accessibilityIdentifier ?? "nil")"
+                    + "; chain \(chain.isEmpty ? "nil" : chain.joined(separator: " < "))"
+                    + "; gestures \(gestures.isEmpty ? "none" : gestures.joined(separator: ", "))"
+                    + "; page gestures \(pageGestures.isEmpty ? "none" : pageGestures.joined(separator: ", "))"
+            )
+        }
+    }
+
+    private static var tapProbeKey: UInt8 = 0
+
+    /// 每页只装一次：探针挂在**页面**上（不是我们这层 —— 我们那层在命中范围外根本收不到触摸）。
+    private static func ensureTapProbe(on page: UIView) {
+        guard objc_getAssociatedObject(page, &tapProbeKey) == nil else { return }
+        let probe = TapProbe()
+        let tap = UITapGestureRecognizer(target: probe, action: #selector(TapProbe.handle(_:)))
+        tap.cancelsTouchesInView = false
+        page.addGestureRecognizer(tap)
+        objc_setAssociatedObject(page, &tapProbeKey, probe, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+    }
+
+    // MARK: - 日志
+
+    private static func frameText(_ frame: CGRect) -> String {
+        "\(Int(frame.origin.x)),\(Int(frame.origin.y)),\(Int(frame.width)),\(Int(frame.height))"
+    }
+}
