@@ -29,8 +29,12 @@ enum NavigationCapsuleSurface {
     }
 
     static func layout(host: UIView, systemBar: UITabBar, nativeBar: UIView, target: CGRect) {
-        let frame = target.intersection(nativeBar.bounds)
-        guard !frame.isNull, frame.width > 0, frame.height > 0 else { return }
+        let proposal = target.intersection(nativeBar.bounds)
+        guard !proposal.isNull, proposal.width > 0, proposal.height > 0 else { return }
+        // Enforce bounds here too: an unresolved native measurement may pass the
+        // entire tablet-width bar as its fallback target.
+        let frame = NavigationCapsuleLayout.frame(in: nativeBar.bounds, band: proposal,
+                                                  itemCount: systemBar.items?.count ?? 4)
         host.clipsToBounds = true
         host.layer.cornerRadius = frame.height / 2
         if host.frame != frame { host.frame = frame }

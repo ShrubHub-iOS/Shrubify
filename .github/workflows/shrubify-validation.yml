@@ -47,15 +47,6 @@ jobs:
       run: bash scripts/test_evolved_migration.sh
     - name: Test PR integration and debug log redaction
       run: bash scripts/test_pr_integration.sh
-    - name: Render navigation capsule in an iPad simulator
-      timeout-minutes: 6
-      run: bash scripts/test_navigation_surface.sh
-    - name: Upload navigation rendering evidence
-      if: ${{ always() }}
-      uses: actions/upload-artifact@v4
-      with:
-        name: navigation-surface-smoke
-        path: Outputs/ui-smoke/
     - name: Checkout Theos
       uses: actions/checkout@v4
       with:
@@ -113,3 +104,22 @@ jobs:
         key: shrubify-native-tools-v2-${{ runner.os }}-${{ runner.arch }}-${{ steps.native-tools.outputs.sha }}
       if: ${{ always() && steps.orion-cache.outcome == 'success' && steps.orion-cache.outputs.cache-hit != 'true' }}
     timeout-minutes: 30
+
+  navigation:
+    name: Render iPad navigation regression
+    runs-on: macos-15-intel
+    timeout-minutes: 18
+    steps:
+    - uses: actions/checkout@v4
+    - uses: maxim-lobanov/setup-xcode@v1
+      with:
+        xcode-version: 26.1.1
+    - name: Render navigation capsule in an iPad simulator
+      timeout-minutes: 15
+      run: bash scripts/test_navigation_surface.sh
+    - name: Upload navigation rendering evidence
+      if: ${{ always() }}
+      uses: actions/upload-artifact@v4
+      with:
+        name: navigation-surface-smoke
+        path: Outputs/ui-smoke/

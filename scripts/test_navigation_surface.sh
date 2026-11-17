@@ -21,7 +21,7 @@ PY
 )
 SHRUBIFY_SMOKE_DEVICE=$(xcrun simctl create ShrubifyNavigationSmoke "$SHRUBIFY_SMOKE_TYPE" "$SHRUBIFY_SMOKE_RUNTIME")
 xcrun simctl boot "$SHRUBIFY_SMOKE_DEVICE"
-xcrun simctl bootstatus "$SHRUBIFY_SMOKE_DEVICE" -b
+# Build while SpringBoard performs its first boot on the hosted Intel runner.
 SHRUBIFY_SMOKE_SDK=$(xcrun --sdk iphonesimulator --show-sdk-path)
 SHRUBIFY_SMOKE_ARCH=$(uname -m)
 xcrun --sdk iphonesimulator swiftc -parse-as-library -sdk "$SHRUBIFY_SMOKE_SDK" \
@@ -39,6 +39,9 @@ info={'CFBundleIdentifier':'com.shrubify.navigation-smoke','CFBundleExecutable':
 with open(sys.argv[1],'wb') as f:plistlib.dump(info,f)
 PY
 codesign --force --sign - "$SHRUBIFY_SMOKE_ROOT/ShrubifyUISmoke.app"
+echo "Waiting for iPad simulator startup"
+xcrun simctl bootstatus "$SHRUBIFY_SMOKE_DEVICE" -b
+echo "Installing navigation rendering fixture"
 xcrun simctl install "$SHRUBIFY_SMOKE_DEVICE" "$SHRUBIFY_SMOKE_ROOT/ShrubifyUISmoke.app"
 xcrun simctl launch "$SHRUBIFY_SMOKE_DEVICE" com.shrubify.navigation-smoke
 SHRUBIFY_SMOKE_DATA=$(xcrun simctl get_app_container "$SHRUBIFY_SMOKE_DEVICE" com.shrubify.navigation-smoke data)

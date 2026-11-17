@@ -118,7 +118,7 @@ jobs:
           bash scripts/test_evolved_migration.sh
           bash scripts/test_pr_integration.sh
       - name: Render navigation capsule in an iPad simulator
-        timeout-minutes: 6
+        timeout-minutes: 15
         run: bash scripts/test_navigation_surface.sh
       - name: Upload navigation rendering evidence
         if: ${{ always() }}

@@ -47,7 +47,7 @@ final class SmokeController: UIViewController {
         oldMaterial.backgroundColor = .clear
         let reproducedMaterial = oldMaterial.effect != nil
         NavigationCapsuleSurface.clearMaterial(in: oldMaterial)
-        NavigationCapsuleSurface.layout(host: host, systemBar: systemBar, nativeBar: nativeBar, target: target)
+        NavigationCapsuleSurface.layout(host: host, systemBar: systemBar, nativeBar: nativeBar, target: nativeBar.bounds)
         view.layoutIfNeeded()
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
             self.capture(nativeBar: nativeBar, host: host, oldMaterial: oldMaterial, target: target, reproduced: reproducedMaterial)
