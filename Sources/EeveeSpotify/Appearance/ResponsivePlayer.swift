@@ -309,6 +309,7 @@ final class ResponsivePlayerView: UIView {
     private func performNative(_ id: String) {
         guard let source = native.object(forKey: id as NSString), source.window === window else { return }
         if let control = NowPlayingIOS27.nearestControl(source), control.isEnabled {
+            control.sendActions(for: .touchDown)
             control.sendActions(for: .touchUpInside)
         } else { _ = source.accessibilityActivate() }
     }
