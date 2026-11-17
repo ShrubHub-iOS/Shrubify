@@ -963,25 +963,28 @@ private func loadCustomLyricsForCurrentTrack() throws -> Lyrics {
         lookupFailed: Bool = true
     ) {
         writeDebugLog("[Lyrics] \(reason) — clearing word-by-word layer")
-        currentLyricsDto = nil
-        // 听歌页那层靠这个状态决定"点开之后写哪一句" ——「还在查」与「查完了没有」
-        // 必须分开（前者写"正在查找"、后者写"未找到"）。
-        // `lookupFailed: false` 的调用点是"切歌 / 功能被关"，那两种情况**不许**写成"未找到"。
-        if lookupFailed {
-            currentLyricsLookupState = .failed
+        let clear = {
+            currentLyricsDto = nil
+            // 听歌页那层靠这个状态决定"点开之后写哪一句" ——「还在查」与「查完了没有」
+            // 必须分开（前者写"正在查找"、后者写"未找到"）。
+            // `lookupFailed: false` 的调用点是"切歌 / 功能被关"，那两种情况**不许**写成"未找到"。
+            if lookupFailed {
+                currentLyricsLookupState = .failed
+            }
+            // 模型归属也要一起清：留着它会让"这份数据属于哪一首"永远指向上一首。
+            currentLyricsDtoTrackId = ""
+            currentLyricsProvider = ""
+            currentLyricsSource = nil
+            currentLyricsTimingOffsetAppliedMs = 0
+            // 署名两样也要一起清：留着会让"这首歌没有我们的词"时页面上还挂着上一首的贡献者。
+            currentLyricsProviderURL = nil
+            currentLyricsContributors = []
+            currentLyricsVersion += 1
+            onMainThreadSync {
+                WordByWordHost.shared.clearForUnavailableLyrics()
+            }
         }
-        // 模型归属也要一起清：留着它会让"这份数据属于哪一首"永远指向上一首。
-        currentLyricsDtoTrackId = ""
-        currentLyricsProvider = ""
-        currentLyricsSource = nil
-        currentLyricsTimingOffsetAppliedMs = 0
-        // 署名两样也要一起清：留着会让"这首歌没有我们的词"时页面上还挂着上一首的贡献者。
-        currentLyricsProviderURL = nil
-        currentLyricsContributors = []
-        currentLyricsVersion += 1
-        onMainThreadSync {
-            WordByWordHost.shared.clearForUnavailableLyrics()
-        }
+        if Thread.isMainThread { clear() } else { DispatchQueue.main.sync(execute: clear) }
     }
 
     /// 把来源返回的 DTO 转成注入 Spotify 的 `Lyrics`，并同步全局状态
@@ -998,18 +1001,24 @@ private func loadCustomLyricsForCurrentTrack() throws -> Lyrics {
         trackId: String?
     ) throws -> Lyrics {
         try LyricsRequestBudget.check()
-        // A lookup can finish after the player has moved to another track. Do
-        // not let its result publish into the new track's renderer state.
-        let current = statefulPlayer?.currentTrack()?.trackIdentifier
-        guard LyricsResultPolicy.matchesRequestedTrack(requested: trackId, current: current) else { throw LyricsError.trackMismatch }
-        lyricsState.isEmpty = dto.lines.isEmpty
-        lyricsState.wasRomanized = dto.romanization == .romanized
-            || dto.romanization == .canBeRomanized
-        lyricsState.loadedSuccessfully = true
-
-        // 偏移在这里施加，返回值是**平移过**的那一份 —— 注入 payload
-        // 必须用它，否则原生歌词页会比自绘层差一个偏移量。
-        let shifted = storeLyricsDto(dto, source: source)
+        let deadline = LyricsRequestBudget.deadline
+        // Validate and publish on the renderer's thread as one operation. A
+        // delayed provider must never overwrite the song selected in the meantime.
+        let publish = { () -> LyricsDto? in
+            let current = statefulPlayer?.currentTrack()?.trackIdentifier
+                ?? nowPlayingScrollViewController?.loadedTrack?.trackIdentifier
+            guard LyricsResultPolicy.matchesRequestedTrack(requested: trackId, current: current),
+                  deadline.map({ ProcessInfo.processInfo.systemUptime < $0 }) ?? true else { return nil }
+            lyricsState.isEmpty = dto.lines.isEmpty
+            lyricsState.wasRomanized = dto.romanization == .romanized || dto.romanization == .canBeRomanized
+            lyricsState.loadedSuccessfully = true
+            return storeLyricsDto(dto, source: source)
+        }
+        let result = Thread.isMainThread ? publish() : DispatchQueue.main.sync(execute: publish)
+        guard let shifted = result else {
+            try LyricsRequestBudget.check()
+            throw LyricsError.trackMismatch
+        }
 
         return Lyrics.with {
             $0.data = shifted.toSpotifyLyricsData(
