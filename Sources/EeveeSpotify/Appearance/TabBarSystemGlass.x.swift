@@ -624,25 +624,8 @@ enum TabBarSystemGlass {
         guard let host = hostView(for: bar) else { return }
         let target = TabBarGlassPlate.targetCapsuleRect(in: bar) ?? bar.bounds
 
-        // UIKit 这块浮岛玻璃是**按 item 宽度**撑出来的（三颗 → platter 274；四颗 → 360），
-        // 而 `.fill` 在 iOS 26 这条新玻璃上不生效 ⇒ 只能**把每颗的宽度钉死**：
-        // 每颗宽 = 目标胶囊宽 / 颗数
-        // ⇒ 三颗时正好把 360 三等分（item 中心 60 / 180 / 300），
-        // 而且 platter 的宽度回到 360（与"创建还在"时一致）。
-        // ⚠️ 幂等：只在真的变了才写（写 `itemWidth` 会触发一次布局 ⇒ 否则每拍互相打）。
-        if let count = systemBar.items?.count, count > 1, target.width > 1 {
-            let wanted = (target.width / CGFloat(count)).rounded()
-            if abs(systemBar.itemWidth - wanted) > 0.5 {
-                systemBar.itemWidth = wanted
-                writeDebugLog(
-                    "[\(logTag)] item width pinned to \(Int(wanted))pt"
-                        + " (\(Int(target.width))pt capsule / \(count) item(s))"
-                        + " — UIKit sizes the glass after the items, so this is what makes"
-                        + " the remaining tabs split it evenly"
-                )
-            }
-        }
-
+        // Item widths must use the clamped renderer frame, including the first
+        // layout fallback when Spotify has not measured its tab contents yet.
         let category = bar.traitCollection.preferredContentSizeCategory.rawValue
         if measuredBounds != bar.bounds.size || measuredCategory != category {
             measuredBounds = bar.bounds.size; measuredCategory = category

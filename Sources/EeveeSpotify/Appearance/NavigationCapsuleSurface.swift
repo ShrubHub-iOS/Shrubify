@@ -35,6 +35,9 @@ enum NavigationCapsuleSurface {
         // entire tablet-width bar as its fallback target.
         let frame = NavigationCapsuleLayout.frame(in: nativeBar.bounds, band: proposal,
                                                   itemCount: systemBar.items?.count ?? 4)
+        let count = max(1, systemBar.items?.count ?? 4)
+        let itemWidth = (frame.width / CGFloat(count)).rounded()
+        if abs(systemBar.itemWidth - itemWidth) > 0.5 { systemBar.itemWidth = itemWidth }
         host.clipsToBounds = true
         host.layer.cornerRadius = frame.height / 2
         if host.frame != frame { host.frame = frame }

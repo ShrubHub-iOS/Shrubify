@@ -42,7 +42,6 @@ final class SmokeController: UIViewController {
         }
         systemBar.selectedItem = systemBar.items?.first
         let target = NavigationCapsuleLayout.frame(in: nativeBar.bounds, band: nativeBar.bounds, itemCount: 4)
-        systemBar.itemWidth = target.width / 4
         // Reproduce the old "clear color" operation: it leaves the material alive.
         oldMaterial.backgroundColor = .clear
         let reproducedMaterial = oldMaterial.effect != nil
@@ -94,7 +93,7 @@ final class SmokeController: UIViewController {
                 }
             }
         }
-        let bounded = host.bounds.width <= 352 && host.bounds.height <= 60
+        let bounded = host.bounds.width <= 352 && host.bounds.height <= 60 && systemBar.itemWidth <= 88
         NavigationCapsuleSurface.restore(nativeBar)
         let restored = nativeBar.layer.mask == nil
         let result: [String: Any] = ["passed": bounded && restored && reproduced && oldMaterial.effect == nil && outside == 0 && markerVisible && brightInside > 10,
