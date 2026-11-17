@@ -4,7 +4,7 @@ struct ShrubifyBetaView: View {
     var body: some View {
         List {
             Section {
-                SettingsLabel(title: "Welcome to Shrubify 4.0", subtitle: "Your music, with fewer interruptions.", icon: "sparkles", color: .green)
+                SettingsLabel(title: "Welcome to Shrubify \(EeveeSpotify.version)", subtitle: "Your music, with fewer interruptions.", icon: "sparkles", color: .green)
             }
             Section(header: Text("Lyrics that keep up")) {
                 SettingsLabel(title: "Listen and follow", subtitle: "Jump to a lyric, pause, resume or scrub without leaving the lyrics view.", icon: "play.circle", color: .blue)

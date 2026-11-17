@@ -1,4 +1,4 @@
-# Shrubify 3.0 testing checklist
+# Shrubify 4.1.0 testing checklist
 
 This checklist is for **real builds on devices**; passing source-only syntax tests does not mean installation, hooks or user flows have been verified.
 
@@ -11,13 +11,13 @@ This checklist is for **real builds on devices**; passing source-only syntax tes
 - [ ] Confirm install works when official Spotify is also installed.
 - [ ] Verify login/session survival across cold restarts.
 
-## Shrubify 3.0 features
+## Shrubify 4.1.0 features
 
-- [ ] Studio presets activate the right player elements after restarting.
-- [ ] Save, restore and delete layouts; verify after force quit.
-- [ ] Artwork corner-radius slider updates the backdrop-hook cover appearance.
-- [ ] Minimal hides only chosen elements; Classic restores default appearance.
-- [ ] Immersive preserves existing accent and avoids unsupported Liquid Glass APIs on older iOS.
+- [ ] Studio opens Evolved player, tab/mini-player, page and lyrics controls.
+- [ ] Previous layout archives remain stored and are not applied to the new renderer.
+- [ ] Evolved artwork, backdrop and player controls respond correctly to track changes.
+- [ ] Spotify and Apple Music player styles switch correctly.
+- [ ] Chosen accent persists; system glass is gated to iOS 26+.
 - [ ] ShrubPanel opens from settings; mini-player gesture functions where available.
 - [ ] Presentation dismisses cleanly without multiple stacked panels.
 - [ ] Replay disabled by default; enabling it collects only when valid title/artist metadata and active playback exist.
@@ -39,4 +39,4 @@ Spotify changes private classes between releases. Hook compatibility and login b
 
 ## Evolved-inspired listening tools
 
-See [integration notes](docs/EVOLVED-INTEGRATION.md#compatibility-and-validation) for timer, typography and Replay device checks. Run `bash scripts/test_listening_tools.sh` alongside the beta regression harness on a machine with Swift installed.
+See [integration notes](docs/EVOLVED-INTEGRATION.md#validation) for timer, typography and Replay device checks. Run `bash scripts/test_listening_tools.sh` alongside the beta regression harness on a machine with Swift installed.

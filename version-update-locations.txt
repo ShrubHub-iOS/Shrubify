@@ -1,22 +1,18 @@
-EeveeSpotify Version Update Locations
-=====================================
+Shrubify current release: 4.1.0
 
-When bumping the version, update these 2 files:
+The package version is defined once in control (Version: X.Y.Z).
+Makefile generates GeneratedConfig.tweakVersion; EeveeSpotify.version and all
+current in-app version labels read that generated value.
 
-1. control
-   - Line 3: Version: X.X.X
-   - Example: Version: 7.0.0
+For each release:
+1. Update control.
+2. Update the README heading, current setup/testing guides, CHANGELOG and
+   RELEASE-X.Y.Z.md; point README links at that current release document.
+3. Run python3 scripts/check_release_consistency.py and the branding preflight.
+4. Build new IPA/deb files with the normal release workflow. Never rename old
+   binaries to imply they contain a newer tweak.
+5. The workflow derives release titles, tags and asset names from control.
+   The source generator derives download/version metadata from real releases.
 
-2. Sources/EeveeSpotify/Tweak.x.swift
-   - static let version = "X.X.X"     (version shown in settings + debug log)
-   - static let buildNumber = "N"     (shown as "v7.0.0 (build N)" in settings
-                                       and written to the debug log header;
-                                       reset to "1" on a major version bump)
-   - Example: version = "7.0.0", buildNumber = "1"
-
-Both must match for consistent versioning across:
-- .deb packages (control)
-- Tweak runtime + settings display (Tweak.x.swift)
-
-Note: build-ipa-local.sh does NOT need editing — it greps the version straight
-out of `control` (line 31) to name the output IPA.
+Historical release records, old download URLs and migration/storage identifiers
+retain their original values; they do not describe the currently installed build.

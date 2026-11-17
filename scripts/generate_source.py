@@ -11,7 +11,7 @@ TAG = re.compile(r'^shrubify-s(?P<spotify>\d+(?:\.\d+){1,3})-v(?P<tweak>\d+(?:\.
 
 def source_for(repo, releases, branch="main"):
     icon=f'https://raw.githubusercontent.com/{repo}/{branch}/docs/icon.png'
-    seen=set(); versions=[]
+    seen=set(); versions=[]; latest_tweak=""
     for release in sorted(releases,key=lambda r:r.get('published_at') or '',reverse=True):
         if release.get('draft') or release.get('prerelease'): continue
         matched=TAG.fullmatch(release.get('tag_name',''))
@@ -25,10 +25,13 @@ def source_for(repo, releases, branch="main"):
         unique=(version,build)
         if unique in seen: continue
         seen.add(unique)
+        if not versions: latest_tweak=matched["tweak"]
+        modern=tuple(int(x) for x in matched["tweak"].split(".")) >= (4,1,0)
+        features=("Evolved player/pages, expanded lyrics, ShrubPanel, opt-in Replay and sleep timer." if modern else "Historical release; see its archived release notes.")
         versions.append({
            'version':version,'buildVersion':build,
            'date':(release.get('published_at') or datetime.now(timezone.utc).isoformat())[:10],
-           'localizedDescription':f'Shrubify v{matched["tweak"]} for Spotify {version}. Studio presets, ShrubPanel, opt-in Replay, queue shortcuts and supported Liquid Glass. Compatibility depends on Spotify version.',
+           'localizedDescription':f'Shrubify v{matched["tweak"]} for Spotify {version}. {features} Compatibility depends on Spotify version.',
            'downloadURL':asset['browser_download_url'],'size':int(asset['size']),
            'minOSVersion':'17.4'
         })
@@ -39,7 +42,7 @@ def source_for(repo, releases, branch="main"):
        'apps': ([{'name':'Shrubify','bundleIdentifier':'com.shrubify.client',
                   'developerName':'shrubbery & ShrubHub team',
                   'subtitle':'Listening is easy with Shrubify!',
-                  'localizedDescription':'Shrubify 3.0 adds Studio with saved player layouts, a quick-access ShrubPanel, opt-in local Replay and ShrubQueue bookmarks and snapshots. Source credits and GPL notices are in the repository.',
+                  'localizedDescription':f'Shrubify {latest_tweak}: Evolved player and pages, expanded lyrics sources, ShrubPanel, opt-in Replay, ShrubQueue and sleep timer. Source credits and GPL notices are in the repository.',
                   'iconURL':icon,'versions':versions,'appPermissions':{'entitlements':[],'privacy':[]}}]
                  if versions else [])}
 

@@ -1,3 +1,5 @@
+> Archived release document. The current release is [Shrubify 4.1.0](RELEASE-4.1.0.md).
+
 Shrubify 4.0.0
 
 This is the full v4 package version. It retains existing settings, Studio layouts, Replay archives, ShrubPanel, ShrubQueue and glass choices. Account credentials and signing/bundle identity behavior are unchanged.

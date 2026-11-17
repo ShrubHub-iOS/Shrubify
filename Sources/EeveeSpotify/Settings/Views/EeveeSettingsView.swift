@@ -88,7 +88,7 @@ struct EeveeSettingsView: View {
                 Button {
                     SettingsNavigator.push(ShrubifyBetaView(), title: "What’s new")
                 } label: {
-                    SettingsLabel(title: "Shrubify 4.0", subtitle: "More reliable lyrics and everyday improvements", icon: "sparkles", color: .orange, chevron: true)
+                    SettingsLabel(title: "Shrubify \(EeveeSpotify.version)", subtitle: "Evolved player, expanded lyrics and listening tools", icon: "sparkles", color: .orange, chevron: true)
                 }
             }
             EeveeSettingsVersionView()

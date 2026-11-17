@@ -1,3 +1,5 @@
+> Archived release document. The current release is [Shrubify 4.1.0](RELEASE-4.1.0.md).
+
 # Beta 2 update
 
 Seek now updates the lyric clock immediately and ignores stale-position callbacks for up to two seconds. The lyric header has dedicated layout space. Settings-hosted ShrubPanel uses the existing navigation stack, avoiding duplicate title bars.

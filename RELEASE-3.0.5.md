@@ -1,3 +1,5 @@
+> Archived release document. The current release is [Shrubify 4.1.0](RELEASE-4.1.0.md).
+
 # Shrubify 3.0.5 release candidate
 
 - Repair native tooling cache: Theos builds Orion and Swift support under `.theos_build`, not `.build`. Cache both directories under a fingerprint of the compiler, Theos and recursive submodule revisions, computed once before compilation. The previous run rebuilt Orion for 256.92 seconds and could not save its cache. Warm-cache speed gains need a second Actions run to measure.

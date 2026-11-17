@@ -33,6 +33,7 @@ jobs:
         python3 -m unittest discover -s scripts/tests -p 'test_*.py'
         python3 scripts/check_ios14_swiftui.py
         python3 scripts/check_shrubify_branding.py
+        python3 scripts/check_release_consistency.py
         find Sources/EeveeSpotify -name '*.swift' -print0 | xargs -0 -n 40 swiftc -frontend -parse
     - name: Test beta migration, timing, search and cache behavior
       run: bash scripts/test_v4_beta.sh

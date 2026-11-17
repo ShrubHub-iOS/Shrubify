@@ -77,6 +77,9 @@ def main():
             original['CFBundleName'] = 'Shrubify'
             original['CFBundleDisplayName'] = 'Shrubify'
             original['CFBundleVersion'] = args.build
+            version_match = re.search(r'^Version:\s*(\S+)', (Path(__file__).resolve().parents[1] / 'control').read_text(), re.MULTILINE)
+            if not version_match: raise ValueError('Missing Shrubify package version')
+            original['ShrubifyVersion'] = version_match.group(1)
             # Force actual SpringBoard primary icon to bundled Shrubify PNG assets.
             # CFBundleIconName often points to Spotify's original Assets.car; remove it.
             original.pop('CFBundleIconName', None)

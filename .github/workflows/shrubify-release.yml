@@ -106,6 +106,7 @@ jobs:
           python3 -m unittest discover -s scripts/tests -p 'test_*.py'
           python3 scripts/check_ios14_swiftui.py
           python3 scripts/check_shrubify_branding.py
+          python3 scripts/check_release_consistency.py
           find Sources/EeveeSpotify -name '*.swift' -print0 | xargs -0 swiftc -frontend -parse
           bash scripts/test_v4_beta.sh
           bash scripts/test_release_support.sh
@@ -318,23 +319,13 @@ jobs:
           IPA_PATH="$(cat Outputs/latest_ipa_path.txt)"
           DEB_PATH="$(cat Outputs/latest_deb_path.txt)"
           test -s "$IPA_PATH"
-          cat > "$RUNNER_TEMP/shrubify-notes.md" <<EOF
-          Shrubify by shrubbery and the ShrubHub team. Upstream contributors credited in the GPL source repository.
+          NOTES="RELEASE-${TWEAK_VERSION}.md"
+          test -s "$NOTES"
+          cp "$NOTES" "$RUNNER_TEMP/shrubify-notes.md"
+          cat >> "$RUNNER_TEMP/shrubify-notes.md" <<EOF
 
-          - Spotify: ${SPOTIFY_VERSION}
-          - Shrubify tweak: ${TWEAK_VERSION}
-          - Cancellable custom lyrics loading, ordered fallbacks, retry and Follow lyrics controls
-          - Pause/play and progress scrubbing in custom lyrics; safer seeking and timestamp parsing
-          - Independent settings navigation, request cleanup, artwork and motion/power improvements
-          - Studio layouts, ShrubPanel, local-only Replay improvements and ShrubQueue shortcuts
-          - Preserves Spotify's color palette; existing iOS 26 Liquid Glass hooks remain supported
-          - Listening snapshots are not Spotify's actual playback queue
-          - Full release notes and device-validation limits: V4-RELEASE.md in the source repository
-          - Reported beta 4 navigation crash is targeted; device confirmation remains required.
-          - This is an automated build, NOT a device-verified compatibility certification.
-          - You must sign the IPA with your own certificate.
-          - Unofficial and not affiliated with Spotify.
-
+          Spotify: ${SPOTIFY_VERSION}
+          Shrubify tweak: ${TWEAK_VERSION}
           altstore-build: ${GITHUB_RUN_NUMBER}
           source-sha: ${GITHUB_SHA}
           EOF

@@ -1,3 +1,12 @@
+# 4.1.0
+
+- Replace the old glass renderer and Taurus/Vitrine material integrations with Evolved’s player, tab bar, mini-player and home/library/album/playlist/artist UI.
+- Add the complete twelve-provider lyrics layer, Auto Select/source ordering, word timing, translation, romanization and typography controls.
+- Preserve Shrubify branding, Replay, ShrubPanel, ShrubQueue and the sleep timer; Studio now opens the Evolved controls.
+- Fix settings/popup navigation, player capture with native lyrics, lyrics activation/disable handling, bounded provider requests, stale results, cache identity and log redaction.
+- Align the app, source feed, README, release notes and packaging on 4.1.0. In-app version labels derive from `control`.
+- Require iOS 17.4 or later; system glass effects require iOS 26 or later. Device testing remains unverified.
+
 # 4.0.0
 
 - Replace blocking lyric interception with an asynchronous, deduplicated loader. Bound the provider chain, cancel superseded network tasks and prevent old provider/fallback results from restoring invalidated lyrics.
