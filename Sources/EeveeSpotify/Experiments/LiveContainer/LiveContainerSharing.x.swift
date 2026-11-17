@@ -17,7 +17,7 @@ class UIApplicationLiveContainerSharingHook: ClassHook<UIApplication> {
             components.host = "open-url"
             components.queryItems = [URLQueryItem(name: "url", value: data.base64EncodedString())]
             guard let liveContainerUrl = components.url else {
-                completionHandler?(false)
+                onMainThreadSync { completionHandler?(false) }
                 return
             }
             

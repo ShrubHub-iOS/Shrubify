@@ -417,6 +417,7 @@ final class SponsorBlockSkipper {
                     self.broadcastSegments()
                     if merged.isEmpty {
                         if segs.isEmpty {
+                            if self.emptyEpisodeIDs.count >= 256 { self.emptyEpisodeIDs.removeAll() }
                             self.emptyEpisodeIDs.insert(episodeID)
                             writeDebugLog("[SB] no segments for \(episodeID) (cached empty)")
                         }
@@ -477,6 +478,7 @@ final class SponsorBlockSkipper {
         dismissedUUIDs.removeAll(); promptedUUIDs.removeAll(); playthroughAllowed.removeAll()
         pendingSeekTarget = nil; preSeekPosition = nil
         lastPlayer = nil; lastIsPlaying = false; lastDuration = 0
+        lastPosition = 0; lastPositionStamp = 0
         SponsorBlockToast.shared.dismissNow()
         broadcastSegments()
     }

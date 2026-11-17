@@ -95,7 +95,7 @@ enum NowPlayingBackdrop {
         // 「修改Spotify听歌页布局」总开关关掉时，取色底也不参与
         // （总开关拨动时会把 `nowPlayingBackdrop` 一起写成 false，这道 `&&` 是
         // 给"外部写回 / 导入备份"兜底的 —— 总开关的语义是"这一套一起上/一起撤"）。
-        guard UserDefaults.nowPlayingAnyLayout, UserDefaults.nowPlayingBackdrop else {
+        guard !UserDefaults.nowPlayingIOS27, UserDefaults.nowPlayingLayout, UserDefaults.nowPlayingBackdrop else {
             remove(reason: "switch off")
             return
         }
@@ -184,7 +184,7 @@ enum NowPlayingBackdrop {
     // - Returns: 这一拍**真的动了**吗（给排查用）。
     @discardableResult
     static func reconcile() -> Bool {
-        guard UserDefaults.nowPlayingAnyLayout, UserDefaults.nowPlayingBackdrop else { return false }
+        guard !UserDefaults.nowPlayingIOS27, UserDefaults.nowPlayingLayout, UserDefaults.nowPlayingBackdrop else { return false }
         guard let page = lastPage, page.window != nil else { return false }
 
         guard let victim = lastVictim, victim.window != nil,

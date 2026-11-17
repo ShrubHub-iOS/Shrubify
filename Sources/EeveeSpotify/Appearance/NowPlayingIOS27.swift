@@ -595,8 +595,8 @@ enum NowPlayingIOS27 {
         for root in roots {
             var queue: [UIView] = [root]
             var visited = 0
-            while !queue.isEmpty, visited < 2000 {
-                let view = queue.removeFirst()
+            while visited < queue.count, visited < 2000 {
+                let view = queue[visited]
                 visited += 1
                 queue.append(contentsOf: view.subviews)
                 guard view.accessibilityIdentifier == NowPlayingLyricsPlate.coverImageIdentifier
@@ -636,8 +636,8 @@ enum NowPlayingIOS27 {
     private static func visibleList(in page: UIView) -> UIView? {
         var queue: [UIView] = [page]
         var visited = 0
-        while !queue.isEmpty, visited < 3000 {
-            let view = queue.removeFirst()
+        while visited < queue.count, visited < 3000 {
+            let view = queue[visited]
             visited += 1
             if view.accessibilityIdentifier == NowPlayingLyricsPlate.listIdentifier,
                isControlOnPage(view, in: page, requireAlpha: false) {
@@ -685,8 +685,8 @@ enum NowPlayingIOS27 {
     ) -> UIView? {
         var queue: [UIView] = [page]
         var visited = 0
-        while !queue.isEmpty, visited < limit {
-            let view = queue.removeFirst()
+        while visited < queue.count, visited < limit {
+            let view = queue[visited]
             visited += 1
             if view.accessibilityIdentifier == identifier,
                isControlOnPage(
@@ -1268,7 +1268,7 @@ enum NowPlayingIOS27 {
     ///
     /// 为什么这么小：这块只负责"下半屏整片是同一种颜色"，任何可辨认的细节都会被读成"糊了"。
     /// 按"封面下沿裁一条 + 固定 28pt 半径"做的话，半径相对小图过大，会糊成灰块。
-    private static func backdrop(from image: UIImage) -> UIImage? {
+    static func backdrop(from image: UIImage) -> UIImage? {
         guard let cgImage = image.cgImage else { return nil }
         let input = CIImage(cgImage: cgImage)
         let extent = input.extent
@@ -1423,8 +1423,8 @@ enum NowPlayingIOS27 {
     private static func bottomStackView(in page: UIView) -> UIView? {
         var queue: [UIView] = [page]
         var visited = 0
-        while !queue.isEmpty, visited < 3000 {
-            let view = queue.removeFirst()
+        while visited < queue.count, visited < 3000 {
+            let view = queue[visited]
             visited += 1
             if view.accessibilityIdentifier == NowPlayingLyricsPlate.bottomStackIdentifier,
                isControlOnPage(view, in: page) {
@@ -1594,8 +1594,8 @@ enum NowPlayingIOS27 {
     private static func lineOnPage(identifier: String, in page: UIView) -> UIView? {
         var queue: [UIView] = [page]
         var visited = 0
-        while !queue.isEmpty, visited < 3000 {
-            let view = queue.removeFirst()
+        while visited < queue.count, visited < 3000 {
+            let view = queue[visited]
             visited += 1
             if view.accessibilityIdentifier == identifier,
                isControlOnPage(view, in: page, requireAlpha: false, horizontalMargin: 0) {
@@ -1615,8 +1615,8 @@ enum NowPlayingIOS27 {
         if let label = view as? UILabel { return label }
         var queue: [UIView] = view.subviews
         var visited = 0
-        while !queue.isEmpty, visited < 24 {
-            let candidate = queue.removeFirst()
+        while visited < queue.count, visited < 24 {
+            let candidate = queue[visited]
             visited += 1
             if let label = candidate as? UILabel { return label }
             queue.append(contentsOf: candidate.subviews)
@@ -1677,8 +1677,8 @@ enum NowPlayingIOS27 {
         var queue: [UIView] = [page]
         var visited = 0
         var first: UIView?
-        while !queue.isEmpty, visited < 3000 {
-            let view = queue.removeFirst()
+        while visited < queue.count, visited < 3000 {
+            let view = queue[visited]
             visited += 1
             if view.accessibilityIdentifier == identifier {
                 first = first ?? view
@@ -1881,8 +1881,8 @@ enum NowPlayingIOS27 {
     private static func visibleCanvasCell(in page: UIView) -> UIView? {
         var queue: [UIView] = [page]
         var visited = 0
-        while !queue.isEmpty, visited < 3000 {
-            let view = queue.removeFirst()
+        while visited < queue.count, visited < 3000 {
+            let view = queue[visited]
             visited += 1
             if let identifier = view.accessibilityIdentifier,
                identifier.contains("nowplaying-contentlayer-cell-5"),
@@ -1908,8 +1908,8 @@ enum NowPlayingIOS27 {
 
         var queue: [UIView] = [cell]
         var visited = 0
-        while !queue.isEmpty, visited < 900 {
-            let view = queue.removeFirst()
+        while visited < queue.count, visited < 900 {
+            let view = queue[visited]
             visited += 1
             queue.append(contentsOf: view.subviews)
             let className = String(describing: type(of: view))
@@ -1950,8 +1950,8 @@ enum NowPlayingIOS27 {
         guard let cell = canvasCell else { return nil }
         var queue: [UIView] = [cell]
         var visited = 0
-        while !queue.isEmpty, visited < 900 {
-            let view = queue.removeFirst()
+        while visited < queue.count, visited < 900 {
+            let view = queue[visited]
             visited += 1
             if view.accessibilityIdentifier == NowPlayingLyricsPlate.coverImageIdentifier,
                view.bounds.width >= 200, view.bounds.height >= 200,
@@ -2152,8 +2152,8 @@ enum NowPlayingIOS27 {
     private static func shell(in tilt: UIView) -> UIView? {
         var visited = 0
         var queue: [UIView] = [tilt]
-        while !queue.isEmpty, visited < 128 {
-            let view = queue.removeFirst()
+        while visited < queue.count, visited < 128 {
+            let view = queue[visited]
             visited += 1
             if view.accessibilityIdentifier == NowPlayingLyricsPlate.coverImageIdentifier {
                 return view
@@ -2170,8 +2170,8 @@ enum NowPlayingIOS27 {
     private static func titleRowView(in page: UIView) -> UIView? {
         var queue: [UIView] = [page]
         var visited = 0
-        while !queue.isEmpty, visited < 3000 {
-            let view = queue.removeFirst()
+        while visited < queue.count, visited < 3000 {
+            let view = queue[visited]
             visited += 1
             if view.accessibilityIdentifier == NowPlayingLyricsPlate.titleLabelIdentifier,
                let row = view.superview?.superview,

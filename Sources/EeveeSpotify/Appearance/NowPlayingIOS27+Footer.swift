@@ -544,7 +544,7 @@ extension NowPlayingIOS27 {
     /// 只在第一次（以及那颗键随页面重建消失时）做一次全树查找 —— 这条每 0.3s 会跑，
     /// 每次都 BFS 一遍播放页太贵。
     static func lyricsEntryTarget(in page: UIView) -> UIView? {
-        if let cached = lyricsEntryView, cached.window != nil, cached.alpha > 0.01 {
+        if let cached = lyricsEntryView, cached.window != nil, cached.alpha > 0.01, cached.isDescendant(of: page) {
             return cached
         }
         // 没找到时**不要每拍全树扫**（0.3s 一次的 2000 节点 BFS 太贵）：约 3 秒找一次。

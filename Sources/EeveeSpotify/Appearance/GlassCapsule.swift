@@ -27,7 +27,7 @@ private final class AdaptiveCapsuleGlass: UIVisualEffectView {
         observer = NotificationCenter.default.addObserver(
             forName: UIAccessibility.reduceTransparencyStatusDidChangeNotification,
             object: nil, queue: .main
-        ) { [weak self] _ in self?.refreshMaterial() }
+        ) { [weak self] _ in onMainThreadSync { self?.refreshMaterial() } }
     }
 
     required init?(coder: NSCoder) { return nil }

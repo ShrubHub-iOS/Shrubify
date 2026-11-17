@@ -95,10 +95,10 @@ final class ResponsivePlayerView: UIView {
         autoresizingMask = [.flexibleWidth, .flexibleHeight]
         backgroundColor = .black
         background.contentMode = .scaleAspectFill
-        background.alpha = 0.18
+        background.alpha = 0.7
         background.isUserInteractionEnabled = false
         background.clipsToBounds = true
-        shade.backgroundColor = UIColor.black.withAlphaComponent(0.64)
+        shade.backgroundColor = UIColor.black.withAlphaComponent(0.5)
         shade.isUserInteractionEnabled = false
         addSubview(background); addSubview(shade); addSubview(scroll)
         scroll.alwaysBounceVertical = false
@@ -183,7 +183,7 @@ final class ResponsivePlayerView: UIView {
         for notification in [UIApplication.didBecomeActiveNotification, UIApplication.willResignActiveNotification,
                              UIAccessibility.reduceTransparencyStatusDidChangeNotification] {
             observers.append(NotificationCenter.default.addObserver(forName: notification, object: nil, queue: .main) { [weak self] _ in
-                self?.updateClock(); self?.setNeedsLayout()
+                onMainThreadSync { self?.updateClock(); self?.setNeedsLayout() }
             })
         }
         // Hide native accessibility descendants only for this page. Native views
@@ -214,8 +214,13 @@ final class ResponsivePlayerView: UIView {
             lastVersion = -1
         }
         // An image is only accepted for the metadata request's exact track.
-        if trackID == currentID, let image { artwork.image = image; background.image = image }
+        if trackID == currentID, let image, artwork.image !== image {
+            artwork.image = image
+            background.image = NowPlayingIOS27.backdrop(from: image)
+        }
         if let track = statefulPlayer?.currentTrack() {
+            title.titleLabel?.font = UIFont.preferredFont(forTextStyle: .title2)
+            artist.titleLabel?.font = UIFont.preferredFont(forTextStyle: .body)
             title.setTitle(track.trackTitle(), for: .normal)
             artist.setTitle(track.artistTitle(), for: .normal)
             title.accessibilityLabel = "Album for " + track.trackTitle()
@@ -224,12 +229,13 @@ final class ResponsivePlayerView: UIView {
             artist.isEnabled = track.metadata()["artist_uri"] != nil && SpotifyURIOpener.isReady
         }
         discoverNative(in: page)
-        let ready = ["SPTNowPlayingPlayButton", "SPTNowPlayingPreviousTrackButton", "SPTNowPlayingNextTrackButton"].allSatisfy {
+        let ready = ["SPTNowPlayingPlayButton", "SPTNowPlayingPreviousTrackButton", "SPTNowPlayingNextTrackButton", "now-playing-minimize-button"].allSatisfy {
             native.object(forKey: $0 as NSString).flatMap { NowPlayingIOS27.nearestControl($0) } != nil
         }
         isHidden = !ready
         for (child, original) in savedAccessibility { child.accessibilityElementsHidden = ready ? true : original }
-        guard ready else { return }
+        guard ready else { displayLink?.isPaused = true; return }
+        displayLink?.isPaused = false
         KaraokeSeek.player = statefulPlayer as AnyObject?
         let state = KaraokeSeek.refresh()
         if !progress.isTracking {
@@ -239,18 +245,22 @@ final class ResponsivePlayerView: UIView {
         elapsed.text = Self.time(state.positionMs)
         remaining.text = "−" + Self.time(max(0, state.durationMs - state.positionMs))
         if let play = actions["SPTNowPlayingPlayButton"] {
-            play.setImage(UIImage(systemName: state.isPlaying ? "pause.fill" : "play.fill"), for: .normal)
+            play.setImage(UIImage(systemName: state.isPlaying ? "pause.fill" : "play.fill",
+                                  withConfiguration: UIImage.SymbolConfiguration(pointSize: 34, weight: .semibold)), for: .normal)
             play.accessibilityLabel = state.isPlaying ? "Pause" : "Play"
         }
         for (id, button) in actions {
             let source = native.object(forKey: id as NSString)
-            button.isEnabled = source != nil
-            button.alpha = source == nil ? 0.35 : 1
+            button.isEnabled = source.map { (NowPlayingIOS27.nearestControl($0)?.isEnabled ?? true) && $0.isUserInteractionEnabled } ?? false
+            button.alpha = button.isEnabled ? 1 : 0.35
+            if let label = source?.accessibilityLabel, !label.isEmpty { button.accessibilityLabel = label }
             button.isSelected = (source as? UIControl)?.isSelected ?? false
             button.accessibilityValue = source?.accessibilityValue ?? (button.isSelected ? "On" : nil)
             button.tintColor = button.isSelected ? .systemGreen : .white
         }
         close.isEnabled = native.object(forKey: "now-playing-minimize-button") != nil
+        if #available(iOS 26.0, *) { lyricsButton.isEnabled = true }
+        else { lyricsButton.isEnabled = NowPlayingIOS27.lyricsEntryTarget(in: page) != nil }
         menu.isHidden = native.object(forKey: "Context menu") == nil
         updateLyrics()
         setNeedsLayout()
@@ -351,7 +361,7 @@ final class ResponsivePlayerView: UIView {
 
     private func updateClock() {
         displayLink?.invalidate(); displayLink = nil
-        guard showingLyrics, window != nil, UIApplication.shared.applicationState == .active else { return }
+        guard showingLyrics, !isHidden, window != nil, UIApplication.shared.applicationState == .active else { return }
         let link = CADisplayLink(target: self, selector: #selector(tickLyrics))
         link.preferredFramesPerSecond = UIAccessibility.isReduceMotionEnabled ? 15 : 30
         link.add(to: .main, forMode: .common)

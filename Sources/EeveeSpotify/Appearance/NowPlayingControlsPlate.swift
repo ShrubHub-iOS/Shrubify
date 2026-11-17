@@ -133,7 +133,7 @@ enum NowPlayingControlsPlate {
     /// 二级菜单已删除，不再看 `nowPlayingControlGlyphs`；总开关关掉时必须把
     /// Spotify 的三个原生图标写回来，否则"布局关着、图标却还是本地字形"。
     static var isEnabled: Bool {
-        UserDefaults.nowPlayingAnyLayout
+        !UserDefaults.nowPlayingIOS27 && UserDefaults.nowPlayingLayout
     }
 
     // MARK: - 对外入口
@@ -654,8 +654,8 @@ enum NowPlayingControlsPlate {
         if let control = button as? UIControl { return control }
         var visited = 0
         var queue: [UIView] = button.subviews
-        while !queue.isEmpty, visited < 64 {
-            let view = queue.removeFirst()
+        while visited < queue.count, visited < 64 {
+            let view = queue[visited]
             visited += 1
             if let control = view as? UIControl { return control }
             queue.append(contentsOf: view.subviews)
@@ -772,8 +772,8 @@ enum NowPlayingControlsPlate {
         var visited = 0
         var queue: [UIView] = [root]
 
-        while !queue.isEmpty, visited < maxNodes {
-            let view = queue.removeFirst()
+        while visited < queue.count, visited < maxNodes {
+            let view = queue[visited]
             visited += 1
             if view.accessibilityIdentifier == identifier { return view }
             queue.append(contentsOf: view.subviews)

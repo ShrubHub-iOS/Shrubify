@@ -58,7 +58,7 @@ enum NowPlayingOneScreen {
     /// 再叠一道 `nowPlayingLayout` 的门，是为了"总开关关掉 ⇒ 这一套一律不生效"
     /// （哪怕有外部写回 / 导入备份把那颗键写成了 true）。
     static var isEnabled: Bool {
-        UserDefaults.nowPlayingAnyLayout && UserDefaults.nowPlayingOneScreen
+        !UserDefaults.nowPlayingIOS27 && UserDefaults.nowPlayingLayout && UserDefaults.nowPlayingOneScreen
     }
 
     // MARK: - 对外入口
