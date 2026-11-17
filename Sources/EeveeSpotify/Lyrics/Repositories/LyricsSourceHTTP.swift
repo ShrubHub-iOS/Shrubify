@@ -97,14 +97,15 @@ enum LyricsSourceHTTP {
         var status = 0
         var failure: Error?
 
-        session.dataTask(with: request) { responseData, response, taskError in
+        let task = session.dataTask(with: request) { responseData, response, taskError in
             body = responseData
             status = (response as? HTTPURLResponse)?.statusCode ?? 0
             failure = taskError
             semaphore.signal()
-        }.resume()
+        }
+        task.resume()
 
-        if semaphore.wait(timeout: .now() + 10) == .timedOut {
+        if !LyricsRequestBudget.wait(semaphore, task: task, maximum: 10) {
             writeDebugLog("[\(tag)] \(host) timed out")
             return nil
         }

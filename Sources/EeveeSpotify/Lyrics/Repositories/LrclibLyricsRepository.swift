@@ -194,7 +194,7 @@ class LrclibLyricsRepository: LyricsRepository {
         }
 
         task.resume()
-        semaphore.wait()
+        guard LyricsRequestBudget.wait(semaphore, task: task) else { throw URLError(.timedOut) }
 
         if error != nil, request.url != url {
             // 直连失败 ⇒ 用原域名再试一次（有些网络反过来：只认域名不认裸 IP）。
@@ -210,7 +210,7 @@ class LrclibLyricsRepository: LyricsRepository {
             }
 
             fallbackTask.resume()
-            fallbackSemaphore.wait()
+            guard LyricsRequestBudget.wait(fallbackSemaphore, task: fallbackTask) else { throw URLError(.timedOut) }
         }
 
         if let error = error {

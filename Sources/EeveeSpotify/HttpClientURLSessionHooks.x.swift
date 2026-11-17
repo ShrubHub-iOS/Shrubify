@@ -4,7 +4,7 @@ import Orion
 // Every task has one response, one body and one terminal callback. Custom lyrics
 // are loaded after the underlying task completes, without blocking its delegate.
 class HttpClientURLSessionHook: ClassHook<NSObject>, SpotifySessionDelegate {
-    typealias Group = PremiumBootstrapGroup
+    typealias Group = ResponseTransportGroup
     static let targetName = "Connectivity_HttpClientKit.HttpClientURLSession"
 
     func URLSession(_ session: URLSession, task: URLSessionDataTask, didCompleteWithError error: Error?) {
@@ -67,7 +67,7 @@ class HttpClientURLSessionHook: ClassHook<NSObject>, SpotifySessionDelegate {
             orig.URLSession(session, dataTask: task, didReceiveResponse: ok, completionHandler: handler)
             return
         }
-        if url.isLyrics, BaseLyricsGroup.isActive, UserDefaults.lyricsSource.isReplacingLyrics {
+        if url.isLyrics, BaseLyricsGroup.isActive, UserDefaults.shouldReplaceLyrics {
             // A missing native lyric may still have a valid custom/fallback result.
             // Buffer a zero-byte native response too. Do not synthesize completion here.
             URLSessionHelper.shared.setOrAppend(Data(), for: task)

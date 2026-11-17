@@ -155,7 +155,7 @@ class MusixmatchLyricsRepository: LyricsRepository {
         }
 
         task.resume()
-        semaphore.wait()
+        guard LyricsRequestBudget.wait(semaphore, task: task) else { throw URLError(.timedOut) }
 
         let httpStatus = httpResponse?.statusCode ?? -1
 

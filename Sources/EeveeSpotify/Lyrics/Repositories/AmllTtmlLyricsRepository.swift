@@ -193,7 +193,7 @@ class AmllTtmlLyricsRepository: LyricsRepository {
             if attempt > 0 {
                 let delay = Self.retryDelays[min(attempt - 1, Self.retryDelays.count - 1)]
                 writeDebugLog("[AMLL] retrying in \(delay)s (attempt \(attempt + 1)/\(Self.maxAttempts))")
-                Thread.sleep(forTimeInterval: delay)
+                do { try LyricsRequestBudget.sleep(delay) } catch { throw LyricsError.unknownError }
             }
 
             switch performGet(queryItems: queryItems, label: label) {
@@ -246,7 +246,7 @@ class AmllTtmlLyricsRepository: LyricsRepository {
         }
         task.resume()
 
-        if semaphore.wait(timeout: .now() + 15) == .timedOut {
+        if !LyricsRequestBudget.wait(semaphore, task: task, maximum: 15) {
             task.cancel()
             writeDebugLog("[AMLL] request timed out for \(label)")
             return .retryable(reason: "timeout", cause: .unknownError)
@@ -368,7 +368,7 @@ class AmllTtmlLyricsRepository: LyricsRepository {
         }
         task.resume()
 
-        if semaphore.wait(timeout: .now() + 15) == .timedOut {
+        if !LyricsRequestBudget.wait(semaphore, task: task, maximum: 15) {
             task.cancel()
             writeDebugLog("[AMLL] fuzzy search timed out")
             throw LyricsError.unknownError

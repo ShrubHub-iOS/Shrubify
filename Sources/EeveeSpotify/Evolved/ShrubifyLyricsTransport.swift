@@ -29,7 +29,9 @@ func loadLyricsDataAsync(_ path: String, originalLyrics: Lyrics? = nil, force: B
             DispatchQueue.main.async { completion(data) }
             return
         }
-        let data = (try? getLyricsDataForCurrentTrack(path, originalLyrics: originalLyrics))
+        let data = (try? LyricsRequestBudget.withLimit(seconds: plan.budget) {
+            try getLyricsDataForCurrentTrack(path, originalLyrics: originalLyrics)
+        })
             ?? unavailableLyricsBytes(original: originalLyrics)
         if let data { cache.store(data, forPath: path, signature: signature) }
         DispatchQueue.main.async { completion(data) }

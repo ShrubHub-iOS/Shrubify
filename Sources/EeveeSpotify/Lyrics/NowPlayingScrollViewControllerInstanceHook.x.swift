@@ -40,6 +40,10 @@ class LegacyNowPlayingPlatformSwiftServiceImplementationHook: ClassHook<NSObject
 
     func provideStatefulPlayer() -> StatefulPlayerImplementation {
         statefulPlayer = orig.provideStatefulPlayer()
+        DispatchQueue.main.async {
+            KaraokeSeek.player = statefulPlayer as AnyObject?
+            KaraokeGestureTrigger.shared.attachIfNeeded()
+        }
         logStatefulPlayerResolution("legacy" as NSString)
         return statefulPlayer!
     }
@@ -52,6 +56,10 @@ class NowPlayingPlatformSwiftServiceImplementationHook: ClassHook<NSObject> {
 
     func provideStatefulPlayerWithFeatureIdentifier(_ identifier: NSString) -> StatefulPlayerImplementation {
         statefulPlayer = orig.provideStatefulPlayerWithFeatureIdentifier(identifier)
+        DispatchQueue.main.async {
+            KaraokeSeek.player = statefulPlayer as AnyObject?
+            KaraokeGestureTrigger.shared.attachIfNeeded()
+        }
         logStatefulPlayerResolution(identifier)
         return statefulPlayer!
     }

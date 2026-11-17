@@ -705,7 +705,7 @@ final class AppleMusicOfficialTtmlLyricsRepository: LyricsRepository {
         }
         task.resume()
 
-        if semaphore.wait(timeout: .now() + 20) == .timedOut {
+        if !LyricsRequestBudget.wait(semaphore, task: task, maximum: 20) {
             task.cancel()
             writeDebugLog("[AMTTML] request timed out for \(label)")
             return .retryable(reason: "timeout", cause: .unknownError)
@@ -783,7 +783,7 @@ final class AppleMusicOfficialTtmlLyricsRepository: LyricsRepository {
         }
         task.resume()
 
-        if semaphore.wait(timeout: .now() + 20) == .timedOut {
+        if !LyricsRequestBudget.wait(semaphore, task: task, maximum: 20) {
             task.cancel()
             writeDebugLog("[AMTTML] \(label) timed out")
             throw LyricsError.unknownError

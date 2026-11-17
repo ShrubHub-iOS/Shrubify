@@ -93,15 +93,14 @@ final class LyricsResponseCache {
     /// 少了这一项，用户在 60 秒的备忘 TTL 内打开它、又重听同一首，交出去的还是刚才那个源
     /// 产出的 payload（看起来就是"实验没生效，要重启"）。
     static var currentSignature: String {
-        let source = String(describing: UserDefaults.lyricsSource)
-        let genius = UserDefaults.lyricsOptions.geniusFallback ? "1" : "0"
-        let amll = NgzhwmSettingsViewModel.isAmllPreferred ? "1" : "0"
-        let officialTtml = UserDefaults.experimentsOptions.appleMusicOfficialTtml ? "1" : "0"
-        // AMLL 译文语言：改语言等于换了一份歌词内容，备忘必须跟着失效
-        // （仓库层自己的 NSCache 也把语言放进了键，见 `AmllTtmlLyricsRepository.getLyrics`）。
-        // 用**生效值**（留空时是设备语言），这样"改系统语言"也算换了设置。
-        let amllTranslationLanguage = UserDefaults.amllEffectiveTranslationLanguage
-        return "\(source)|\(genius)|\(amll)|\(officialTtml)|\(amllTranslationLanguage)"
+        let exactKeys: Set<String> = ["lyricsOptions", "experimentsOptions", "lyricsColors",
+            "spicyLyricsApiKey", "musixmatchToken", "appleMusicMediaUserToken", "lyricsSourceOrder"]
+        var settings = UserDefaults.container.dictionaryRepresentation().filter {
+            exactKeys.contains($0.key) || $0.key.hasPrefix("ngzhwm_")
+        }
+        settings["effectiveSource"] = UserDefaults.lyricsSource.rawValue
+        settings["languages"] = Locale.preferredLanguages
+        return LyricsCacheSignature.make(settings: settings)
     }
 
     /// 这一次请求该怎么等：直接交备忘 / 短预算 / 长预算 + 第几次 + 预算秒数。

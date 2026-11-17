@@ -5,7 +5,7 @@ import Foundation
 import ObjectiveC.runtime
 
 func writeDebugLog(_ message: String) {
-    EeveeLog.write("[Shrubify] " + message)
+    EeveeLog.write("[Shrubify] " + DebugLogSanitizer.sanitize(message))
 }
 
 // Kept in the environment so Orion reinits in the same process don't restart the 30s auth window.
@@ -27,6 +27,7 @@ func exitApplication() {
 }
 
 // Split so bootstrap patching survives UI hooks breaking on a given Spotify build.
+struct ResponseTransportGroup: HookGroup { }
 struct PremiumBootstrapGroup: HookGroup { }
 struct PremiumUIHooksGroup: HookGroup { }
 
@@ -240,6 +241,9 @@ struct EeveeSpotify: Tweak {
         // Local-only premium force; independent of patching, so premium UI survives everything else being off.
         activateEeveePremiumForce()
 
+        if UserDefaults.patchType.isPatching || UserDefaults.shouldReplaceLyrics {
+            ResponseTransportGroup().activate()
+        }
         activateTelemetryBlock()
         activateTheme()
         // Lightweight, opt-in local statistics timer. No private Spotify hooks required.
@@ -322,16 +326,9 @@ struct EeveeSpotify: Tweak {
                 activateV91ServerSidedReminderIfAvailable()
             }
 
-            let lyricsEnabled = UserDefaults.lyricsSource.isReplacingLyrics
+            let lyricsEnabled = UserDefaults.shouldReplaceLyrics
 
             if lyricsEnabled {
-                let fullscreenOK: Bool = {
-                    if let cls = NSClassFromString("Lyrics_FullscreenElementPageImpl.FullscreenElementViewController") {
-                        return class_getInstanceMethod(cls, #selector(UIViewController.viewDidLoad)) != nil
-                    }
-                    return false
-                }()
-
                 let npvOK: Bool = {
                     if let cls = NSClassFromString("NowPlaying_ScrollImpl.NPVScrollViewController") {
                         return class_getInstanceMethod(cls, #selector(UIViewController.viewWillAppear(_:))) != nil
@@ -394,7 +391,7 @@ struct EeveeSpotify: Tweak {
             activatePremiumPatchingGroup()
         }
 
-        if UserDefaults.lyricsSource.isReplacingLyrics {
+        if UserDefaults.shouldReplaceLyrics {
             BaseLyricsGroup().activate()
 
 

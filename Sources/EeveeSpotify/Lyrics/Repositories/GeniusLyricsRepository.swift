@@ -67,7 +67,7 @@ class GeniusLyricsRepository: LyricsRepository {
 
         // Bound every request so a hung Genius connection cannot stall lyrics
         // loading forever (and, with candidate fallback, never yields lyrics).
-        if semaphore.wait(timeout: .now() + 10) == .timedOut {
+        if !LyricsRequestBudget.wait(semaphore, task: task, maximum: 10) {
             task.cancel()
             writeDebugLog("[Genius] \(path) timed out after 10s")
             throw LyricsError.unknownError

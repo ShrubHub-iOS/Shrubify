@@ -44,6 +44,8 @@ jobs:
       run: bash scripts/test_release_support.sh
     - name: Test Evolved migration preserves credentials and privacy choices
       run: bash scripts/test_evolved_migration.sh
+    - name: Test PR integration and debug log redaction
+      run: bash scripts/test_pr_integration.sh
     - name: Checkout Theos
       uses: actions/checkout@v4
       with:

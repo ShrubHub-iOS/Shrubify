@@ -35,7 +35,7 @@ class PetitLyricsRepository: LyricsRepository {
         }
 
         task.resume()
-        semaphore.wait()
+        guard LyricsRequestBudget.wait(semaphore, task: task) else { throw URLError(.timedOut) }
 
         if let error = error {
             throw error

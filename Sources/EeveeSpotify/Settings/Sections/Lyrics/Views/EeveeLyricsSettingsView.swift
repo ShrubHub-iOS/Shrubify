@@ -2,6 +2,7 @@ import Foundation
 import SwiftUI
 
 struct EeveeLyricsSettingsView: View {
+    var usesSettingsNavigation = true
     @StateObject var viewModel = EeveeLyricsSettingsViewModel()
 
     var body: some View {

@@ -57,6 +57,14 @@ func writeErrorLog(_ message: String) { writeDebugLog("[ERROR] " + message) }
 /// Evolved's player footer opens Shrubify's shared, idempotent sleep timer.
 enum SleepTimerPanel {
     static func present() {
-        WindowHelper.shared.present(UIHostingController(rootView: NavigationView { ShrubifySleepTimerView() }))
+        weak var presented: UIViewController?
+        let view = NavigationView {
+            ShrubifySleepTimerView()
+                .navigationBarItems(trailing: Button("Done") { presented?.dismiss(animated: true) })
+        }.navigationViewStyle(StackNavigationViewStyle())
+        let controller = UIHostingController(rootView: view)
+        presented = controller
+        controller.modalPresentationStyle = .pageSheet
+        WindowHelper.shared.present(controller)
     }
 }

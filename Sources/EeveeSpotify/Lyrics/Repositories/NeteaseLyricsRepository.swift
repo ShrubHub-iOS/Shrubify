@@ -319,7 +319,7 @@ class NeteaseLyricsRepository: LyricsRepository {
         }
         task.resume()
 
-        if semaphore.wait(timeout: .now() + 12) == .timedOut {
+        if !LyricsRequestBudget.wait(semaphore, task: task, maximum: 12) {
             task.cancel()
             throw LyricsError.unknownError
         }
@@ -409,7 +409,7 @@ class NeteaseLyricsRepository: LyricsRepository {
         }
         task.resume()
 
-        if semaphore.wait(timeout: .now() + 12) == .timedOut {
+        if !LyricsRequestBudget.wait(semaphore, task: task, maximum: 12) {
             task.cancel()
             throw LyricsError.unknownError
         }

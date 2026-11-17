@@ -233,7 +233,7 @@ private func loadCustomLyricsForCurrentTrack() throws -> Lyrics {
             allowGeniusFallback: false
         )
 
-        return makeLyrics(from: result.dto, source: result.source)
+        return try makeLyrics(from: result.dto, source: result.source, trackId: searchQuery.spotifyTrackId)
     }
 
     var source = UserDefaults.lyricsSource
@@ -271,7 +271,7 @@ private func loadCustomLyricsForCurrentTrack() throws -> Lyrics {
         lastRequestedLyricsSourceDescription = LyricsSource.autoSelect.description
 
         let picked = try autoSelectLyrics(searchQuery: searchQuery, options: options)
-        return makeLyrics(from: picked.dto, source: picked.source)
+        return try makeLyrics(from: picked.dto, source: picked.source, trackId: searchQuery.spotifyTrackId)
 
     } else {
 
@@ -335,9 +335,10 @@ private func loadCustomLyricsForCurrentTrack() throws -> Lyrics {
             // 无时间轴的数据同样过不了这一关（`timeSynced == false`），一并回退。
             if let result = amllResult, hasUsableWordLevelData(result.dto) {
                 writeDebugLog("[Lyrics] AMLL succeeded — using it (\(result.dto.lines.count) line(s))")
-                return makeLyrics(
+                return try makeLyrics(
                     from: result.dto,
-                    source: result.source
+                    source: result.source,
+                    trackId: searchQuery.spotifyTrackId
                 )
             }
 
@@ -360,9 +361,10 @@ private func loadCustomLyricsForCurrentTrack() throws -> Lyrics {
                 recordFallbackError: false,
                 allowGeniusFallback: source != .genius
             )
-            return makeLyrics(
+            return try makeLyrics(
                 from: result.dto,
-                source: result.source
+                source: result.source,
+                    trackId: searchQuery.spotifyTrackId
             )
         }
 
@@ -373,9 +375,10 @@ private func loadCustomLyricsForCurrentTrack() throws -> Lyrics {
             recordFallbackError: true
         )
 
-        return makeLyrics(
+        return try makeLyrics(
             from: result.dto,
-            source: result.source
+            source: result.source,
+                    trackId: searchQuery.spotifyTrackId
         )
     }
     }
@@ -458,7 +461,9 @@ private func loadCustomLyricsForCurrentTrack() throws -> Lyrics {
 
             DispatchQueue.global(qos: .userInitiated).async {
                 do {
-                    resultDto = try lyricsRepository(for: source).getLyrics(searchQuery, options: options)
+                    resultDto = try LyricsRequestBudget.withLimit(seconds: timeout) {
+                        try lyricsRepository(for: source).getLyrics(searchQuery, options: options)
+                    }
                 } catch {
                     requestError = error
                 }
@@ -989,8 +994,14 @@ private func loadCustomLyricsForCurrentTrack() throws -> Lyrics {
     /// 那条兜底已经不存在了（见 `LyricsDto.toSpotifyLyricsData` 顶部说明）。
     private func makeLyrics(
         from dto: LyricsDto,
-        source: LyricsSource
-    ) -> Lyrics {
+        source: LyricsSource,
+        trackId: String?
+    ) throws -> Lyrics {
+        try LyricsRequestBudget.check()
+        // A lookup can finish after the player has moved to another track. Do
+        // not let its result publish into the new track's renderer state.
+        let current = statefulPlayer?.currentTrack()?.trackIdentifier
+        guard LyricsResultPolicy.matchesRequestedTrack(requested: trackId, current: current) else { throw LyricsError.trackMismatch }
         lyricsState.isEmpty = dto.lines.isEmpty
         lyricsState.wasRomanized = dto.romanization == .romanized
             || dto.romanization == .canBeRomanized
@@ -1163,7 +1174,7 @@ func getLyricsDataForCurrentTrack(_ originalPath: String, originalLyrics: Lyrics
         let placeholderNote: String? = lyricsError == .trackMismatch ? "track_mismatch".localized : nil
 
         if !shouldDropResponse {
-            resetWordByWordLyrics()
+            if lyricsError != .trackMismatch { resetWordByWordLyrics() }
             // 别让 Spotify 把它自己的官方歌词顶上来 —— 用我们自己的占位替换掉。
             //
             // `note` 是**失败原因**那一行：切歌竞态（`trackMismatch`）要说清"不是词库没词"，

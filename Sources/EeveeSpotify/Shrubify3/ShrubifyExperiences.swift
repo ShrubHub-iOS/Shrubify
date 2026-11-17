@@ -351,7 +351,7 @@ struct ShrubifyPanelView: View {
                     if embeddedInSettings {
                         SettingsLink(title: "Lyrics sources", icon: "text.quote", color: .green) { EeveeLyricsSettingsView() }
                     } else {
-                        NavigationLink(destination: EeveeLyricsSettingsView()) {
+                        NavigationLink(destination: EeveeLyricsSettingsView(usesSettingsNavigation: false)) {
                             SettingsLabel(title: "Lyrics sources", icon: "text.quote", color: .green)
                         }
                     }

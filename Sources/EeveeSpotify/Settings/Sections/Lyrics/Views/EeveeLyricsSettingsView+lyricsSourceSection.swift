@@ -142,10 +142,12 @@ extension EeveeLyricsSettingsView {
                 // 「金牛座那边可以自己排序歌词来源」——
                 // 顺序只对「自动优选」有意义，所以只在选中它时出现。
                 if viewModel.lyricsSource == .autoSelect {
-                    NavigationLink(destination: LyricsSourceOrderView()) {
-                        HStack {
-                            Image(systemName: "arrow.up.arrow.down")
-                            Text("lyrics_source_order".localized)
+                    if usesSettingsNavigation {
+                        SettingsLink(title: "lyrics_source_order".localized,
+                            icon: "arrow.up.arrow.down", color: .blue) { LyricsSourceOrderView() }
+                    } else {
+                        NavigationLink(destination: LyricsSourceOrderView()) {
+                            Label("lyrics_source_order".localized, systemImage: "arrow.up.arrow.down")
                         }
                     }
                 }
