@@ -1006,7 +1006,7 @@ private func loadCustomLyricsForCurrentTrack() throws -> Lyrics {
         // delayed provider must never overwrite the song selected in the meantime.
         let publish = { () -> LyricsDto? in
             let current = statefulPlayer?.currentTrack()?.trackIdentifier
-                ?? nowPlayingScrollViewController?.loadedTrack?.trackIdentifier
+                ?? nowPlayingScrollViewController?.loadedTrack.trackIdentifier
             guard LyricsResultPolicy.matchesRequestedTrack(requested: trackId, current: current),
                   deadline.map({ ProcessInfo.processInfo.systemUptime < $0 }) ?? true else { return nil }
             lyricsState.isEmpty = dto.lines.isEmpty
