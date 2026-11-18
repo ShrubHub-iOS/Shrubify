@@ -1,3 +1,10 @@
+# 4.1.7
+
+- Replace black lyrics containers with a continuous, hue-preserving blurred artwork backdrop and tested contrast limits.
+- Add live earlier/later/reset timing controls and preserve the offset in lyric seeking.
+- Improve real word-fill visibility and sampling, respect Reduce Motion, and distinguish word- versus line-synced sources.
+- Fix square glass controls, add compact floating materials and support the wider native iPad dock without changing native interactions.
+
 # 4.1.6
 
 - Match the native player footer with a compact white custom-lyrics icon.

@@ -54,7 +54,8 @@ struct KaraokePlaybackControls: View {
         .padding(.top, 10)
         .padding(.bottom, 8)
         .background(KaraokePlaybackSurface())
-        .padding(.horizontal, 16).padding(.bottom, 8)
+        .frame(maxWidth: 600)
+        .padding(.horizontal, 24).padding(.bottom, 12)
         .alert(isPresented: $unavailable) {
             Alert(title: Text("Playback control unavailable"), message: Text("Spotify did not accept this command. Try its main player controls."), dismissButton: .default(Text("OK")))
         }

@@ -23,6 +23,7 @@ struct KaraokeLineView: View {
     let availableWidth: CGFloat
     let alignment: HorizontalAlignment
     var fontSize: CGFloat = 30
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         KaraokeFlowLayout(spacing: 8, alignment: alignment) {
@@ -32,26 +33,15 @@ struct KaraokeLineView: View {
         }
         .frame(width: availableWidth)
         .padding(.horizontal, 18)
-        .padding(.vertical, 14)
-        .background(activePlate)
+        .padding(.vertical, 8)
 
-        .scaleEffect(isActiveLine ? 1.0 : 0.98, anchor: .center)
-        .animation(.easeOut(duration: 0.35), value: isActiveLine)
+        .scaleEffect(reduceMotion ? 1 : (isActiveLine ? 1.015 : 1), anchor: .center)
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.25), value: isActiveLine)
         // Mirrors word/row order for RTL lines; the fill gradient is flipped separately below.
         .environment(\.layoutDirection, layout.isRTL ? .rightToLeft : .leftToRight)
     }
 
-    @ViewBuilder private var activePlate: some View {
-        if isActiveLine {
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .fill(Color.black.opacity(0.35))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 24, style: .continuous)
-                        .stroke(Color.white.opacity(KaraokeGlass.isEnabled ? 0.18 : 0.10), lineWidth: 1)
-                )
-                .shadow(color: Color.black.opacity(0.20), radius: 20, x: 0, y: 10)
-        }
-    }
+
 }
 
 @available(iOS 15.0, *)
@@ -62,6 +52,7 @@ private struct KaraokeWordView: View {
     let isRTL: Bool
 
     let fontSize: CGFloat
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var wordStartMs: Int { syllables.first?.startMs ?? 0 }
     private var wordEndMs: Int { syllables.last?.endMs ?? wordStartMs }
@@ -70,8 +61,7 @@ private struct KaraokeWordView: View {
         guard isActiveLine, wordEndMs > wordStartMs else {
             return currentMs >= wordEndMs ? 1 : 0
         }
-        let raw = Double(currentMs - wordStartMs) / Double(wordEndMs - wordStartMs)
-        return min(1, max(0, raw))
+        return KaraokeTiming.progress(position: currentMs, start: wordStartMs, end: wordEndMs)
     }
 
     private var scale: Double { KaraokeAnimationCurve.wordScale.value(at: wordProgress) }
@@ -90,9 +80,9 @@ private struct KaraokeWordView: View {
                 )
             }
         }
-        .scaleEffect(scale)
+        .scaleEffect(reduceMotion ? 1 : scale)
         // Keep the emphasis proportional to the selected type size.
-        .offset(y: CGFloat(yOffsetFraction) * fontSize)
+        .offset(y: reduceMotion ? 0 : CGFloat(yOffsetFraction) * fontSize)
         .shadow(color: .white.opacity(glow * 0.36), radius: CGFloat(glow * 3))
     }
 }
@@ -114,20 +104,19 @@ private struct KaraokeSyllableTextView: View {
         guard isActiveLine, syllable.endMs > syllable.startMs else {
             return currentMs >= syllable.endMs ? 1 : 0
         }
-        let raw = Double(currentMs - syllable.startMs) / Double(syllable.endMs - syllable.startMs)
-        return min(1, max(0, raw))
+        return KaraokeTiming.progress(position: currentMs, start: syllable.startMs, end: syllable.endMs)
     }
 
     var body: some View {
         Text(syllable.text)
-            .font(.system(size: fontSize, weight: .bold, design: .rounded))
+            .font(.system(size: fontSize, weight: .bold))
             .foregroundStyle(
                 LinearGradient(
                     stops: [
-                        .init(color: .white, location: 0),
-                        .init(color: .white, location: progress),
-                        .init(color: .white.opacity(KaraokeReadability.unsungTextOpacity), location: progress),
-                        .init(color: .white.opacity(KaraokeReadability.unsungTextOpacity), location: 1),
+                        .init(color: .white.opacity(isActiveLine ? 1 : KaraokeReadability.surroundingTextOpacity), location: 0),
+                        .init(color: .white.opacity(isActiveLine ? 1 : KaraokeReadability.surroundingTextOpacity), location: progress),
+                        .init(color: .white.opacity(isActiveLine ? KaraokeReadability.unsungTextOpacity : KaraokeReadability.surroundingTextOpacity), location: progress),
+                        .init(color: .white.opacity(isActiveLine ? KaraokeReadability.unsungTextOpacity : KaraokeReadability.surroundingTextOpacity), location: 1),
                     ],
                     startPoint: gradientStart,
                     endPoint: gradientEnd

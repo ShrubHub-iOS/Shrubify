@@ -11,6 +11,7 @@ swiftc Sources/EeveeSpotify/Lyrics/Models/KaraokeLyricsDto.swift \
   Sources/EeveeSpotify/Lyrics/Models/KaraokeLyricsAdapter.swift \
   Sources/EeveeSpotify/Karaoke/KaraokeAnimationCurve.swift \
   Sources/EeveeSpotify/Karaoke/KaraokeReadability.swift \
+  Sources/EeveeSpotify/Karaoke/KaraokeTiming.swift \
   Sources/EeveeSpotify/Appearance/NativeGlassGeometry.swift \
   Tests/RestoredLyrics/main.swift -o "$SHRUBIFY_LYRICS_TEST_DIR/restored-lyrics"
 "$SHRUBIFY_LYRICS_TEST_DIR/restored-lyrics"

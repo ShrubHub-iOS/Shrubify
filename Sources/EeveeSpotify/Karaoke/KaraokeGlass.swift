@@ -4,10 +4,7 @@ import UIKit
 /// Glass belongs only to the standalone lyrics modal, never to Spotify's player.
 enum KaraokeGlass {
     static var isEnabled: Bool {
-        if #available(iOS 26.0, *) {
-            return UserDefaults.standard.object(forKey: "ShrubifyCustomLyricsGlass") as? Bool ?? true
-        }
-        return false
+        UserDefaults.standard.object(forKey: "ShrubifyCustomLyricsGlass") as? Bool ?? true
     }
 }
 
@@ -37,17 +34,30 @@ struct KaraokeControlSurface: View {
 
 @available(iOS 15.0, *)
 struct KaraokePlaybackSurface: View {
-    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
-    @ViewBuilder var body: some View {
-        if #available(iOS 26.0, *), KaraokeGlass.isEnabled, !reduceTransparency {
-            RoundedRectangle(cornerRadius: 26, style: .continuous)
-                .fill(Color.black.opacity(0.3))
-                .glassEffect(.regular.tint(.black.opacity(0.35)), in: .rect(cornerRadius: 26))
-                .allowsHitTesting(false)
-        } else {
-            RoundedRectangle(cornerRadius: 26, style: .continuous)
-                .fill(Color.black.opacity(reduceTransparency ? 1 : 0.55))
-                .allowsHitTesting(false)
+    var body: some View {
+        KaraokeControlSurface().allowsHitTesting(false)
+    }
+}
+
+@available(iOS 15.0, *)
+struct KaraokeTimingControls: View {
+    @Binding var offset: Int
+    var body: some View {
+        HStack(spacing: 0) {
+            Button { offset = KaraokeTiming.adjustedOffset(offset, step: -100) } label: {
+                Image(systemName: "minus").frame(width: 44, height: 44)
+            }.accessibilityLabel("Lyrics earlier by 0.1 seconds").disabled(offset <= -5000)
+            Button { offset = 0 } label: {
+                Text(offset == 0 ? "0.0 s" : String(format: "%+.1f s", Double(offset) / 1000))
+                    .font(.system(.caption, design: .monospaced).weight(.semibold))
+                    .frame(width: 66, height: 44)
+            }.accessibilityLabel("Lyrics delay, reset to zero").accessibilityValue("\(offset) milliseconds")
+            Button { offset = KaraokeTiming.adjustedOffset(offset, step: 100) } label: {
+                Image(systemName: "plus").frame(width: 44, height: 44)
+            }.accessibilityLabel("Lyrics later by 0.1 seconds").disabled(offset >= 5000)
         }
+        .font(.system(size: 14, weight: .semibold))
+        .foregroundColor(.white).buttonStyle(.plain)
+        .background(KaraokeControlSurface())
     }
 }

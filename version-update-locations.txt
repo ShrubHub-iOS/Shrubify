@@ -1,4 +1,4 @@
-Shrubify current release: 4.1.6
+Shrubify current release: 4.1.7
 
 The package version is defined once in control (Version: X.Y.Z).
 Makefile generates GeneratedConfig.tweakVersion; EeveeSpotify.version and all

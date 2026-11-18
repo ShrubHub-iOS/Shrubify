@@ -1,4 +1,4 @@
-> Historical release notes. Current release: [Shrubify 4.1.6](RELEASE-4.1.6.md).
+> Historical release notes. Current release: [Shrubify 4.1.7](RELEASE-4.1.7.md).
 
 # Shrubify 4.1.5
 

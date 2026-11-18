@@ -29,14 +29,25 @@ let rtl = KaraokeLyricsAdapter.convert(lines: [LyricsLineDto(content: "שלום 
 check(rtl.isRTL && rtl.lines[0].plainText == "שלום עולם", "Restore the original RTL model")
 print("Original custom lyrics adapter: syllables, CJK/RTL, timing, line-only sources and credits passed")
 
-// Conservative linear-light composition: every cover luminance must retain
-// at least AA normal-text contrast, including unsung words on a white cover.
-for step in 0...1000 {
-    let background = Double(step) / 1000 * (1 - KaraokeReadability.backgroundDimOpacity) * (1 - KaraokeReadability.readingPanelOpacity)
+// Tone mapping preserves color while capping every background luminance.
+for red in 0...10 { for green in 0...10 { for blue in 0...10 {
+    let color = KaraokeReadability.toneMap(red: Double(red) / 10, green: Double(green) / 10, blue: Double(blue) / 10)
+    let background = 0.2126 * KaraokeReadability.linear(color.red) + 0.7152 * KaraokeReadability.linear(color.green) + 0.0722 * KaraokeReadability.linear(color.blue)
+    check(background <= KaraokeReadability.maximumBackgroundLuminance + 1e-9, "All artwork colors must meet the luminance cap")
     let foreground = KaraokeReadability.unsungTextOpacity + background * (1 - KaraokeReadability.unsungTextOpacity)
-    check((foreground + 0.05) / (background + 0.05) >= 4.5, "Lyrics must remain readable over every cover luminance")
+    check((foreground + 0.05) / (background + 0.05) >= 4.5, "Unsung lyrics must retain normal-text AA contrast without a black panel")
+}}}
+let vivid = KaraokeReadability.toneMap(red: 1, green: 0, blue: 0)
+check(vivid.red > 0.7 && vivid.green == 0 && vivid.blue == 0, "Do not turn artwork into neutral black/gray")
+check(KaraokeTiming.adjustedOffset(4900, step: 100) == 5000 && KaraokeTiming.adjustedOffset(5000, step: 100) == 5000, "Clamp later adjustment")
+check(KaraokeTiming.adjustedOffset(-4900, step: -100) == -5000 && KaraokeTiming.adjustedOffset(-5000, step: -100) == -5000, "Clamp earlier adjustment")
+check(KaraokeTiming.adjustedOffset(Int.max, step: 100) == 5000, "Invalid stored offset cannot overflow")
+for (position, expected) in [(50, 0.0), (100, 0), (150, 0.5), (200, 1), (500, 1)] {
+    check(KaraokeTiming.progress(position: position, start: 100, end: 200) == expected, "Real word timestamps drive the fill")
 }
-print("Lyrics contrast passed for 1,001 cover luminances")
+check(KaraokeTiming.progress(position: 120, start: 100, end: 200) == 0.2, "A backward seek must rewind word fill")
+check(KaraokeTiming.progress(position: 99, start: 100, end: 100) == 0 && KaraokeTiming.progress(position: 100, start: 100, end: 100) == 1, "Line-only text switches at its real line start")
+print("Artwork contrast: 1,331 RGB colors; live timing bounds and real word-fill progression passed")
 
 for width in [320.0, 420, 768, 1024, 1366] {
     let bounds = CGRect(x: 0, y: 0, width: width, height: 64)
@@ -51,3 +62,6 @@ check(NativeGlassGeometry.frame(bounds: .zero, content: .zero, miniPlayer: false
 check(NativeGlassGeometry.frame(bounds: CGRect(x: 0, y: 0, width: 1366, height: 900), content: CGRect(x: 0, y: 0, width: 1366, height: 900), miniPlayer: false) == nil, "Never decorate a whole tablet page")
 check(NativeGlassGeometry.frame(bounds: CGRect(x: 0, y: 0, width: 400, height: 64), content: CGRect(x: 0, y: 0, width: CGFloat.infinity, height: 48), miniPlayer: true) == nil, "Reject invalid measurements")
 print("Native glass bounds: phone/tablet widths, split-screen and invalid geometry passed")
+
+let dock = NativeGlassGeometry.frame(bounds: CGRect(x: 0, y: 0, width: 720, height: 84), content: CGRect(x: 0, y: 0, width: 666, height: 76), miniPlayer: false)
+check(dock != nil && dock!.width <= 720, "The native five-tab tablet dock must receive glass")

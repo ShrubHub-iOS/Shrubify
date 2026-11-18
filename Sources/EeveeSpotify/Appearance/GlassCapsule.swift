@@ -37,8 +37,14 @@ private final class AdaptiveCapsuleGlass: UIVisualEffectView {
         refreshMaterial()
     }
 
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        layer.cornerRadius = min(bounds.width, bounds.height) / 2
+    }
+
     private func refreshMaterial() {
-        layer.borderWidth = 0
+        layer.borderWidth = UIAccessibility.isReduceTransparencyEnabled ? 0 : 0.75
+        layer.borderColor = UIColor.white.withAlphaComponent(0.22).cgColor
         if UIAccessibility.isReduceTransparencyEnabled {
             effect = nil
             backgroundColor = .secondarySystemBackground
@@ -47,6 +53,7 @@ private final class AdaptiveCapsuleGlass: UIVisualEffectView {
             if #available(iOS 26.0, *) {
                 let glass = UIGlassEffect(style: .regular)
                 glass.isInteractive = interactive
+                glass.tintColor = UIColor.white.withAlphaComponent(0.06)
                 effect = glass
             } else { effect = UIBlurEffect(style: .systemThinMaterial) }
         }

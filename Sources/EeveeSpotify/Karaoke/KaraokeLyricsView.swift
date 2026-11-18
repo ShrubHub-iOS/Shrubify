@@ -5,7 +5,7 @@ import MediaPlayer
 struct KaraokeLyricsView: View {
     var onDismiss: () -> Void
     @StateObject private var model: KaraokeLyricsViewModel
-    private let options = UserDefaults.karaokeOptions
+    @State private var options = UserDefaults.karaokeOptions
 
     init(trackId: String?, lyrics: KaraokeLyricsDto, onDismiss: @escaping () -> Void) {
         self.onDismiss = onDismiss
@@ -18,18 +18,12 @@ struct KaraokeLyricsView: View {
                 Color.black.ignoresSafeArea()
                 KaraokeBackgroundView().id(model.trackId)
                     .blur(radius: max(20, min(40, options.blurIntensity * 10)))
-                Color.black.opacity(KaraokeReadability.backgroundDimOpacity)
-                    .ignoresSafeArea().allowsHitTesting(false)
                 VStack(spacing: 0) {
                     topBar
-                        .background(Color.black.opacity(KaraokeReadability.readingPanelOpacity))
-                        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
                         .padding(.horizontal, 16).padding(.top, 8)
                     if let lyrics = model.lyrics {
                         content(lyrics: lyrics, layouts: model.layouts, screenWidth: min(900, max(0, geo.size.width - 32)))
                             .frame(maxWidth: 900)
-                            .background(Color.black.opacity(KaraokeReadability.readingPanelOpacity))
-                            .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
                             .padding(.horizontal, 16).padding(.vertical, 10)
                             .id(model.trackId)
                     } else {
@@ -48,8 +42,6 @@ struct KaraokeLyricsView: View {
                         .foregroundColor(.white)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                         .padding(24)
-                        .background(Color.black.opacity(KaraokeReadability.readingPanelOpacity))
-                        .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
                         .padding(16)
                     }
                     KaraokePlaybackControls(playback: model.playback, seek: { model.seek(to: $0) }, toggle: { model.togglePlayback() })
@@ -61,6 +53,11 @@ struct KaraokeLyricsView: View {
         .preferredColorScheme(.dark)
         .onAppear { model.startPlaybackUpdates() }
         .onDisappear { model.stopPlaybackUpdates() }
+        .onChange(of: options.timingOffsetMs) { offset in
+            var saved = UserDefaults.karaokeOptions
+            saved.timingOffsetMs = offset
+            UserDefaults.karaokeOptions = saved
+        }
     }
 
     private func content(lyrics: KaraokeLyricsDto, layouts: [KaraokeLineLayout], screenWidth: CGFloat) -> some View {
@@ -70,6 +67,7 @@ struct KaraokeLyricsView: View {
             lyrics: lyrics,
             layouts: layouts,
             options: options,
+            timingOffsetMs: $options.timingOffsetMs,
             currentMs: currentMs,
             activeLineIndex: model.playback.hasPosition ? activeLineIndex(in: lyrics, at: currentMs) : nil,
             screenWidth: screenWidth,
@@ -92,22 +90,14 @@ struct KaraokeLyricsView: View {
         return low > 0 ? low - 1 : nil
     }
 
-    @ViewBuilder private var closeButtonBackground: some View {
-        if KaraokeGlass.isEnabled {
-            KaraokeGlassCapsule()
-        } else {
-            Circle().fill(Color.white.opacity(0.12))
-        }
-    }
-
     private var closeButton: some View {
         Button(action: onDismiss) {
             Image(systemName: "chevron.down")
                 .font(.system(size: 18, weight: .semibold))
-                .foregroundColor(.white.opacity(0.85))
-                .padding(14)
-                .background(closeButtonBackground)
-        }
+                .foregroundColor(.white)
+                .frame(width: 46, height: 46)
+                .background(KaraokeControlSurface())
+        }.buttonStyle(.plain).accessibilityLabel("Close custom lyrics")
     }
 
     private var topBar: some View {
@@ -117,7 +107,7 @@ struct KaraokeLyricsView: View {
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundColor(.white.opacity(0.86))
                 Text(modelTitle)
-                    .font(.system(size: 28, weight: .bold, design: .rounded))
+                    .font(.system(size: 24, weight: .bold))
                     .foregroundColor(.white)
                     .lineLimit(2)
                 Text(modelSubtitle)
@@ -147,7 +137,11 @@ struct KaraokeLyricsView: View {
     private var modelTitle: String { trackMetadata?.title ?? "Shrubify Lyrics" }
     private var modelSubtitle: String {
         let provider = model.lyrics?.providerName ?? "Lyrics"
-        return trackMetadata.map { $0.artist + " • " + provider } ?? provider
+        let mode = model.lyrics.map { lyrics in
+            lyrics.lines.contains { $0.syllables.contains { $0.endMs > $0.startMs } } ? "Word sync" : "Line sync"
+        }
+        let source = provider + (mode.map { " • " + $0 } ?? "")
+        return trackMetadata.map { $0.artist + " • " + source } ?? source
     }
 
 }
@@ -157,6 +151,7 @@ private struct KaraokeScrollingLines: View {
     let lyrics: KaraokeLyricsDto
     let layouts: [KaraokeLineLayout]
     let options: KaraokeOptions
+    @Binding var timingOffsetMs: Int
     let currentMs: Int
     let activeLineIndex: Int?
     let screenWidth: CGFloat
@@ -173,18 +168,25 @@ private struct KaraokeScrollingLines: View {
 
         ScrollViewReader { proxy in
             VStack(spacing: 0) {
-            HStack {
-                Spacer()
+            HStack(spacing: 12) {
+                KaraokeTimingControls(offset: $timingOffsetMs)
+                Spacer(minLength: 4)
                 Button { followLyrics.toggle(); if followLyrics, let activeLineIndex { proxy.scrollTo(activeLineIndex, anchor: .center) } } label: {
-                    Label(followLyrics ? "Following lyrics" : "Follow lyrics", systemImage: followLyrics ? "location.fill" : "location")
-                        .font(.caption.weight(.semibold))
-                        .padding(.horizontal, 12).padding(.vertical, 8)
-                        .foregroundColor(.white)
-                        .background(KaraokeControlSurface())
+                    HStack(spacing: 6) {
+                        Image(systemName: followLyrics ? "location.fill" : "location")
+                        if screenWidth >= 420 { Text(followLyrics ? "Following lyrics" : "Follow lyrics") }
+                    }
+                    .font(.caption.weight(.semibold))
+                    .frame(minWidth: 44, minHeight: 44)
+                    .padding(.horizontal, screenWidth >= 420 ? 12 : 0)
+                    .foregroundColor(.white)
+                    .background(KaraokeControlSurface())
                 }
+                .buttonStyle(.plain)
+                .accessibilityLabel(followLyrics ? "Following lyrics" : "Follow lyrics")
                 .accessibilityHint("Turn off to read lyrics without automatic scrolling")
             }
-            .padding(.horizontal, 16)
+            .padding(.horizontal, 16).padding(.bottom, 8)
             ScrollView(showsIndicators: false) {
                 LazyVStack(alignment: alignment, spacing: CGFloat(options.resolvedLineSpacing)) {
                     Spacer().frame(height: 24)
@@ -213,6 +215,11 @@ private struct KaraokeScrollingLines: View {
                         .scaleEffect(x: 1, y: flip)
                     }
 
+                    Text(lyrics.lines.contains { $0.syllables.contains { $0.endMs > $0.startMs } }
+                         ? "Word-synced lyrics" : "Line-synced lyrics · word timing unavailable from this source")
+                        .font(.caption).foregroundColor(.white.opacity(0.86))
+                        .multilineTextAlignment(.center).padding(.horizontal, 24)
+                        .scaleEffect(x: 1, y: flip)
                     KaraokeCreditsFooterView(lyrics: lyrics)
                         .scaleEffect(x: 1, y: flip)
 

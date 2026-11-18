@@ -1,3 +1,5 @@
+> Historical release notes. Current release: [Shrubify 4.1.7](RELEASE-4.1.7.md).
+
 # Shrubify 4.1.6
 
 - Replace the oversized custom-lyrics capsule with a white lyrics icon in a native footer slot, retaining an accessible name and touch target.

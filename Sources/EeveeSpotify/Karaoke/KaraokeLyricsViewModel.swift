@@ -47,7 +47,7 @@ final class KaraokeLyricsViewModel: ObservableObject {
         guard UIApplication.shared.applicationState == .active else { return }
         refreshPlayback()
         guard playbackTimer == nil else { return }
-        let timer = Timer(timeInterval: ProcessInfo.processInfo.isLowPowerModeEnabled ? 0.1 : 0.05, repeats: true) { [weak self] _ in self?.refreshPlayback() }
+        let timer = Timer(timeInterval: ProcessInfo.processInfo.isLowPowerModeEnabled ? 0.1 : 1.0 / 30.0, repeats: true) { [weak self] _ in self?.refreshPlayback() }
         timer.tolerance = 0.005
         RunLoop.main.add(timer, forMode: .common)
         playbackTimer = timer

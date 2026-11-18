@@ -20,10 +20,11 @@ struct KaraokeBackgroundView: View {
     @State private var colors: [Color] = KaraokeBackgroundView.placeholderColors
 
     private static let placeholderColors: [Color] = [
-        Color(red: 0.07, green: 0.35, blue: 0.45),
-        Color(red: 0.10, green: 0.55, blue: 0.40),
-        Color(red: 0.05, green: 0.20, blue: 0.55),
-    ]
+        (0.12, 0.40, 0.70), (0.50, 0.18, 0.36), (0.15, 0.40, 0.30)
+    ].map { rgb in
+        let color = KaraokeReadability.toneMap(red: rgb.0, green: rgb.1, blue: rgb.2)
+        return Color(red: color.red, green: color.green, blue: color.blue)
+    }
 
     private static let metalRendererSupported: Bool = {
         guard let device = MTLCreateSystemDefaultDevice() else { return false }
@@ -92,8 +93,15 @@ struct KaraokeBackgroundView: View {
             writeDebugLog("[Karaoke] no album art view found — using placeholder gradient")
             return
         }
-        albumArtImage = image
-        extractColors(from: image)
+        let generation = artworkGeneration
+        DispatchQueue.global(qos: .userInitiated).async {
+            guard let toned = KaraokeArtworkToneMap.image(from: image) else { return }
+            DispatchQueue.main.async {
+                guard generation == artworkGeneration else { return }
+                albumArtImage = toned
+                extractColors(from: toned)
+            }
+        }
     }
 
     private func extractColors(from image: UIImage) {
@@ -104,7 +112,12 @@ struct KaraokeBackgroundView: View {
                 writeDebugLog("[Karaoke] album art color extraction returned too few colors (\(extracted.count)) — using placeholder gradient")
                 return
             }
-            let swiftUIColors = extracted.map { Color($0) }
+            let swiftUIColors = extracted.map { color -> Color in
+                var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, alpha: CGFloat = 0
+                guard color.getRed(&r, green: &g, blue: &b, alpha: &alpha) else { return .black }
+                let toned = KaraokeReadability.toneMap(red: Double(r), green: Double(g), blue: Double(b))
+                return Color(red: toned.red, green: toned.green, blue: toned.blue)
+            }
             DispatchQueue.main.async {
                 if generation == artworkGeneration { colors = swiftUIColors }
             }

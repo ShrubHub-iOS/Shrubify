@@ -36,11 +36,19 @@ enum NativeTabletGlass {
         weak var owner: UIView?
         var plate: UIVisualEffectView?
         var originalColor: UIColor?
+        weak var host: UIView?
+        var hostColor: UIColor?
+        var hostWasCleared = false
+        var clearedEffects: [(UIVisualEffectView, UIVisualEffect)] = []
         init(miniPlayer: Bool) { self.miniPlayer = miniPlayer }
         func remove() {
             plate?.removeFromSuperview(); plate = nil
-            if miniPlayer { owner?.backgroundColor = originalColor }
-            owner = nil
+            owner?.backgroundColor = originalColor
+            if hostWasCleared, host !== owner { host?.backgroundColor = hostColor }
+            hostWasCleared = false
+            for (view, effect) in clearedEffects where view.effect == nil { view.effect = effect }
+            clearedEffects.removeAll()
+            owner = nil; host = nil
         }
     }
 
@@ -68,10 +76,14 @@ enum NativeTabletGlass {
             let node = nodes[index]; index += 1
             if miniPlayer && node.accessibilityIdentifier == "SPTNowPlayingBar" { owner = node; break }
             if !miniPlayer, let row = node as? UIStackView, row.axis == .horizontal,
-               row.accessibilityIdentifier == "tabs-container-view-identifier" { owner = row; break }
+               (row.accessibilityIdentifier == "tabs-container-view-identifier"
+                || (2...6).contains(row.arrangedSubviews.count) && row.bounds.height <= 96
+                   && row.arrangedSubviews.filter({ NSStringFromClass(type(of: $0)).contains("TabBarItem") }).count >= 2) {
+                owner = row; break
+            }
             nodes.append(contentsOf: node.subviews.filter { $0 !== state.plate })
         }
-        guard let owner else { state.remove(); return }
+        guard let owner, owner.bounds.height <= 100 else { state.remove(); return }
         let content: CGRect
         if let row = owner as? UIStackView, !miniPlayer {
             let items = row.arrangedSubviews.filter { !$0.isHidden && $0.alpha > 0.01 && $0.bounds.width > 1 }
@@ -80,12 +92,13 @@ enum NativeTabletGlass {
         } else { content = owner.bounds }
         guard let frame = NativeGlassGeometry.frame(bounds: owner.bounds, content: content, miniPlayer: miniPlayer)
         else { state.remove(); return }
-        // Respect an existing native material instead of stacking a second one.
-        guard !owner.subviews.contains(where: { $0 is UIVisualEffectView && $0 !== state.plate })
-        else { state.remove(); return }
+        if owner.subviews.contains(where: { $0 !== state.plate && ($0 as? UIVisualEffectView)?.effect is UIGlassEffect }) {
+            state.remove(); return
+        }
         if state.owner !== owner { state.remove() }
         if state.plate == nil {
             state.owner = owner; state.originalColor = owner.backgroundColor
+            state.host = host; state.hostColor = host.backgroundColor
             let plate = GlassCapsule.makeGlassView(wantsInteractive: false).view
             plate.overrideUserInterfaceStyle = .dark
             plate.isUserInteractionEnabled = false
@@ -93,9 +106,19 @@ enum NativeTabletGlass {
             owner.insertSubview(plate, at: 0)
             state.plate = plate
         }
-        if miniPlayer {
-            if let color = owner.backgroundColor, color.cgColor.alpha > 0.001 { state.originalColor = color }
-            owner.backgroundColor = .clear
+        // Clear only the bounded bar's old backing. Its contents and events stay intact.
+        for effectView in owner.subviews.compactMap({ $0 as? UIVisualEffectView }) where effectView !== state.plate {
+            guard let effect = effectView.effect, effect is UIBlurEffect else { continue }
+            if let index = state.clearedEffects.firstIndex(where: { $0.0 === effectView }) { state.clearedEffects[index] = (effectView, effect) }
+            else { state.clearedEffects.append((effectView, effect)) }
+            effectView.effect = nil
+        }
+        if let color = owner.backgroundColor, color.cgColor.alpha > 0.001 { state.originalColor = color }
+        owner.backgroundColor = .clear
+        if host !== owner, host.bounds.height <= 100 {
+            if let color = host.backgroundColor, color.cgColor.alpha > 0.001 { state.hostColor = color }
+            host.backgroundColor = .clear
+            state.hostWasCleared = true
         }
         if state.plate?.frame != frame { state.plate?.frame = frame }
         state.plate?.layer.cornerRadius = min(26, frame.height / 2)
