@@ -1,3 +1,10 @@
+# 4.1.5
+
+- Improve original custom lyrics contrast over all covers, keep inactive lines sharp, and add a clearly styled lyrics button.
+- Restore local Shrubify plan labels across endpoint versions while preserving subscription and billing details.
+- Isolate optional ad hooks, retry lazy class registration safely, enable the guarded audio-ad getter, and retain filtering with native lyrics.
+- Preserve working native iPad UI; defer Liquid Glass redesign.
+
 # 4.1.4
 
 - Restore the original Shrubify fullscreen custom lyrics renderer, word animations, scrolling, credits and Metal background removed by the Evolved port.

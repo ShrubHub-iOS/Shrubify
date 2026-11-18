@@ -34,7 +34,6 @@ struct KaraokeLineView: View {
         .padding(.horizontal, 18)
         .padding(.vertical, 14)
         .background(activePlate)
-        .opacity(isActiveLine ? 1.0 : 0.43)
 
         .scaleEffect(isActiveLine ? 1.0 : 0.98, anchor: .center)
         .animation(.easeOut(duration: 0.35), value: isActiveLine)
@@ -45,7 +44,7 @@ struct KaraokeLineView: View {
     @ViewBuilder private var activePlate: some View {
         if isActiveLine {
             RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .fill(Color.white.opacity(KaraokeGlass.isEnabled ? 0.09 : 0.06))
+                .fill(Color.black.opacity(0.35))
                 .overlay(
                     RoundedRectangle(cornerRadius: 24, style: .continuous)
                         .stroke(Color.white.opacity(KaraokeGlass.isEnabled ? 0.18 : 0.10), lineWidth: 1)
@@ -127,8 +126,8 @@ private struct KaraokeSyllableTextView: View {
                     stops: [
                         .init(color: .white, location: 0),
                         .init(color: .white, location: progress),
-                        .init(color: .white.opacity(0.35), location: progress),
-                        .init(color: .white.opacity(0.35), location: 1),
+                        .init(color: .white.opacity(KaraokeReadability.unsungTextOpacity), location: progress),
+                        .init(color: .white.opacity(KaraokeReadability.unsungTextOpacity), location: 1),
                     ],
                     startPoint: gradientStart,
                     endPoint: gradientEnd

@@ -32,3 +32,15 @@ check(ReplayPlaybackBoundary.didRepeat(previous: 235, current: 5, duration: 240,
 check(!ReplayPlaybackBoundary.didRepeat(previous: 100, current: 5, duration: 240, elapsed: 10, rate: 1), "ordinary backward seek does not count as repeat")
 check(!ReplayPlaybackBoundary.didRepeat(previous: 235, current: 5, duration: 240, elapsed: 90, rate: 1), "background gap not backfilled as a repeat")
 print("V4 release reliability regression checks passed")
+
+for version in ["v1", "v2", "v3"] {
+    check(URL(string: "https://spclient.wg.spotify.com/plan/\(version)/GetPremiumPlanRow")!.isPremiumPlanRow,
+          "Shrubify plan branding follows endpoint version changes")
+}
+check(!URL(string: "https://spclient.wg.spotify.com/plan/v2/GetOtherPlan")!.isPremiumPlanRow, "Unrelated plan requests remain untouched")
+for path in ["/ads/slot", "/ad-logic/slot", "/dac/view/v1/home", "/esperanto/com.spotify.ads.v1.AdService/load"] {
+    check(URL(string: "https://spclient.wg.spotify.com" + path)!.isAdRelated, "Known audio/display ad route blocked")
+}
+for path in ["/metadata/4/track/abc", "/color-lyrics/v2/track/abc", "/esperanto/metadata/get"] {
+    check(!URL(string: "https://spclient.wg.spotify.com" + path)!.isAdRelated, "Playback and lyrics routes stay usable")
+}

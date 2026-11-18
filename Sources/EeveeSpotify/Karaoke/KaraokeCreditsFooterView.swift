@@ -14,14 +14,14 @@ struct KaraokeCreditsFooterView: View {
     private func creditLine(_ prefix: String, name: String, url: String?) -> some View {
         HStack(spacing: 4) {
             Text(prefix)
-                .foregroundColor(.white.opacity(0.4))
+                .foregroundColor(.white.opacity(0.75))
 
             if let url = url, let destination = URL(string: url) {
                 Link(name, destination: destination)
                     .foregroundColor(.white.opacity(0.7))
             } else {
                 Text(name)
-                    .foregroundColor(.white.opacity(0.4))
+                    .foregroundColor(.white.opacity(0.75))
             }
         }
         .font(.system(size: 12, weight: .regular))
@@ -42,7 +42,7 @@ struct KaraokeCreditsFooterView: View {
                 if let providerLabel = providerLabel {
                     Text("\("lyrics_provided_by".localized) \(providerLabel)")
                         .font(.system(size: 12, weight: .regular))
-                        .foregroundColor(.white.opacity(0.4))
+                        .foregroundColor(.white.opacity(0.75))
                         .multilineTextAlignment(.center)
                 }
                 if let maker = maker {

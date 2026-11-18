@@ -20,36 +20,14 @@ func getPremiumPlanRowData(originalPremiumPlanRow: PremiumPlanRow) throws -> Dat
     return try premiumPlanRow.serializedData()
 }
 
-func getPlanOverviewData() throws -> Data {
-    let plan = SpotifyPlan.with {
-        $0.notice = SpotifyPlan.Notice.with {
-            $0.message = "payment_notice".localized
-            $0.status = 2 // 0 - trial, 1 - prepaid, 2 - subsсription
-        }
-        $0.subscription = SpotifyPlan.SubscriptionInfo.with {
-            $0.planVariant = 2
-            $0.planName = "Shrubify"
-            $0.planCategory = "Shrubify"
-            $0.colorCode = "#FFD2D7"
-            $0.features = [
-                SpotifyPlan.Feature.with {
-                    $0.color = "#1ED760"
-                    $0.description_p = "ad_free_music_listening".localized
-                    $0.icon = SpotifyPlan.IconType.check
-                },
-                SpotifyPlan.Feature.with {
-                    $0.color = "#1ED760"
-                    $0.description_p = "play_songs_in_any_order".localized
-                    $0.icon = SpotifyPlan.IconType.check
-                },
-                SpotifyPlan.Feature.with {
-                    $0.color = "#1ED760"
-                    $0.description_p = "organize_listening_queue".localized
-                    $0.icon = SpotifyPlan.IconType.check
-                }
-            ]
-        }
+// Change the local display name without fabricating a paid subscription,
+// billing dates, renewal state or server-backed capabilities.
+func getPlanOverviewData(original: SpotifyPlan) throws -> Data {
+    var plan = original
+    plan.subscription.planName = "Shrubify"
+    plan.subscription.colorCode = "#FFD2D7"
+    if plan.hasNotice {
+        plan.notice.message = "Shrubify features are active on this device. Your Spotify subscription and billing are separate."
     }
-    
     return try plan.serializedData()
 }

@@ -25,3 +25,12 @@ check(KaraokeLyricsAdapter.convert(lines: plain, timeSynced: false, providerName
 let rtl = KaraokeLyricsAdapter.convert(lines: [LyricsLineDto(content: "שלום עולם", offsetMs: 0)], timeSynced: true, providerName: "PetitLyrics")!
 check(rtl.isRTL && rtl.lines[0].plainText == "שלום עולם", "Restore the original RTL model")
 print("Original custom lyrics adapter: syllables, CJK/RTL, timing, line-only sources and credits passed")
+
+// Conservative linear-light composition: every cover luminance must retain
+// at least AAA normal-text contrast, including unsung words on a white cover.
+for step in 0...1000 {
+    let background = Double(step) / 1000 * (1 - KaraokeReadability.backgroundDimOpacity)
+    let foreground = KaraokeReadability.unsungTextOpacity + background * (1 - KaraokeReadability.unsungTextOpacity)
+    check((foreground + 0.05) / (background + 0.05) >= 7, "Lyrics must remain readable over every cover luminance")
+}
+print("Lyrics contrast passed for 1,001 cover luminances")

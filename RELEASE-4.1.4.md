@@ -1,3 +1,5 @@
+> Historical release notes. Current release: [Shrubify 4.1.5](RELEASE-4.1.5.md).
+
 # Shrubify 4.1.4
 
 Restore Shrubify's original fullscreen custom lyrics view from before the Evolved port. The original renderer, word/syllable animations, scrolling, credits and Metal background return as an independent feature.

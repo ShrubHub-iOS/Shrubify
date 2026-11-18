@@ -250,9 +250,8 @@ struct EeveeSpotify: Tweak {
             // player/navigation styling, including iPad compatibility recovery.
             activateKaraokePlaybackCapture()
         }
-        if UserDefaults.patchType.isPatching || UserDefaults.shouldHandleLyricsTraffic {
-            ResponseTransportGroup().activate()
-        }
+        // Ad filtering and the local Shrubify badge also apply with native lyrics.
+        ResponseTransportGroup().activate()
         activateTelemetryBlock()
         activateTheme()
         // Lightweight, opt-in local statistics timer. No private Spotify hooks required.

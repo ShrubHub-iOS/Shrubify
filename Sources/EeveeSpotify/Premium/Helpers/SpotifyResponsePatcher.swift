@@ -59,6 +59,8 @@ enum SpotifyResponsePatcher {
 
         return (url.isLyrics && (NgzhwmSettingsViewModel.isLyricsFeatureDisabled
                 || (shouldReplaceLyrics && UserDefaults.shouldReplaceLyrics)))
+            // Local plan branding is independent of account entitlement patching.
+            || url.isPremiumPlanRow || url.isPremiumBadge || url.isPlanOverview
             || (shouldPatchPremium && (
                 url.isBootstrap || url.isCustomize ||
                 url.isPremiumPlanRow || url.isPremiumBadge || url.isPlanOverview ||
@@ -138,7 +140,7 @@ enum SpotifyResponsePatcher {
             return PatchResult(data: data, tag: .customize)
         }
         if url.isPlanOverview {
-            return PatchResult(data: try getPlanOverviewData(), tag: .planOverview)
+            return PatchResult(data: try getPlanOverviewData(original: SpotifyPlan(serializedBytes: buffer)), tag: .planOverview)
         }
         if url.path.lowercased().contains("/dac/view/v1/") {
             // Empty body = "no ad to render" to the DAC consumer.

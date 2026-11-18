@@ -14,7 +14,7 @@ extension URL {
     }
     
     var isPremiumPlanRow: Bool {
-        self.path.contains("v1/GetPremiumPlanRow")
+        self.lastPathComponent.hasPrefix("GetPremiumPlanRow")
     }
     
     var isPremiumBadge: Bool {

@@ -1,4 +1,13 @@
-# Shrubify 4.1.4 testing checklist
+# Shrubify 4.1.5 testing checklist
+
+## 4.1.5 acceptance
+
+- Open custom lyrics on bright, dark and high-contrast covers: current and surrounding lines remain sharp and readable, including unsung words.
+- Confirm the filled custom-lyrics button has an icon, rounded label and usable tap target.
+- Confirm Settings displays Shrubify as the local plan label; actual subscription/billing details stay unchanged.
+- Test free-account track transitions, home/search/playlist ads and foreground return. No claim of complete ad coverage is made without device testing.
+- Confirm native iPad fullscreen and pause controls still work.
+
 
 This checklist is for **real builds on devices**; passing source-only syntax tests does not mean installation, hooks or user flows have been verified.
 
@@ -49,13 +58,13 @@ Spotify changes private classes between releases. Hook compatibility and login b
 
 See [integration notes](docs/EVOLVED-INTEGRATION.md#validation) for timer, typography and Replay device checks. Run `bash scripts/test_listening_tools.sh` alongside the beta regression harness on a machine with Swift installed.
 
-## 4.1.4 regression acceptance
+## 4.1.5 regression acceptance
 
 Run `scripts/test_pr_integration.sh` for responsive geometry and obsolete-request cancellation, plus `scripts/test_v4_beta.sh` for ABI-checked native pause/seek and long-podcast clock fixtures. Run the full native validation workflow before shipping.
 
 On device: compare iPhone portrait/landscape and iPad fullscreen/Split View/Stage Manager; rotate and resize with lyrics open; test large text, VoiceOver, Reduce Motion and Reduce Transparency; confirm one menu, readable artwork/controls, reachable footer, native fallback and native-size mini-player controls. Exercise all transport/queue/output/save/seek controls, short tracks in Replay, endpoint resets, token deletion, source changes, rapid track skips, network recovery, old SponsorBlock action toasts, disabling SponsorBlock while playing and sleep-timer pause confirmation in foreground/background.
 
-## 4.1.4 crash and navigation regressions
+## 4.1.5 crash and navigation regressions
 
 - `scripts/test_v4_beta.sh`: modern track with a throwing legacy artist getter, legacy-only track, missing/throwing/scalar metadata, incomplete startup recovery and a subprocess exiting without normal cleanup.
 - `scripts/test_pr_integration.sh`: bounded navigation geometry for 320–1280 point containers.

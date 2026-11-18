@@ -184,7 +184,7 @@ class CoreProductStateHook: ClassHook<NSObject> {
 }
 
 class AdsProductStateHook: ClassHook<NSObject> {
-    typealias Group = EeveePremiumForceGroup
+    typealias Group = AdsProductStateGroup
     static let targetName = "SPTAdsProductState"
 
     func adsEnabled() -> Bool {
@@ -214,10 +214,11 @@ private func swizzleBoolGetter(_ cls: AnyClass, _ name: String, _ value: Bool) {
 }
 
 struct EeveePremiumForceGroup: HookGroup {}
+struct AdsProductStateGroup: HookGroup {}
 
 private let enableDictRewrite = false
 private let enableDirectGetters = false
-private let enableAdsHook = false
+private let enableAdsHook = true
 private let enablePassiveProductStateLog = true
 
 func activateEeveePremiumForce() {
@@ -228,6 +229,17 @@ func activateEeveePremiumForce() {
           enablePassiveProductStateLog ? "on" : "off")
     guard enableDictRewrite || enableDirectGetters || enableAdsHook || enablePassiveProductStateLog else {
         return
+    }
+    // The audio-ad getter is independent of the broader product-state hooks.
+    // Only install its Bool ABI when the host actually provides that selector.
+    if enableAdsHook, let cls = findTweakClass(AdsProductStateHook.targetName),
+       let method = class_getInstanceMethod(cls, NSSelectorFromString("adsEnabled")),
+       method_getNumberOfArguments(method) == 2 {
+        let returnType = method_copyReturnType(method)
+        defer { free(returnType) }
+        if ["B", "c"].contains(String(cString: returnType)) {
+            AdsProductStateGroup().activate()
+        }
     }
     // This ran completely unguarded before - unlike every other hook group in this
     // codebase - so a Spotify build that renames/removes one of these methods would

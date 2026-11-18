@@ -15,11 +15,15 @@ struct KaraokeLyricsView: View {
     var body: some View {
         GeometryReader { geo in
             ZStack(alignment: .top) {
+                Color.black.ignoresSafeArea()
                 if KaraokeGlass.isEnabled {
                     KaraokeGlassBackground().ignoresSafeArea()
                 } else {
                     KaraokeBackgroundView().id(model.trackId)
+                        .blur(radius: max(12, min(32, options.blurIntensity * 8)))
                 }
+                Color.black.opacity(KaraokeReadability.backgroundDimOpacity)
+                    .ignoresSafeArea().allowsHitTesting(false)
                 VStack(spacing: 0) {
                     topBar
                     if let lyrics = model.lyrics {
@@ -186,7 +190,6 @@ private struct KaraokeScrollingLines: View {
                             alignment: alignment,
                             fontSize: CGFloat(options.resolvedFontSize)
                         )
-                        .blur(radius: index == activeLineIndex ? 0 : max(0, min(4, options.blurIntensity)))
                         .contentShape(Rectangle())
                         .onTapGesture {
                             guard lyrics.lines.indices.contains(index) else { return }

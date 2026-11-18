@@ -20,7 +20,12 @@ struct KaraokeLaunchButton: View {
             }
         } label: {
             Label(loading ? "Finding lyrics…" : "Open custom lyrics", systemImage: "text.quote")
+                .font(.system(.subheadline, design: .rounded).weight(.semibold))
+                .frame(minHeight: 32)
         }
+        .buttonStyle(.borderedProminent)
+        .tint(.white)
+        .foregroundColor(.black)
         .disabled(loading || !UserDefaults.karaokeOptions.enabled || !UserDefaults.shouldReplaceLyrics)
         .onAppear { visible = true; generation = UUID() }
         .onDisappear { visible = false; generation = UUID(); loading = false }
@@ -52,7 +57,7 @@ struct ShrubifyCustomLyricsSettingsSection: View {
                 }
                 Stepper("Lyrics delay: \(options.timingOffsetMs) ms", value: $options.timingOffsetMs, in: -5000...5000, step: 100)
                 VStack(alignment: .leading) {
-                    Text("Inactive lyric blur")
+                    Text("Album background blur")
                     Slider(value: $options.blurIntensity, in: 0...4, step: 0.1)
                 }
                 if #available(iOS 26.0, *) { Toggle("Glass lyrics background", isOn: $glass) }
