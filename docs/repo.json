@@ -10,9 +10,18 @@
       "bundleIdentifier": "com.shrubify.client",
       "developerName": "shrubbery & ShrubHub team",
       "subtitle": "Listening is easy with Shrubify!",
-      "localizedDescription": "Shrubify 4.1.5: Evolved player and pages, expanded lyrics sources, ShrubPanel, opt-in Replay, ShrubQueue and sleep timer. Source credits and GPL notices are in the repository.",
+      "localizedDescription": "Shrubify 4.1.6: Evolved player and pages, expanded lyrics sources, ShrubPanel, opt-in Replay, ShrubQueue and sleep timer. Source credits and GPL notices are in the repository.",
       "iconURL": "https://raw.githubusercontent.com/ShrubHub-iOS/Shrubify/Master/docs/icon.png",
       "versions": [
+        {
+          "version": "9.2.0",
+          "buildVersion": "89",
+          "date": "2026-11-18",
+          "localizedDescription": "Shrubify v4.1.6 for Spotify 9.2.0. Evolved player/pages, expanded lyrics, ShrubPanel, opt-in Replay and sleep timer. Compatibility depends on Spotify version.",
+          "downloadURL": "https://github.com/ShrubHub-iOS/Shrubify/releases/download/shrubify-s9.2.0-v4.1.6-g4b41c3a/Shrubify-Spotify-9.2.0-v4.1.6-b89.ipa",
+          "size": 151709016,
+          "minOSVersion": "17.4"
+        },
         {
           "version": "9.2.0",
           "buildVersion": "87",
