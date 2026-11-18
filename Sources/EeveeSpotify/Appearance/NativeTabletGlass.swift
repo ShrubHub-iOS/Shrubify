@@ -49,6 +49,11 @@ enum NativeTabletGlass {
         started && (UserDefaults.standard.object(forKey: "ShrubifyNativeTabletGlass") as? Bool ?? true)
     }
 
+    // The existing dock-only path is safe in Stability Mode. New content
+    // styling is optional, just like the cell/player layout hooks driving it.
+    private(set) static var contentAllowed = false
+    static var contentEnabled: Bool { contentAllowed && isEnabled && !UIAccessibility.isReduceTransparencyEnabled }
+
     private static var observers: [NSObjectProtocol] = []
     private static var started = false
     private static var lastDiscovery: TimeInterval = 0
@@ -56,6 +61,7 @@ enum NativeTabletGlass {
     static func start() {
         guard #available(iOS 26.0, *), !started, UIDevice.current.userInterfaceIdiom == .pad else { return }
         started = true
+        contentAllowed = !UserDefaults.standard.bool(forKey: "ShrubifyStabilityMode")
         for notification in [UIWindow.didBecomeVisibleNotification, UIWindow.didBecomeKeyNotification,
                              UIApplication.didBecomeActiveNotification, .eeveeKaraokeLyricsChanged] {
             observers.append(NotificationCenter.default.addObserver(forName: notification, object: nil, queue: .main) { _ in
@@ -73,7 +79,7 @@ enum NativeTabletGlass {
 
     private static func discover() {
         guard #available(iOS 26.0, *), isEnabled else { return }
-        let decorateContent = !UIAccessibility.isReduceTransparencyEnabled
+        let decorateContent = contentEnabled
         let now = ProcessInfo.processInfo.systemUptime
         guard now - lastDiscovery >= 0.2 else { return }
         lastDiscovery = now
@@ -93,7 +99,7 @@ enum NativeTabletGlass {
     }
 
     static func reapply() {
-        guard started else { return } // Stability Mode did not activate these hooks.
+        guard started else { return }
         for owner in hosts.allObjects {
             guard let state = objc_getAssociatedObject(owner, &key) as? State else { continue }
             state.remove()
@@ -128,6 +134,7 @@ enum NativeTabletGlass {
         if let row = owner as? UIStackView, !miniPlayer {
             let items = row.arrangedSubviews.filter { !$0.isHidden && $0.alpha > 0.01 && $0.bounds.width > 1 }
             guard (2...6).contains(items.count) else { state.remove(); return }
+            if contentEnabled { items.forEach { NativeContentGlass.refresh(in: $0) } }
             content = items.reduce(CGRect.null) { $0.union($1.convert($1.bounds, to: owner)) }
         } else { content = owner.bounds }
         guard let frame = NativeGlassGeometry.frame(bounds: owner.bounds, content: content, miniPlayer: miniPlayer)

@@ -1,4 +1,7 @@
 import Foundation
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 
 /// The two Spotify transports expose the same contract. Only their Orion
 /// trampolines differ; buffering, recovery, queue and callback order do not.

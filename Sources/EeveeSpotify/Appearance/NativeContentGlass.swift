@@ -6,14 +6,16 @@ import ObjectiveC.runtime
 @MainActor
 enum NativeContentGlass {
     enum Surface {
-        case shortcut, card, artwork, row, control
+        case shortcut, card, artwork, row, control, tabIcon
 
         func accepts(_ size: CGSize) -> Bool {
+            guard size.width.isFinite, size.height.isFinite else { return false }
             switch self {
             case .shortcut: return (80...600).contains(size.width) && (36...220).contains(size.height)
             case .card: return (80...480).contains(size.width) && (60...520).contains(size.height)
             case .artwork: return (40...680).contains(size.width) && (0.8...1.25).contains(size.width / max(1, size.height))
             case .row: return size.width >= 100 && (32...112).contains(size.height)
+            case .tabIcon: return size.width >= 28 && (24...96).contains(size.height)
             case .control: return (22...240).contains(size.width) && (22...96).contains(size.height)
             }
         }
@@ -22,7 +24,7 @@ enum NativeContentGlass {
             switch self {
             case .shortcut, .row: return 12
             case .card, .artwork: return 16
-            case .control: return nil // pill or circle, according to the native control
+            case .control, .tabIcon: return nil // pill or circle, according to the native control
             }
         }
     }
@@ -43,6 +45,10 @@ enum NativeContentGlass {
     ]
     private static let classes: [String: Surface] = [
         "EncoreConsumerMobile_BaseKit.FilterChipView": .control,
+        "EncoreConsumerMobile_BaseKit.NavChipView": .control,
+        "EncoreConsumerMobile_BaseKit.ChipView": .control,
+        "NavigationUI_TabBarImpl.TabBarItemElementView": .tabIcon,
+        "CreateMenu_TabBarItemImpl.CreateMenuTabBarItemView": .tabIcon,
         "Home_EvoECMKit.CardArtworkView": .artwork,
         "Home_EvoECMKit.OverlayedTitleCardView": .card,
         "Martini_ElementImpl.TrackRowView": .row, "Queue_ScrollCardImpl.QueueUpNextTrackRowView": .row,
@@ -50,12 +56,14 @@ enum NativeContentGlass {
         "Prerelease_PrereleaseImpl.AlbumTrackCell": .row
     ]
     private static let hosts = NSHashTable<UIView>.weakObjects()
+    private static let pendingCells = NSHashTable<UICollectionViewCell>.weakObjects()
     private static var key: UInt8 = 0
 
     @MainActor private final class Decoration {
         let surface: Surface
         let plate: UIVisualEffectView
         var maskSize: CGSize = .zero
+        var maskRadius: CGFloat = -1
         init(_ surface: Surface) {
             self.surface = surface
             plate = GlassCapsule.makeGlassView(wantsInteractive: false, cornerRadius: surface.radius).view
@@ -66,7 +74,10 @@ enum NativeContentGlass {
     }
 
     private static func surface(for view: UIView) -> Surface? {
-        if let id = view.accessibilityIdentifier, let surface = ids[id] { return surface }
+        if let id = view.accessibilityIdentifier {
+            if let surface = ids[id] { return surface }
+            if id.hasPrefix("TabBar.Item.") { return .tabIcon }
+        }
         if let surface = classes[NSStringFromClass(type(of: view))] { return surface }
         // Home shelves use ordinary cells/image holders too. Scope both matches
         // to Spotify's carousel; Encore.ImageView alone also matches tiny icons.
@@ -105,9 +116,24 @@ enum NativeContentGlass {
     static func update(_ host: UIView) {
         guard host.window != nil, !host.isHidden, let surface = surface(for: host),
               surface.accepts(host.bounds.size) else { remove(from: host); return }
+        // Album wrappers and nested Encore chips sometimes expose the same
+        // surface at two levels. Never stack two plates on the same footprint.
+        var ancestor = host.superview
+        for _ in 0..<5 {
+            guard let parent = ancestor, parent.bounds.size == host.bounds.size else { break }
+            if let outer = objc_getAssociatedObject(parent, &key) as? Decoration, outer.surface == surface {
+                remove(from: host); return
+            }
+            ancestor = parent.superview
+        }
         let owner = (host as? UICollectionViewCell)?.contentView ?? host
         let old = objc_getAssociatedObject(host, &key) as? Decoration
         let mount = materialMount(in: owner, surface: surface)
+        var frame = mount.bounds.insetBy(dx: surface == .row ? 4 : 0, dy: surface == .row ? 2 : 0)
+        if surface == .tabIcon {
+            guard let well = iconFrame(in: mount) else { remove(from: host); return }
+            frame = well
+        }
         if mount.subviews.contains(where: { $0 !== old?.plate && ($0 as? UIVisualEffectView)?.effect is UIGlassEffect }) {
             remove(from: host); return
         }
@@ -129,18 +155,44 @@ enum NativeContentGlass {
         if plate.superview !== mount || mount.subviews.firstIndex(of: plate) != index {
             mount.insertSubview(plate, at: index)
         }
-        let frame = mount.bounds.insetBy(dx: surface == .row ? 4 : 0, dy: surface == .row ? 2 : 0)
         if plate.frame != frame { plate.frame = frame }
-        if surface == .artwork, decoration.maskSize != plate.bounds.size {
+        if surface == .artwork {
+            // Artist portraits may be circles; don't draw rectangular corners
+            // into the empty space around a native circular crop.
+            let nativeRadius = max(host.layer.cornerRadius, host.subviews.compactMap { subview in
+                subview is UIImageView && subview.bounds.size == host.bounds.size ? subview.layer.cornerRadius : nil
+            }.max() ?? 0)
+            let radius = min(max(surface.radius ?? 0, nativeRadius), min(frame.width, frame.height) / 2)
+            guard decoration.maskSize != plate.bounds.size || decoration.maskRadius != radius else { return }
+            plate.cornerConfiguration = .corners(radius: .fixed(Double(radius)))
             // A glass sleeve at the perimeter, not a blur over the album cover.
             let rim: CGFloat = 3
-            let radius = min(surface.radius ?? 0, min(frame.width, frame.height) / 2)
             let path = UIBezierPath(roundedRect: plate.bounds, cornerRadius: radius)
             path.append(UIBezierPath(roundedRect: plate.bounds.insetBy(dx: rim, dy: rim), cornerRadius: max(0, radius - rim)))
             let mask = CAShapeLayer(); mask.frame = plate.bounds; mask.path = path.cgPath; mask.fillRule = .evenOdd
             plate.layer.mask = mask
             decoration.maskSize = plate.bounds.size
+            decoration.maskRadius = radius
         }
+    }
+
+    // Center the material behind the *existing glyph*, not behind the whole
+    // tab or its label. A different/unmeasured item layout stays untouched.
+    private static func iconFrame(in item: UIView) -> CGRect? {
+        var nodes = item.subviews; var index = 0
+        while index < nodes.count && index < 30 {
+            let node = nodes[index]; index += 1
+            guard !node.isHidden, !(node is UIVisualEffectView) else { continue }
+            if node is UIImageView || node.accessibilityIdentifier == "Encore.IconView" {
+                let glyph = node.convert(node.bounds, to: item)
+                if (12...42).contains(glyph.width), (12...42).contains(glyph.height) {
+                    let well = glyph.insetBy(dx: -6, dy: -3).intersection(item.bounds)
+                    if !well.isNull, well.width >= 12, well.height >= 12 { return well }
+                }
+            }
+            nodes.append(contentsOf: node.subviews)
+        }
+        return nil
     }
 
     private static func materialMount(in owner: UIView, surface: Surface) -> UIView {
@@ -158,12 +210,25 @@ enum NativeContentGlass {
     }
 
     static func refresh(in root: UIView) {
-        guard #available(iOS 26.0, *), root.window != nil, NativeTabletGlass.isEnabled,
-              !UIAccessibility.isReduceTransparencyEnabled else { return }
+        guard #available(iOS 26.0, *), root.window != nil, NativeTabletGlass.contentEnabled else { return }
         walk(root) { update($0) }
     }
 
+    // A hook on UICollectionViewCell can run *inside* a Spotify subclass’s
+    // super.layoutSubviews(), before the artwork/buttons have their final
+    // bounds. Coalesce until the end of the turn, and don't retain the cell.
+    static func schedule(_ cell: UICollectionViewCell) {
+        guard cell.window != nil, NativeTabletGlass.contentEnabled, !pendingCells.contains(cell) else { return }
+        pendingCells.add(cell)
+        DispatchQueue.main.async { [weak cell] in
+            guard let cell, pendingCells.contains(cell) else { return }
+            pendingCells.remove(cell)
+            refresh(in: cell)
+        }
+    }
+
     static func prepareForReuse(_ cell: UICollectionViewCell) {
+        pendingCells.remove(cell)
         guard hosts.count > 0 else { return }
         walk(cell, visit: remove(from:))
     }

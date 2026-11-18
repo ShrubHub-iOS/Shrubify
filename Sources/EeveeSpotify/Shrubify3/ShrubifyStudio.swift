@@ -17,6 +17,9 @@ struct ShrubifyStudioView: View {
             if EvolvedInterfaceAvailability.usesNativeTabletInterface {
                 Section(header: Text("iPad player & pages"), footer: Text("Spotify keeps its native layout and controls. Glass decorates supported Home tiles, album artwork, track rows, buttons and the player without changing what a tap does.")) {
                     if #available(iOS 26.0, *) {
+                        if UserDefaults.standard.bool(forKey: "ShrubifyStabilityMode") {
+                            Text("Stability Mode limits glass to the native dock. Content styling resumes after restarting with Stability Mode off.").font(.footnote)
+                        }
                         Toggle("Liquid Glass", isOn: $nativeGlass)
                             .onChange(of: nativeGlass) { _ in NativeTabletGlass.reapply() }
                     } else {

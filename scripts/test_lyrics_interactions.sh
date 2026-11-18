@@ -36,6 +36,9 @@ xcodebuild -project "$SHRUBIFY_INTERACTION_ROOT/LyricsInteractions.xcodeproj" -s
   -resultBundlePath Outputs/lyrics-interactions/Interactions.xcresult \
   -parallel-testing-enabled NO CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=- test > Outputs/lyrics-interactions/xcodebuild.log 2>&1 || {
     tail -100 Outputs/lyrics-interactions/xcodebuild.log
+    if [[ -n "${GITHUB_ACTIONS:-}" ]]; then
+      grep -m 5 -E '(: error:|XCTAssert.*failed|xcodebuild: error:)' Outputs/lyrics-interactions/xcodebuild.log | sed 's/^/::error::/' || true
+    fi
     exit 1
   }
 xcrun xcresulttool get test-results summary --path Outputs/lyrics-interactions/Interactions.xcresult --format json > Outputs/lyrics-interactions/summary.json

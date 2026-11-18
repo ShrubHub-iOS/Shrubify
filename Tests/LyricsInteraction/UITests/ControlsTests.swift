@@ -68,9 +68,12 @@ final class ControlsTests: XCTestCase {
         app.buttons["toggle-glass"].tap(); XCTAssertEqual(material.label, "4 · intact")
         app.buttons["reuse-row"].tap(); XCTAssertEqual(material.label, "3 · intact")
         app.buttons["unknown-row"].tap(); XCTAssertEqual(action.label, "track")
-        app.scrollViews["native-content-scroll"].swipeLeft()
-        XCTAssertTrue(app.buttons["shelf-end"].isHittable)
-        app.buttons["shelf-end"].tap(); XCTAssertEqual(action.label, "shelf end")
+        let shelf = app.scrollViews["native-content-scroll"]
+        let end = app.buttons["shelf-end"]
+        for _ in 0..<3 where !end.isHittable { shelf.swipeLeft() }
+        XCTAssertTrue(end.isHittable)
+        end.tap(); shelf.swipeRight()
+        XCTAssertEqual(action.label, "shelf end")
     }
 
     @MainActor
@@ -78,16 +81,16 @@ final class ControlsTests: XCTestCase {
         let app = XCUIApplication(); app.launch()
         let state = app.staticTexts["material-state"]
         XCTAssertTrue(state.waitForExistence(timeout: 10))
-        XCTAssertEqual(state.label, "glass · frames intact · backing cleared")
-        for index in 0..<5 { app.buttons["native-tab-\(index)"].tap() }
+        XCTAssertEqual(state.label, "glass · frames intact · backing cleared · 5 icons")
+        for index in 0..<5 { app.buttons["TabBar.Item.fixture-\(index)"].tap() }
         XCTAssertEqual(app.staticTexts["tab-count"].label, "5")
         app.buttons["toggle-glass"].tap()
-        XCTAssertEqual(state.label, "native · frames intact · backing intact")
-        app.buttons["native-tab-0"].tap()
+        XCTAssertEqual(state.label, "native · frames intact · backing intact · 0 icons")
+        app.buttons["TabBar.Item.fixture-0"].tap()
         XCTAssertEqual(app.staticTexts["tab-count"].label, "6")
         app.buttons["toggle-glass"].tap()
-        XCTAssertEqual(state.label, "glass · frames intact · backing cleared")
-        app.buttons["native-tab-4"].tap()
+        XCTAssertEqual(state.label, "glass · frames intact · backing cleared · 5 icons")
+        app.buttons["TabBar.Item.fixture-4"].tap()
         XCTAssertEqual(app.staticTexts["tab-count"].label, "7")
         let capture = XCTAttachment(screenshot: app.screenshot()); capture.name = "native-glass-wide-dock"; capture.lifetime = .keepAlways; add(capture)
     }

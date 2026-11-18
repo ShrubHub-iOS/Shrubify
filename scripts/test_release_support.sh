@@ -10,3 +10,9 @@ swiftc -swift-version 5 -module-cache-path "$TEST_BUILD/module-cache" \
   Sources/EeveeSpotify/Premium/Helpers/ServerSidedFeaturePolicy.swift \
   Tests/ReleaseSupport/main.swift -o "$TEST_BUILD/release-tests"
 "$TEST_BUILD/release-tests"
+
+swiftc -swift-version 5 -module-cache-path "$TEST_BUILD/module-cache" \
+  Sources/EeveeSpotify/Shared/Helpers/{URLSessionHelper,SpotifySessionTransport}.swift \
+  Sources/EeveeSpotify/Shared/Models/Extensions/URL+Extension.swift \
+  Tests/SessionTransport/main.swift -o "$TEST_BUILD/transport-tests"
+"$TEST_BUILD/transport-tests"

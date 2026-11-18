@@ -6,6 +6,7 @@ import ObjectiveC.runtime
 struct NativeTabletTabGlassGroup: HookGroup {}
 struct NativeTabletMiniGlassGroup: HookGroup {}
 struct NativeContentCellGlassGroup: HookGroup {}
+struct NativeHomeShortcutGlassGroup: HookGroup {}
 struct NativeFilterChipGlassGroup: HookGroup {}
 struct NativePlayerControlGlassGroup: HookGroup {}
 
@@ -40,12 +41,34 @@ class NativeContentCellGlassHook: ClassHook<UICollectionViewCell> {
     func layoutSubviews() {
         orig.layoutSubviews()
         let cell = target
-        onMainThreadSync { NativeContentGlass.refresh(in: cell) }
+        onMainThreadSync { NativeContentGlass.schedule(cell) }
+    }
+    func didMoveToWindow() {
+        orig.didMoveToWindow()
+        let cell = target
+        onMainThreadSync {
+            if cell.window == nil { NativeContentGlass.prepareForReuse(cell) }
+            else { NativeContentGlass.schedule(cell) }
+        }
     }
     func prepareForReuse() {
         let cell = target
         onMainThreadSync { NativeContentGlass.prepareForReuse(cell) }
         orig.prepareForReuse()
+    }
+}
+
+// The Home shortcut grid can also live outside a collection-view cell.
+class NativeHomeShortcutGlassHook: ClassHook<UIView> {
+    typealias Group = NativeHomeShortcutGlassGroup
+    static let targetName = "LegacyUI_ECMCoreKit.InteractableLayoutBackingButton"
+    func layoutSubviews() {
+        orig.layoutSubviews()
+        let tile = target
+        onMainThreadSync {
+            guard #available(iOS 26.0, *), NativeTabletGlass.contentEnabled else { return }
+            NativeContentGlass.update(tile)
+        }
     }
 }
 
@@ -78,6 +101,7 @@ func activateNativeTabletGlass() {
         for (name, activate) in [
             (NativeTabletTabGlassHook.targetName, { NativeTabletTabGlassGroup().activate() }),
             (NativeTabletMiniGlassHook.targetName, { NativeTabletMiniGlassGroup().activate() }),
+            (NativeHomeShortcutGlassHook.targetName, { NativeHomeShortcutGlassGroup().activate() }),
             (NativeFilterChipGlassHook.targetName, { NativeFilterChipGlassGroup().activate() }),
             (NativePlayerControlGlassHook.targetName, { NativePlayerControlGlassGroup().activate() })
         ] {

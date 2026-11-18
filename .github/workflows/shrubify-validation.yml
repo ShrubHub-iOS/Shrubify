@@ -105,7 +105,12 @@ jobs:
     - name: Compile release tweak without publishing
       run: |
         set -euo pipefail
-        THEOS_PACKAGE_SCHEME=rootless make package FINALPACKAGE=1
+        log="$RUNNER_TEMP/shrubify-compile.log"
+        THEOS_PACKAGE_SCHEME=rootless make package FINALPACKAGE=1 2>&1 | tee "$log" || {
+          python3 scripts/extract_build_errors.py "$log" --output "$RUNNER_TEMP/compile-errors.txt"
+          grep -m 5 -i 'error:' "$RUNNER_TEMP/compile-errors.txt" | sed 's/^/::error::/' || true
+          exit 1
+        }
     - name: Save Orion toolchain cache after native compilation
       continue-on-error: true
       uses: actions/cache/save@v4

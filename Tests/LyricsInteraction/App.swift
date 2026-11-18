@@ -83,7 +83,8 @@ final class RootController: UIViewController {
         barHost.addSubview(row)
         for index in 0..<5 {
             let button = TabBarItemElementView(frame: .zero); button.setTitle("Tab \(index)", for: .normal)
-            button.accessibilityIdentifier = "native-tab-\(index)"
+            button.setImage(UIImage(systemName: "square.grid.2x2.fill", withConfiguration: UIImage.SymbolConfiguration(pointSize: 24)), for: .normal)
+            button.accessibilityIdentifier = "TabBar.Item.fixture-\(index)"
             button.addAction(UIAction { [weak self] _ in
                 guard let self else { return }; selections += 1; tabCount.text = "\(selections)"
             }, for: .touchUpInside)
@@ -110,7 +111,8 @@ final class RootController: UIViewController {
         let glass = plate?.effect is UIGlassEffect
         let unchanged = nativeFrames == row.arrangedSubviews.map(\.frame)
         let cleared = legacy.alpha == 0 && barSurface.effect == nil && (barHost.backgroundColor?.cgColor.alpha ?? 0) == 0
-        materialState.text = "\(glass ? "glass" : "native") · \(unchanged ? "frames intact" : "FRAMES CHANGED") · \(cleared ? "backing cleared" : "backing intact")"
+        let icons = row.arrangedSubviews.flatMap(\.subviews).compactMap { $0 as? UIVisualEffectView }.filter { $0.effect is UIGlassEffect }.count
+        materialState.text = "\(glass ? "glass" : "native") · \(unchanged ? "frames intact" : "FRAMES CHANGED") · \(cleared ? "backing cleared" : "backing intact") · \(icons) icons"
     }
     private func openLyrics() {
         let modal = KaraokeModal.make(onDismiss: { [weak self] in

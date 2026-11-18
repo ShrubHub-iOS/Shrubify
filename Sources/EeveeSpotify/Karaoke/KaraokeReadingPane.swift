@@ -21,15 +21,25 @@ struct KaraokeReadingPane<Lines: View>: View {
                         Label("Sync", systemImage: "slider.horizontal.3")
                             .padding(.horizontal, 12).frame(minHeight: 44)
                             .background(KaraokeControlSurface())
+                            .contentShape(Rectangle())
                     }
                     .accessibilityValue(showsTiming ? "Expanded" : "Collapsed")
                     .accessibilityIdentifier("shrubify.lyrics.sync")
                     Spacer(minLength: 4)
-                    if !follows, activeLine != nil {
+                    if follows, activeLine != nil {
+                        Button { follows = false } label: {
+                            Label("Following", systemImage: "location.fill")
+                                .padding(.horizontal, 12).frame(minHeight: 44)
+                                .background(KaraokeControlSurface())
+                                .contentShape(Rectangle())
+                        }
+                        .accessibilityHint("Pause automatic scrolling")
+                    } else if activeLine != nil {
                         Button { follows = true; scrollToCurrent(proxy) } label: {
                             Label("Back to current line", systemImage: "location.fill")
                                 .padding(.horizontal, 12).frame(minHeight: 44)
                                 .background(KaraokeControlSurface())
+                                .contentShape(Rectangle())
                         }
                         .accessibilityIdentifier("shrubify.lyrics.resume-follow")
                     }

@@ -137,7 +137,7 @@ private func handleLyricsErrorPopUp(_ error: LyricsError?) {
     }
 }
 
-private func loadCustomLyrics(for track: SafeTrackMetadata) throws -> Lyrics {
+private func loadCustomLyricsForCurrentTrack(_ track: SafeTrackMetadata) throws -> Lyrics {
     guard let id = track.identifier else { throw LyricsError.noCurrentTrack }
     let metadata = track.metadata
     let title = track.title
@@ -1133,7 +1133,7 @@ func getLyricsDataForCurrentTrack(_ originalPath: String, originalLyrics: Lyrics
     // 真的开始查了（听歌页那层据此写"正在查找歌词…"）。
     currentLyricsLookupState = .loading
     do {
-        lyrics = try loadCustomLyrics(for: track)
+        lyrics = try loadCustomLyricsForCurrentTrack(track)
     } catch let error {
         // 这一首没能用上我们的歌词 → 决定**这次 HTTP 响应交什么出去**。
         //

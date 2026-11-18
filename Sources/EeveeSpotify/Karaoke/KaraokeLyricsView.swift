@@ -91,16 +91,17 @@ struct KaraokeLyricsView: View {
     private var closeButton: some View { KaraokeCloseButton(action: onDismiss) }
 
     private var topBar: some View {
-        HStack(alignment: .center, spacing: 14) {
+        let metadata = trackMetadata
+        return HStack(alignment: .center, spacing: 14) {
             VStack(alignment: .leading, spacing: 4) {
                 Text("Custom lyrics")
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundColor(.white.opacity(0.86))
-                Text(modelTitle)
+                Text(metadata?.title ?? "Shrubify Lyrics")
                     .font(.system(size: 24, weight: .bold))
                     .foregroundColor(.white)
                     .lineLimit(2)
-                Text(modelSubtitle)
+                Text(subtitle(artist: metadata?.artist))
                     .font(.system(size: 15, weight: .medium))
                     .foregroundColor(.white.opacity(0.86))
                     .lineLimit(1)
@@ -114,8 +115,7 @@ struct KaraokeLyricsView: View {
 
     private var trackMetadata: (title: String, artist: String)? {
         guard let id = model.trackId else { return nil }
-        if KaraokeOverlayPresenter.currentTrackId() == id,
-           let info = CurrentSpotifyTrack.snapshot {
+        if let info = CurrentSpotifyTrack.snapshot, info.identifier == id {
             return (info.title, info.artist)
         }
         guard KaraokePlaybackTracker.shared.playerReportedTrackId() == id,
@@ -124,14 +124,13 @@ struct KaraokeLyricsView: View {
               let artist = info[MPMediaItemPropertyArtist] as? String else { return nil }
         return (title, artist)
     }
-    private var modelTitle: String { trackMetadata?.title ?? "Shrubify Lyrics" }
-    private var modelSubtitle: String {
+    private func subtitle(artist: String?) -> String {
         let provider = model.lyrics?.providerName ?? "Lyrics"
         let mode = model.lyrics.map { lyrics in
             lyrics.lines.contains { $0.syllables.contains { $0.endMs > $0.startMs } } ? "Word sync" : "Line sync"
         }
         let source = provider + (mode.map { " • " + $0 } ?? "")
-        return trackMetadata.map { $0.artist + " • " + source } ?? source
+        return artist.flatMap { $0.isEmpty ? nil : $0 + " • " + source } ?? source
     }
 
 }

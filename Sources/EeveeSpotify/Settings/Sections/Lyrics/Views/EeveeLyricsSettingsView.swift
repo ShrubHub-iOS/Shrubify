@@ -9,10 +9,10 @@ struct EeveeLyricsSettingsView: View {
         List {
             Section {
                 if usesSettingsNavigation {
-                    SettingsLink(title: "Lyrics appearance", icon: "textformat.size", color: .blue) { EeveeLyricsAppearanceSettingsView() }
+                    SettingsLink(title: "lyrics_appearance_title".localized, icon: "textformat.size", color: .blue) { EeveeLyricsAppearanceSettingsView() }
                     SettingsLink(title: "Lyrics timing", icon: "timeline.selection", color: .blue) { EeveeLyricsOffsetSettingsView() }
                 } else {
-                    NavigationLink("Lyrics appearance", destination: EeveeLyricsAppearanceSettingsView())
+                    NavigationLink("lyrics_appearance_title".localized, destination: EeveeLyricsAppearanceSettingsView())
                     NavigationLink("Lyrics timing", destination: EeveeLyricsOffsetSettingsView())
                 }
             }
