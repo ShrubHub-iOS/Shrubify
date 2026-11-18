@@ -37,7 +37,7 @@ struct KaraokeLaunchButton: View {
 
 struct ShrubifyCustomLyricsSettingsSection: View {
     @State private var options = UserDefaults.karaokeOptions
-    @AppStorage("ShrubifyCustomLyricsGlass") private var glass = false
+    @AppStorage("ShrubifyCustomLyricsGlass") private var glass = true
     var body: some View {
         Section(header: Text("Shrubify custom lyrics"), footer: Text("Your original fullscreen lyrics view, independent of player and navigation styling. Reopen it after changing appearance.")) {
             Toggle("Custom lyrics view", isOn: $options.enabled)
@@ -60,7 +60,7 @@ struct ShrubifyCustomLyricsSettingsSection: View {
                     Text("Album background blur")
                     Slider(value: $options.blurIntensity, in: 0...4, step: 0.1)
                 }
-                if #available(iOS 26.0, *) { Toggle("Glass lyrics background", isOn: $glass) }
+                if #available(iOS 26.0, *) { Toggle("Glass lyrics controls", isOn: $glass) }
             }
         }
         .onChange(of: options) { UserDefaults.karaokeOptions = $0; KaraokeLyricsStore.shared.notify() }

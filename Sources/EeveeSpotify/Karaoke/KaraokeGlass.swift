@@ -5,37 +5,19 @@ import UIKit
 enum KaraokeGlass {
     static var isEnabled: Bool {
         if #available(iOS 26.0, *) {
-            return UserDefaults.standard.bool(forKey: "ShrubifyCustomLyricsGlass")
+            return UserDefaults.standard.object(forKey: "ShrubifyCustomLyricsGlass") as? Bool ?? true
         }
         return false
     }
 }
 
 @available(iOS 15.0, *)
-struct KaraokeGlassBackground: UIViewRepresentable {
-    func makeUIView(context: Context) -> UIVisualEffectView {
-        let view = UIVisualEffectView(effect: nil)
-        view.overrideUserInterfaceStyle = .dark
-        view.isUserInteractionEnabled = false
-        if #available(iOS 26.0, *) {
-            let effect = UIGlassEffect(style: .regular)
-            effect.tintColor = UIColor.black.withAlphaComponent(0.25)
-            view.effect = effect
-        }
-        return view
-    }
-    func updateUIView(_ view: UIVisualEffectView, context: Context) {}
-}
-
-@available(iOS 15.0, *)
 struct KaraokeGlassCapsule: UIViewRepresentable {
     func makeUIView(context: Context) -> UIVisualEffectView {
-        let view = KaraokeCapsuleEffectView(effect: nil)
+        let view = GlassCapsule.makeGlassView(wantsInteractive: false).view
         view.overrideUserInterfaceStyle = .dark
         view.isUserInteractionEnabled = false
-        view.clipsToBounds = true
-        view.layer.cornerCurve = .continuous
-        if #available(iOS 26.0, *) { view.effect = UIGlassEffect(style: .regular) }
+        view.accessibilityElementsHidden = true
         return view
     }
     func updateUIView(_ view: UIVisualEffectView, context: Context) {
@@ -43,9 +25,29 @@ struct KaraokeGlassCapsule: UIViewRepresentable {
     }
 }
 
-private final class KaraokeCapsuleEffectView: UIVisualEffectView {
-    override func layoutSubviews() {
-        super.layoutSubviews()
-        layer.cornerRadius = min(bounds.width, bounds.height) / 2
+@available(iOS 15.0, *)
+struct KaraokeControlSurface: View {
+    var body: some View {
+        Group {
+            if KaraokeGlass.isEnabled { KaraokeGlassCapsule() }
+            else { Capsule().fill(Color.white.opacity(0.10)) }
+        }.allowsHitTesting(false)
+    }
+}
+
+@available(iOS 15.0, *)
+struct KaraokePlaybackSurface: View {
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @ViewBuilder var body: some View {
+        if #available(iOS 26.0, *), KaraokeGlass.isEnabled, !reduceTransparency {
+            RoundedRectangle(cornerRadius: 26, style: .continuous)
+                .fill(Color.black.opacity(0.3))
+                .glassEffect(.regular.tint(.black.opacity(0.35)), in: .rect(cornerRadius: 26))
+                .allowsHitTesting(false)
+        } else {
+            RoundedRectangle(cornerRadius: 26, style: .continuous)
+                .fill(Color.black.opacity(reduceTransparency ? 1 : 0.55))
+                .allowsHitTesting(false)
+        }
     }
 }

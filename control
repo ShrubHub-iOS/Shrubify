@@ -1,6 +1,6 @@
 Package: com.shrubify.spotify
 Name: Shrubify
-Version: 4.1.5
+Version: 4.1.6
 Architecture: iphoneos-arm
 Description: Shrubify by shrubbery and ShrubHub team; Evolved player and page UI, expanded lyrics sources, Replay, ShrubPanel and ShrubQueue; GPL attribution included
 Maintainer: shrubbery / ShrubHub team

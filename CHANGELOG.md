@@ -1,3 +1,10 @@
+# 4.1.6
+
+- Match the native player footer with a compact white custom-lyrics icon.
+- Bring back blurred artwork with a rounded high-contrast reading panel and constrain lyric rows to the actual panel width.
+- Add iOS 26 glass to custom-lyrics controls and decorative glass to compatible native iPad tabs/mini-player without replacing controls or changing layout.
+- Respect accessibility settings and keep a static album-art fallback when animation or Metal is unavailable.
+
 # 4.1.5
 
 - Improve original custom lyrics contrast over all covers, keep inactive lines sharp, and add a clearly styled lyrics button.

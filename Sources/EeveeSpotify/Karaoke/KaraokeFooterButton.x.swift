@@ -29,24 +29,17 @@ enum KaraokeFooterButton {
         let button: UIButton
         if let old = objc_getAssociatedObject(root, &key) as? UIButton { button = old }
         else {
-            var config = UIButton.Configuration.filled()
-            config.title = "Custom lyrics"
+            var config = UIButton.Configuration.plain()
             config.image = UIImage(systemName: "quote.bubble.fill")
-            config.imagePadding = 5
-            config.cornerStyle = .capsule
-            config.baseBackgroundColor = .white
-            config.baseForegroundColor = .black
-            config.contentInsets = NSDirectionalEdgeInsets(top: 8, leading: 10, bottom: 8, trailing: 10)
-            config.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { attributes in
-                var styled = attributes
-                let font = UIFont.systemFont(ofSize: 13, weight: .semibold)
-                styled.font = UIFont(descriptor: font.fontDescriptor.withDesign(.rounded) ?? font.fontDescriptor, size: 13)
-                return styled
-            }
+            config.baseForegroundColor = .white
+            config.preferredSymbolConfigurationForImage = UIImage.SymbolConfiguration(pointSize: 20, weight: .regular)
+            config.contentInsets = .zero
             button = UIButton(configuration: config)
-            button.titleLabel?.adjustsFontSizeToFitWidth = true
+            button.accessibilityLabel = "Custom lyrics"
+            button.accessibilityHint = "Open fullscreen custom lyrics"
             button.accessibilityIdentifier = "shrubify-custom-lyrics-button"
-            button.heightAnchor.constraint(greaterThanOrEqualToConstant: 44).isActive = true
+            NSLayoutConstraint.activate([button.widthAnchor.constraint(equalToConstant: 44),
+                                         button.heightAnchor.constraint(equalToConstant: 44)])
             button.addAction(UIAction { _ in KaraokeOverlayPresenter.present() }, for: .primaryActionTriggered)
             objc_setAssociatedObject(root, &key, button, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
         }
@@ -58,7 +51,7 @@ enum KaraokeFooterButton {
             let candidate = queue[index]; index += 1
             if let row = candidate as? UIStackView, row.axis == .horizontal,
                row.arrangedSubviews.filter({ $0 !== button }).count >= 2,
-               row.bounds.width >= 280 {
+               row.bounds.width >= 176 {
                 if button.superview !== row { button.removeFromSuperview(); row.addArrangedSubview(button) }
                 return
             }

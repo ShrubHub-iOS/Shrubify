@@ -16,25 +16,28 @@ struct KaraokeLyricsView: View {
         GeometryReader { geo in
             ZStack(alignment: .top) {
                 Color.black.ignoresSafeArea()
-                if KaraokeGlass.isEnabled {
-                    KaraokeGlassBackground().ignoresSafeArea()
-                } else {
-                    KaraokeBackgroundView().id(model.trackId)
-                        .blur(radius: max(12, min(32, options.blurIntensity * 8)))
-                }
+                KaraokeBackgroundView().id(model.trackId)
+                    .blur(radius: max(20, min(40, options.blurIntensity * 10)))
                 Color.black.opacity(KaraokeReadability.backgroundDimOpacity)
                     .ignoresSafeArea().allowsHitTesting(false)
                 VStack(spacing: 0) {
                     topBar
+                        .background(Color.black.opacity(KaraokeReadability.readingPanelOpacity))
+                        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+                        .padding(.horizontal, 16).padding(.top, 8)
                     if let lyrics = model.lyrics {
-                        content(lyrics: lyrics, layouts: model.layouts, screenWidth: geo.size.width)
+                        content(lyrics: lyrics, layouts: model.layouts, screenWidth: min(900, max(0, geo.size.width - 32)))
+                            .frame(maxWidth: 900)
+                            .background(Color.black.opacity(KaraokeReadability.readingPanelOpacity))
+                            .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+                            .padding(.horizontal, 16).padding(.vertical, 10)
                             .id(model.trackId)
                     } else {
                         VStack(spacing: 16) {
                             if model.loading {
                                 ProgressView().tint(.white)
                                 Text("Finding lyrics…").font(.headline)
-                                Text("Trying your sources in order").foregroundColor(.secondary)
+                                Text("Trying your sources in order").foregroundColor(.white.opacity(0.86))
                             } else {
                                 Image(systemName: "text.quote").font(.largeTitle)
                                 Text("Timed lyrics unavailable").font(.headline)
@@ -45,6 +48,9 @@ struct KaraokeLyricsView: View {
                         .foregroundColor(.white)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                         .padding(24)
+                        .background(Color.black.opacity(KaraokeReadability.readingPanelOpacity))
+                        .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+                        .padding(16)
                     }
                     KaraokePlaybackControls(playback: model.playback, seek: { model.seek(to: $0) }, toggle: { model.togglePlayback() })
                         .disabled(model.playback.trackID != nil && model.playback.trackID != model.trackId)
@@ -109,14 +115,14 @@ struct KaraokeLyricsView: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text("Custom lyrics")
                     .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(.white.opacity(0.72))
+                    .foregroundColor(.white.opacity(0.86))
                 Text(modelTitle)
                     .font(.system(size: 28, weight: .bold, design: .rounded))
                     .foregroundColor(.white)
                     .lineLimit(2)
                 Text(modelSubtitle)
                     .font(.system(size: 15, weight: .medium))
-                    .foregroundColor(.white.opacity(0.72))
+                    .foregroundColor(.white.opacity(0.86))
                     .lineLimit(1)
             }
             Spacer(minLength: 12)
@@ -173,6 +179,8 @@ private struct KaraokeScrollingLines: View {
                     Label(followLyrics ? "Following lyrics" : "Follow lyrics", systemImage: followLyrics ? "location.fill" : "location")
                         .font(.caption.weight(.semibold))
                         .padding(.horizontal, 12).padding(.vertical, 8)
+                        .foregroundColor(.white)
+                        .background(KaraokeControlSurface())
                 }
                 .accessibilityHint("Turn off to read lyrics without automatic scrolling")
             }
@@ -186,7 +194,7 @@ private struct KaraokeScrollingLines: View {
                             layout: layouts[index],
                             currentMs: currentMs,
                             isActiveLine: index == activeLineIndex,
-                            availableWidth: max(0, screenWidth - horizontalPadding * 2),
+                            availableWidth: max(0, screenWidth - horizontalPadding * 2 - 36),
                             alignment: alignment,
                             fontSize: CGFloat(options.resolvedFontSize)
                         )

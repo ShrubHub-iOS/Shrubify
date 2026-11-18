@@ -1,3 +1,5 @@
+> Historical release notes. Current release: [Shrubify 4.1.6](RELEASE-4.1.6.md).
+
 # Shrubify 4.1.5
 
 - Make the original fullscreen custom lyrics readable over any cover: darken artwork, remove text blur and compound fading, retain sharp surrounding lines, word animations and scrolling.

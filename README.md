@@ -1,6 +1,6 @@
-> **4.1.5 improves custom lyrics readability:** darkened artwork, sharp surrounding lyrics and a proper entry button. It also restores local Shrubify plan labels and closes known ad-blocker activation gaps. The working native iPad player/navigation is retained.
+> **4.1.6 refines the lyrics and glass UI:** a native-sized white lyrics icon, visible blurred artwork, a dark reading panel, and compact glass controls. Supported iPad tabs and mini-player receive decorative glass while retaining native layout and interaction.
 
-# Shrubify 4.1.5 — Listening is easy with Shrubify!
+# Shrubify 4.1.6 — Listening is easy with Shrubify!
 
 **Created and maintained by shrubbery and the ShrubHub team.**
 
@@ -15,14 +15,14 @@ Shrubify is an **unofficial, community-developed iOS/iPadOS tweak** based on an 
 | **ShrubPanel** | A small in-app hub for Studio, Replay, ShrubQueue and supported lyrics tools. Reach it from Shrubify settings or (where the player observer attaches) a long press on the mini-player. | The mini-player gesture is version-dependent; the settings entry is the reliable fallback. |
 | **Shrubify Replay** | Private, opt-in local listening records: listening duration, track counts, top artists, seven-day trends and approximate plays. Includes privacy controls and a reset button. | Counts only *observed* playback while Shrubify is active, not your full Spotify history. Accuracy depends on now-playing metadata being present. No network sync. |
 | **ShrubQueue** | Shortcut to Spotify's native queue, bookmark the current song, and save a snapshot of the last 20 locally recorded tracks. | Snapshots are **not** a capture or restoration of Spotify's real queue. Opening tracks requires a captured Spotify track URI and in-app navigation support. |
-| **Evolved UI** | Apple Music-style player, fading artwork backdrop, glass tabs and mini-player, and redesigned home/library/album/playlist/artist pages. | Custom tablet UI is paused in 4.1.5. Private UI hooks on supported devices require version-specific checks. |
+| **Evolved UI** | Apple Music-style player, fading artwork backdrop, glass tabs and mini-player, and redesigned home/library/album/playlist/artist pages. | Custom tablet UI is paused in 4.1.6. Private UI hooks on supported devices require version-specific checks. |
 | **Compatibility & Diagnostics** | Optional Stability Mode, version reporting, issue links and debug-log export. | Cannot guarantee compatibility with all Spotify builds or eliminate every crash. |
 
-Shrubify 4.1.5 restores the original pre-Evolved fullscreen custom lyrics view while retaining the working native iPad player and navigation. It keeps expanded providers, metadata crash guards and startup recovery. Evolved tablet integration remains unfinished; real Spotify interactions require device validation.
+Shrubify 4.1.6 restores the original pre-Evolved fullscreen custom lyrics view while retaining the working native iPad player and navigation. It keeps expanded providers, metadata crash guards and startup recovery. Evolved tablet integration remains unfinished; real Spotify interactions require device validation.
 
 ## Install and build
 
-- **Shrubify 4.1.5 release notes:** [RELEASE-4.1.5.md](RELEASE-4.1.5.md)
+- **Shrubify 4.1.6 release notes:** [RELEASE-4.1.6.md](RELEASE-4.1.6.md)
 
 - **Source and full setup:** [SHRUBIFY-SETUP.md](SHRUBIFY-SETUP.md)
 - **Changes in this release:** [CHANGELOG.md](CHANGELOG.md)

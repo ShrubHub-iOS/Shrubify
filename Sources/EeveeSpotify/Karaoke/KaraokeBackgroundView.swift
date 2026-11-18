@@ -37,6 +37,12 @@ struct KaraokeBackgroundView: View {
                KaraokeBackgroundView.metalRendererSupported, active, !reduceMotion, !lowPower {
                 KaraokeMetalBackgroundView(albumArt: albumArtImage)
                     .ignoresSafeArea()
+            } else if let image = albumArtImage {
+                GeometryReader { geometry in
+                    Image(uiImage: image).resizable().scaledToFill()
+                        .frame(width: geometry.size.width, height: geometry.size.height)
+                        .clipped()
+                }.ignoresSafeArea()
             } else {
                 gradientFallback
             }

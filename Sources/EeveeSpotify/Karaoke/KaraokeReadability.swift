@@ -1,7 +1,9 @@
 import Foundation
 
-/// Fixed contrast floor; cover art supplies atmosphere rather than text contrast.
+/// Artwork remains visible outside the reading panel. The second scrim is
+/// confined to text, retaining AA contrast even with a completely white cover.
 enum KaraokeReadability {
-    static let backgroundDimOpacity = 0.94
-    static let unsungTextOpacity = 0.86
+    static let backgroundDimOpacity = 0.52
+    static let readingPanelOpacity = 0.68
+    static let unsungTextOpacity = 0.90
 }

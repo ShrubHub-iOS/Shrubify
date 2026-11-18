@@ -17,6 +17,7 @@ enum EvolvedInterfaceAvailability {
 func activateEvolvedInterface() {
     _ = UserDefaults.normalizeNowPlayingLayoutKeys()
     activateSpotifyURIOpener()
+    activateNativeTabletGlass()
     guard EvolvedInterfaceAvailability.supportsCustomInterface else {
         writeDebugLog("[Shrubify] iPad UI recovery: native player, navigation and page layouts; custom interface hooks skipped")
         return
@@ -47,11 +48,16 @@ func activateEvolvedInterface() {
 
 /// Existing Shrubify pages remain reachable through the Evolved settings surface.
 struct LiquidGlassSettingsView: View {
+    @AppStorage("ShrubifyNativeTabletGlass") private var nativeGlass = true
     var body: some View {
         List {
             Section(header: Text("Evolved UI"), footer: Text("Custom interface effects require compatible Spotify layouts. System glass requires iOS 26 or later.")) {
                 if EvolvedInterfaceAvailability.usesNativeTabletInterface {
-                    Text("iPad compatibility recovery is active. Spotify handles its player, fullscreen presentation, navigation and page layouts. The original Shrubify custom lyrics view and expanded lyrics sources remain available.")
+                    if #available(iOS 26.0, *) {
+                        Toggle("Glass on native controls", isOn: $nativeGlass)
+                            .onChange(of: nativeGlass) { _ in onMainThreadSync { NativeTabletGlass.reapply() } }
+                    }
+                    Text("Glass adds a decorative material to supported native tabs and mini-player layouts. Spotify continues to handle playback, fullscreen and navigation. Custom lyrics have separate glass controls.")
                         .font(.footnote)
                 } else {
                     SettingsLink(title: "Player design", icon: "play.rectangle", color: .blue) { NowPlayingSettingsView() }

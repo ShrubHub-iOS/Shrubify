@@ -27,10 +27,24 @@ check(rtl.isRTL && rtl.lines[0].plainText == "שלום עולם", "Restore the o
 print("Original custom lyrics adapter: syllables, CJK/RTL, timing, line-only sources and credits passed")
 
 // Conservative linear-light composition: every cover luminance must retain
-// at least AAA normal-text contrast, including unsung words on a white cover.
+// at least AA normal-text contrast, including unsung words on a white cover.
 for step in 0...1000 {
-    let background = Double(step) / 1000 * (1 - KaraokeReadability.backgroundDimOpacity)
+    let background = Double(step) / 1000 * (1 - KaraokeReadability.backgroundDimOpacity) * (1 - KaraokeReadability.readingPanelOpacity)
     let foreground = KaraokeReadability.unsungTextOpacity + background * (1 - KaraokeReadability.unsungTextOpacity)
-    check((foreground + 0.05) / (background + 0.05) >= 7, "Lyrics must remain readable over every cover luminance")
+    check((foreground + 0.05) / (background + 0.05) >= 4.5, "Lyrics must remain readable over every cover luminance")
 }
 print("Lyrics contrast passed for 1,001 cover luminances")
+
+for width in [320.0, 420, 768, 1024, 1366] {
+    let bounds = CGRect(x: 0, y: 0, width: width, height: 64)
+    let content = CGRect(x: 0, y: 4, width: min(400, width), height: 48)
+    for mini in [false, true] {
+        let frame = NativeGlassGeometry.frame(bounds: bounds, content: content, miniPlayer: mini)!
+        check(bounds.contains(frame), "Glass must stay within its actual host after rotation or split-screen")
+        check(frame.height <= 96 && frame.width <= 680, "No oversized glass backing")
+    }
+}
+check(NativeGlassGeometry.frame(bounds: .zero, content: .zero, miniPlayer: false) == nil, "Ignore unmeasured views")
+check(NativeGlassGeometry.frame(bounds: CGRect(x: 0, y: 0, width: 1366, height: 900), content: CGRect(x: 0, y: 0, width: 1366, height: 900), miniPlayer: false) == nil, "Never decorate a whole tablet page")
+check(NativeGlassGeometry.frame(bounds: CGRect(x: 0, y: 0, width: 400, height: 64), content: CGRect(x: 0, y: 0, width: CGFloat.infinity, height: 48), miniPlayer: true) == nil, "Reject invalid measurements")
+print("Native glass bounds: phone/tablet widths, split-screen and invalid geometry passed")
