@@ -15,6 +15,15 @@
       "versions": [
         {
           "version": "9.2.0",
+          "buildVersion": "98",
+          "date": "2026-11-18",
+          "localizedDescription": "Shrubify v4.1.8 for Spotify 9.2.0. Evolved player/pages, expanded lyrics, ShrubPanel, opt-in Replay and sleep timer. Compatibility depends on Spotify version.",
+          "downloadURL": "https://github.com/ShrubHub-iOS/Shrubify/releases/download/shrubify-s9.2.0-v4.1.8-g3ac4943/Shrubify-Spotify-9.2.0-v4.1.8-b98.ipa",
+          "size": 151737700,
+          "minOSVersion": "17.4"
+        },
+        {
+          "version": "9.2.0",
           "buildVersion": "96",
           "date": "2026-11-18",
           "localizedDescription": "Shrubify v4.1.8 for Spotify 9.2.0. Evolved player/pages, expanded lyrics, ShrubPanel, opt-in Replay and sleep timer. Compatibility depends on Spotify version.",
