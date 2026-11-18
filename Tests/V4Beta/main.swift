@@ -1,4 +1,14 @@
 import Foundation
+#if canImport(Darwin)
+import Darwin
+#endif
+
+if CommandLine.arguments.count == 3 && CommandLine.arguments[1] == "--persist-launch-probe" {
+    let preferences = UserDefaults(suiteName: CommandLine.arguments[2])!
+    _ = LaunchRecoveryPolicy.begin(in: preferences)
+    _exit(73) // Deliberately bypass normal process-exit preference cleanup.
+}
+
 
 // UIKit-free stand-ins let the actual cache and settings decoder run on macOS.
 struct KaraokeLyricsDto { let marker: Int }
@@ -118,3 +128,37 @@ let podcastFacts = ShrubReadLivePlayback(ShrubTestLongPodcast())!
 check((podcastFacts["duration"] as? NSNumber)?.doubleValue == 10800, "Long podcast duration remains seconds")
 check((podcastFacts["position"] as? NSNumber)?.doubleValue == 7200, "Long podcast playhead remains seconds")
 print("Pause ABI and long podcast regression checks passed")
+
+let modernInfo = SafeTrackMetadata(track: ShrubTestModernTrack() as AnyObject)
+check(modernInfo?.title == "Modern track" && modernInfo?.artist == "Modern artist", "Modern metadata never invokes the legacy artistTitle getter")
+check(modernInfo?.metadata["album_uri"] == "spotify:album:fixture", "Known string metadata is retained")
+check(modernInfo?.metadata["bad_field"] == nil, "Unexpected metadata value types are discarded")
+check(SafeTrackMetadata(track: ShrubTestLegacyTrack() as AnyObject)?.artist == "Legacy artist", "Legacy-only getter is safely supported")
+check(SafeTrackMetadata(track: ShrubTestThrowingTrack() as AnyObject) == nil, "Objective-C exceptions cannot escape display metadata reads")
+check(SafeTrackMetadata(track: ShrubTestScalarTrack() as AnyObject) == nil, "Wrong metadata return ABI is rejected")
+check(SafeTrackMetadata(track: NSObject()) == nil, "Missing metadata methods fall back to native UI")
+let recoverySuite = "Shrubify.RecoveryTests." + UUID().uuidString
+let recoveryDefaults = UserDefaults(suiteName: recoverySuite)!
+check(!LaunchRecoveryPolicy.begin(in: recoveryDefaults), "First launch leaves interface preference intact")
+check(LaunchRecoveryPolicy.begin(in: recoveryDefaults), "Incomplete launch requests recovery on retry")
+check(recoveryDefaults.bool(forKey: "ShrubifyStabilityMode"), "Recovery keeps optional UI hooks out of the next startup")
+LaunchRecoveryPolicy.complete(in: recoveryDefaults)
+recoveryDefaults.set(false, forKey: "ShrubifyStabilityMode")
+check(!LaunchRecoveryPolicy.begin(in: recoveryDefaults), "Healthy launch must not repeatedly force recovery")
+LaunchRecoveryPolicy.complete(in: recoveryDefaults)
+recoveryDefaults.removePersistentDomain(forName: recoverySuite)
+print("Modern/legacy metadata ABI, exception containment and startup recovery checks passed")
+
+let abruptSuite = "Shrubify.AbruptRecovery." + UUID().uuidString
+let child = Process()
+child.executableURL = URL(fileURLWithPath: CommandLine.arguments[0])
+child.arguments = ["--persist-launch-probe", abruptSuite]
+try child.run()
+child.waitUntilExit()
+check(child.terminationStatus == 73, "Recovery fixture exits without normal shutdown")
+let abruptDefaults = UserDefaults(suiteName: abruptSuite)!
+check(abruptDefaults.bool(forKey: LaunchRecoveryPolicy.pendingKey), "Startup probe survives abrupt process exit")
+check(LaunchRecoveryPolicy.begin(in: abruptDefaults), "Next process can recover an interrupted startup")
+LaunchRecoveryPolicy.complete(in: abruptDefaults)
+abruptDefaults.removePersistentDomain(forName: abruptSuite)
+print("Cross-process startup probe persistence passed")

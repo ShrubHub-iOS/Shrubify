@@ -60,3 +60,32 @@ id ShrubTestLongPodcast(void) {
     player.state.positionAsOfTimestamp = 7200;
     return player;
 }
+
+@interface ShrubModernTrack : NSObject
+@end
+@implementation ShrubModernTrack
+- (NSString *)trackTitle { return @"Modern track"; }
+- (NSString *)artistName { return @"Modern artist"; }
+- (NSString *)artistTitle { [NSException raise:@"UnsupportedLegacySelector" format:@"Modern playback must not call artistTitle"]; return nil; }
+- (NSDictionary *)metadata { return @{@"album_uri": @"spotify:album:fixture", @"bad_field": @42}; }
+@end
+@interface ShrubLegacyTrack : NSObject
+@end
+@implementation ShrubLegacyTrack
+- (NSString *)trackTitle { return @"Legacy track"; }
+- (NSString *)artistTitle { return @"Legacy artist"; }
+@end
+@interface ShrubThrowingTrack : NSObject
+@end
+@implementation ShrubThrowingTrack
+- (NSString *)trackTitle { [NSException raise:@"UnavailableTrack" format:@"Track not ready"]; return nil; }
+@end
+@interface ShrubScalarTrack : NSObject
+@end
+@implementation ShrubScalarTrack
+- (double)trackTitle { [NSException raise:@"WrongABI" format:@"Scalar getter must not be invoked as an object"]; return 0; }
+@end
+id ShrubTestModernTrack(void) { return [ShrubModernTrack new]; }
+id ShrubTestLegacyTrack(void) { return [ShrubLegacyTrack new]; }
+id ShrubTestThrowingTrack(void) { return [ShrubThrowingTrack new]; }
+id ShrubTestScalarTrack(void) { return [ShrubScalarTrack new]; }

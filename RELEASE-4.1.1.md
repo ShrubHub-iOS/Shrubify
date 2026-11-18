@@ -1,3 +1,5 @@
+> Archived release. Current release: [Shrubify 4.1.2](RELEASE-4.1.2.md).
+
 # Shrubify 4.1.1
 
 A maintenance update for the broken player layout and playback/lyrics defects found in the 4.1.0 audit.

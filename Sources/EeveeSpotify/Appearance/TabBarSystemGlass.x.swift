@@ -120,7 +120,11 @@ enum TabBarSystemGlass {
         weak var view: UIView?
         let color: UIColor?
         let alpha: CGFloat
-        init(_ view: UIView) { self.view = view; color = view.backgroundColor; alpha = view.alpha }
+        let effect: UIVisualEffect?
+        init(_ view: UIView) {
+            self.view = view; color = view.backgroundColor; alpha = view.alpha
+            effect = (view as? UIVisualEffectView)?.effect
+        }
     }
     private static weak var lastBar: UIView?
     private static var lastSkipReason: String {
@@ -274,6 +278,7 @@ enum TabBarSystemGlass {
         let target = bar ?? lastBar
         if let target {
             lastBar = target
+            NavigationCapsuleSurface.restore(target)
             if let systemBar = objc_getAssociatedObject(target, &systemBarKey) as? UITabBar {
                 systemBar.delegate = nil
                 systemBar.removeFromSuperview()
@@ -292,7 +297,10 @@ enum TabBarSystemGlass {
             }
             restoreRoom(in: target)
             if let states = objc_getAssociatedObject(target, &backgroundKey) as? [BackgroundState] {
-                for state in states { state.view?.backgroundColor = state.color; state.view?.alpha = state.alpha }
+                for state in states {
+                    state.view?.backgroundColor = state.color; state.view?.alpha = state.alpha
+                    (state.view as? UIVisualEffectView)?.effect = state.effect
+                }
                 objc_setAssociatedObject(target, &backgroundKey, nil, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
             }
         }
@@ -325,6 +333,9 @@ enum TabBarSystemGlass {
         for _ in 0..<3 {
             guard let root = parent, root.bounds.height <= 160 else { break }
             record(root); root.backgroundColor = .clear
+            // Clearing a UIVisualEffectView's color does not clear its material.
+            // This bounded footer owns only the old backing; its content stays.
+            NavigationCapsuleSurface.clearMaterial(in: root)
             for child in root.subviews where child !== systemBar.superview && child !== bar {
                 let name = NSStringFromClass(type(of: child))
                 guard child.bounds.height <= 160,
@@ -400,6 +411,8 @@ enum TabBarSystemGlass {
         // UIKit 按"所在视图的安全区"量玻璃条的高度，宿主报 0 才不会多留 34pt。
         let host = TabBarSystemGlassHost()
         host.backgroundColor = .clear
+        host.clipsToBounds = true
+        host.layer.cornerCurve = .continuous
         host.accessibilityIdentifier = "eevee-tabbar-system-glass-host"
 
         // **"要不要接管触摸" = "能不能在点之前把转发路读出来"**（见 `probeForwardRoute`）。
@@ -419,9 +432,7 @@ enum TabBarSystemGlass {
         systemBar.accessibilityIdentifier = "eevee-tabbar-system-glass"
         systemBar.isUserInteractionEnabled = takesTouches
         // 自己的背景不要画：我们要的是系统玻璃本身。
-        systemBar.backgroundImage = UIImage()
-        systemBar.shadowImage = UIImage()
-        systemBar.isTranslucent = true
+        NavigationCapsuleSurface.configure(systemBar)
         // 剩下的几颗要**等分整块玻璃**。
         // ⚠️ **`.fill` 在 iOS 26 这条新玻璃上不生效**（三颗仍然每颗 94、按内容居中、
         // platter 274），而且 `.fill` 会把 `itemWidth` 一起吃掉
@@ -613,70 +624,14 @@ enum TabBarSystemGlass {
         guard let host = hostView(for: bar) else { return }
         let target = TabBarGlassPlate.targetCapsuleRect(in: bar) ?? bar.bounds
 
-        // UIKit 这块浮岛玻璃是**按 item 宽度**撑出来的（三颗 → platter 274；四颗 → 360），
-        // 而 `.fill` 在 iOS 26 这条新玻璃上不生效 ⇒ 只能**把每颗的宽度钉死**：
-        // 每颗宽 = 目标胶囊宽 / 颗数
-        // ⇒ 三颗时正好把 360 三等分（item 中心 60 / 180 / 300），
-        // 而且 platter 的宽度回到 360（与"创建还在"时一致）。
-        // ⚠️ 幂等：只在真的变了才写（写 `itemWidth` 会触发一次布局 ⇒ 否则每拍互相打）。
-        if let count = systemBar.items?.count, count > 1, target.width > 1 {
-            let wanted = (target.width / CGFloat(count)).rounded()
-            if abs(systemBar.itemWidth - wanted) > 0.5 {
-                systemBar.itemWidth = wanted
-                writeDebugLog(
-                    "[\(logTag)] item width pinned to \(Int(wanted))pt"
-                        + " (\(Int(target.width))pt capsule / \(count) item(s))"
-                        + " — UIKit sizes the glass after the items, so this is what makes"
-                        + " the remaining tabs split it evenly"
-                )
-            }
-        }
-
-        // 量内边距时**必须按"看得见的颗数"分家**：
-        // ① 四颗量到 21/21，藏掉「创建」变三颗之后是 **70/70** —— UIKit 的浮岛玻璃是
-        // **按内容**定宽的（三颗更窄），所以"玻璃 = 宿主 − 常量"这个常量**随颗数变**。
-        // 冻结本身没错（防漂），错的是"换形状了还沿用旧常量" ⇒ 这里按颗数重量一次。
-        // ② 宿主**不许越出栏**：曾量到 `-29,-3,472,81`（栏只有 414），越界那 29pt 两边
-        // 没有任何用途，只会让命中区域跑到栏外。
-        let visibleCount = TabBarGlassPlate.findTabsStack(in: bar)
-            .map { TabBarGlassPlate.visibleItems(in: $0).count } ?? 0
+        // Item widths must use the clamped renderer frame, including the first
+        // layout fallback when Spotify has not measured its tab contents yet.
         let category = bar.traitCollection.preferredContentSizeCategory.rawValue
-        if measuredInsetsBar !== bar || glassInsetsCount != visibleCount || measuredBounds != bar.bounds.size || measuredCategory != category {
-            measuredBounds = bar.bounds.size
-            measuredCategory = category
+        if measuredBounds != bar.bounds.size || measuredCategory != category {
+            measuredBounds = bar.bounds.size; measuredCategory = category
             measuredGlassHeight = 0
-            measuredInsetsBar = bar
-            glassInsets = nil
-            glassInsetsCount = visibleCount
         }
-        let drawn = drawnGlassFrame(in: systemBar, in: bar)
-        if glassInsets == nil, let drawn {
-            let insets = UIEdgeInsets(
-                top: drawn.minY - host.frame.minY,
-                left: drawn.minX - host.frame.minX,
-                bottom: host.frame.maxY - drawn.maxY,
-                right: host.frame.maxX - drawn.maxX
-            )
-            glassInsets = insets
-            writeDebugLog(
-                "[\(logTag)] glass insets measured once — left \(Int(insets.left)) right \(Int(insets.right))"
-                    + " top \(Int(insets.top)) bottom \(Int(insets.bottom))"
-                    + " (UIKit keeps them to itself; the host is expanded by them so the glass lands on our capsule;"
-                    + " measured once on purpose, so the glass cannot drift)"
-            )
-        }
-        let insets = glassInsets ?? .zero
-        let wanted = CGRect(
-            x: target.minX - insets.left,
-            y: target.minY - insets.top,
-            width: target.width + insets.left + insets.right,
-            height: target.height + insets.top + insets.bottom
-        )
-        // ⚠️ 夹回栏里（见上面 ②）：交集为空时退回整条栏，绝不把宿主摆到栏外。
-        let clamped = wanted.intersection(bar.bounds)
-        let frame = clamped.isNull ? bar.bounds : clamped
-        if !host.frame.equalTo(frame) { host.frame = frame }
-        if !systemBar.frame.equalTo(host.bounds) { systemBar.frame = host.bounds }
+        NavigationCapsuleSurface.layout(host: host, systemBar: systemBar, nativeBar: bar, target: target)
 
         // ⛔ **迷你播放条与标签栏玻璃解绑**：这里**不按"UIKit 真画的那块"刷新**
         // `capsuleWidth` / `capsuleWidthRatio`。那两个量保持**几何算出来的**那一份

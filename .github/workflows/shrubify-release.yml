@@ -117,6 +117,15 @@ jobs:
           bash scripts/test_evolved_lyrics.sh
           bash scripts/test_evolved_migration.sh
           bash scripts/test_pr_integration.sh
+      - name: Render navigation capsule in an iPad simulator
+        timeout-minutes: 15
+        run: bash scripts/test_navigation_surface.sh
+      - name: Upload navigation rendering evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: navigation-surface-smoke
+          path: Outputs/ui-smoke/
       - name: Resolve authorized IPA URL on this runner (keep secrets out of job outputs)
         env:
           MANUAL_IPA: ${{ inputs.ipa_url }}

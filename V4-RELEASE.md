@@ -1,4 +1,4 @@
-> Archived release document. The current release is [Shrubify 4.1.1](RELEASE-4.1.1.md).
+> Archived release document. The current release is [Shrubify 4.1.2](RELEASE-4.1.2.md).
 
 Shrubify 4.0.0
 

@@ -92,17 +92,11 @@ enum TabBarGlassPlate {
     // ⚠️ 副作用是**故意**的：顺手把宽度报给迷你播放条那条胶囊（两条等宽）。
     @MainActor
     static func capsuleRect(in bar: UIView, band: CGRect) -> CGRect {
-        let width = min(
-            max(16, bar.bounds.width - sideInset * 2),
-            max(16, band.width + horizontalPadding * 2)
-        )
-        capsuleWidth = width
-        capsuleWidthRatio = bar.bounds.width > 1 ? width / bar.bounds.width : 0
-
-        let height = min(bar.bounds.height + maxOverhang, max(16, GlassCapsule.height))
-        let centeredY = band.midY - height / 2
-        let y = min(max(-maxOverhang, centeredY), max(0, bar.bounds.height - height))
-        return CGRect(x: band.midX - width / 2, y: y, width: width, height: height)
+        let count = findTabsStack(in: bar).map { visibleItems(in: $0).count } ?? 4
+        let frame = NavigationCapsuleLayout.frame(in: bar.bounds, band: band, itemCount: count)
+        capsuleWidth = frame.width
+        capsuleWidthRatio = bar.bounds.width > 1 ? frame.width / bar.bounds.width : 0
+        return frame
     }
 
     /// 给**系统玻璃**那条路用：跑一遍同一套量算，返回"我们要对齐到的那个矩形"（**不画任何东西**）。

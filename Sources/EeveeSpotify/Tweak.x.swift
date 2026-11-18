@@ -233,6 +233,8 @@ struct EeveeSpotify: Tweak {
             return
         }
 
+        LaunchRecovery.begin()
+
         // Compatibility mode: disable hooks that commonly drift with Spotify UI changes.
         // Keep base settings and core initialization active so users can turn it off.
         let stabilityMode = UserDefaults.standard.bool(forKey: "ShrubifyStabilityMode")

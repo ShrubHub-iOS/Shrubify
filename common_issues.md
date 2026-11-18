@@ -1,6 +1,6 @@
 # Shrubify — Common Issues
 
-**Maintained by shrubbery and the ShrubHub team.** This guide applies to Shrubify 4.1.1. The project is unofficial, based on upstream GPL-licensed work, and is not affiliated with Spotify.
+**Maintained by shrubbery and the ShrubHub team.** This guide applies to Shrubify 4.1.2. The project is unofficial, based on upstream GPL-licensed work, and is not affiliated with Spotify.
 
 ## Where are the Shrubify settings?
 
@@ -8,7 +8,7 @@ Open Spotify's account/profile menu and select the Shrubify settings entry. The 
 
 ## Why am I still seeing "Eevee" or version 2.0.0?
 
-Those labels belong to older builds. Shrubify 4.1.1 uses the Shrubify badge and plan labels and generates the displayed tweak version from its `control` file during compilation. You must install an IPA **built after** the update, not reuse an older IPA from Downloads or a previous Actions artifact. The Spotify version beside it is separate from the Shrubify version.
+Those labels belong to older builds. Shrubify 4.1.2 uses the Shrubify badge and plan labels and generates the displayed tweak version from its `control` file during compilation. You must install an IPA **built after** the update, not reuse an older IPA from Downloads or a previous Actions artifact. The Spotify version beside it is separate from the Shrubify version.
 
 ## App won't install
 
