@@ -25,7 +25,9 @@ import UIKit
 ///   一字节都不动；
 /// * 判据按**内容视图的类**缓存（pw 同做法）：一次字符串判断之后就是两次集合查找。
 class PlayerCardCollapseHook: ClassHook<UICollectionViewCell> {
-    typealias Group = ModernLyricsGroup
+    // Card collapse changes player layout, so it must follow interface support
+    // rather than activating with the lyrics-provider transport on iPad.
+    typealias Group = PlayerAppearanceGroup
 
     static var targetName = "_TtC12Element_List18CollectionViewCell"
 
