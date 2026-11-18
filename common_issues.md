@@ -1,8 +1,8 @@
 # Shrubify — Common Issues
 
-**Maintained by shrubbery and the ShrubHub team.** This guide applies to Shrubify 4.1.3. The project is unofficial, based on upstream GPL-licensed work, and is not affiliated with Spotify.
+**Maintained by shrubbery and the ShrubHub team.** This guide applies to Shrubify 4.1.4. The project is unofficial, based on upstream GPL-licensed work, and is not affiliated with Spotify.
 
-## iPad recovery in 4.1.3
+## iPad recovery in 4.1.4
 
 The native iPad player, fullscreen presentation, navigation and album/playlist/artist pages are intentional in this recovery update. Custom interface hooks are paused on tablets after the 4.1.1–4.1.2 regressions. Expanded lyrics sources and the metadata crash fix remain. Stored appearance preferences and local data are retained. Update in place using compatible signing.
 
@@ -12,7 +12,7 @@ Open Spotify's account/profile menu and select the Shrubify settings entry. The 
 
 ## Why am I still seeing "Eevee" or version 2.0.0?
 
-Those labels belong to older builds. Shrubify 4.1.3 uses the Shrubify badge and plan labels and generates the displayed tweak version from its `control` file during compilation. You must install an IPA **built after** the update, not reuse an older IPA from Downloads or a previous Actions artifact. The Spotify version beside it is separate from the Shrubify version.
+Those labels belong to older builds. Shrubify 4.1.4 uses the Shrubify badge and plan labels and generates the displayed tweak version from its `control` file during compilation. You must install an IPA **built after** the update, not reuse an older IPA from Downloads or a previous Actions artifact. The Spotify version beside it is separate from the Shrubify version.
 
 ## App won't install
 

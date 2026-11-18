@@ -162,3 +162,15 @@ check(LaunchRecoveryPolicy.begin(in: abruptDefaults), "Next process can recover 
 LaunchRecoveryPolicy.complete(in: abruptDefaults)
 abruptDefaults.removePersistentDomain(forName: abruptSuite)
 print("Cross-process startup probe persistence passed")
+
+let directFacts = ShrubReadLivePlayback(ShrubTestDirectPlayer())!
+check((directFacts["position"] as? NSNumber)?.doubleValue == 24, "direct StatefulPlayer clock without a state object")
+check((directFacts["duration"] as? NSNumber)?.doubleValue == 220, "direct clock duration")
+check(directFacts["uri"] as? String == "spotify:track:direct-clock", "currentTrack URI fallback keeps clock identity")
+check(ShrubReadLivePlayback(ShrubTestScalarPositionPlayer()) == nil, "reject scalar clock ABI mismatch")
+let restoredClock = KaraokePlaybackTracker.shared
+restoredClock.processStateChange(state: ["position": 10, "duration": 220, "paused": true, "uri": "spotify:track:before-restored"] as NSDictionary)
+check(restoredClock.snapshot().hasPosition && restoredClock.snapshot().isPlaybackStateKnown, "valid clock and pause facts are known")
+restoredClock.processStateChange(state: ["position": 1, "uri": "spotify:track:after-restored"] as NSDictionary)
+check(restoredClock.snapshot().durationMs == 0 && !restoredClock.snapshot().isPlaybackStateKnown, "new tracks cannot inherit old duration or pause state")
+print("Restored custom lyrics direct-clock ABI and track transition regressions passed")

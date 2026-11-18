@@ -44,6 +44,7 @@ internal-stage::
 	# SwiftProtobuf statically embedded in SpotifyShared.framework.
 	mkdir -p $(THEOS_STAGING_DIR)/Library/Frameworks
 	cp -r $(THEOS)/lib/iphone/$(or $(THEOS_PACKAGE_SCHEME),rootless)/EeveeSwiftProtobuf.framework $(THEOS_STAGING_DIR)/Library/Frameworks/
+	bash Tools/build-karaoke-shader.sh "$(THEOS_OBJ_DIR)" "$(THEOS_STAGING_DIR)/Library/Application Support/EeveeSpotify.bundle"
 
 # Build EeveeSwiftProtobuf.framework from apple/swift-protobuf source. Run
 # this once before `make package`. Re-run if SWIFTPROTOBUF_VERSION changes

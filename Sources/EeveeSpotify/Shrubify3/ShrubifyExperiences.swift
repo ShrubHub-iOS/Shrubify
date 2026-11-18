@@ -339,6 +339,7 @@ struct ShrubifyPanelView: View {
                     }
                 }
                 Section(header: Text("Listening tools")) {
+                    KaraokeLaunchButton()
                     if embeddedInSettings {
                         Button { SettingsNavigator.push(ShrubifySleepTimerView(), title: "Sleep timer") } label: {
                             SettingsLabel(title: "Sleep timer", subtitle: "Wind down with a playback countdown", icon: "moon.zzz.fill", color: .purple)

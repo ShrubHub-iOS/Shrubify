@@ -80,7 +80,7 @@ struct EeveeSettingsView: View {
         List {
             if EvolvedInterfaceAvailability.usesNativeTabletInterface {
                 Section {
-                    Text("iPad compatibility recovery: Spotify's native player, fullscreen controls, navigation and page layouts are active. Expanded lyrics sources remain available.")
+                    Text("iPad compatibility recovery: Spotify's native player, fullscreen controls, navigation and page layouts are active. The original Shrubify custom lyrics view and expanded lyrics sources remain available.")
                         .font(.footnote)
                 }
             }

@@ -246,6 +246,9 @@ struct EeveeSpotify: Tweak {
         if LyricsActivationPolicy.shouldCapturePlayer(replacingLyrics: UserDefaults.shouldReplaceLyrics,
             stabilityMode: stabilityMode) {
             PlaybackCaptureGroup().activate()
+            // The user's standalone lyrics view is independent of experimental
+            // player/navigation styling, including iPad compatibility recovery.
+            activateKaraokePlaybackCapture()
         }
         if UserDefaults.patchType.isPatching || UserDefaults.shouldHandleLyricsTraffic {
             ResponseTransportGroup().activate()

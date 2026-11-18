@@ -30,6 +30,7 @@ func invalidateLyricsForSourceChange() {
         currentLyricsFlight?.finish(nil)
         currentLyricsFlight = nil
         LyricsResponseCache.shared.noteSettingsChanged()
+        KaraokeLyricsStore.shared.clear()
         LyricsURLCachePurge.purgeLastRequest(reason: "Settings changed")
     }
 }
@@ -63,6 +64,9 @@ func loadLyricsDataAsync(_ path: String, originalLyrics: Lyrics? = nil, force: B
         if force { cache.reset() }
         let plan = cache.budgetPlan(forPath: path, signature: signature)
         if case .cached(let data) = plan.plan {
+            if let id = extractTrackId(from: path), id == currentLyricsDtoTrackId, let dto = currentLyricsDto {
+                publishShrubifyCustomLyrics(dto, trackId: id)
+            }
             flight.finish(data)
             return
         }
@@ -99,4 +103,12 @@ func loadLyricsDataAsync(_ path: String, originalLyrics: Lyrics? = nil, force: B
 
 func emptyLyricsData(originalLyrics: Lyrics? = nil) -> Data? {
     unavailableLyricsBytes(original: originalLyrics)
+}
+
+func publishShrubifyCustomLyrics(_ dto: LyricsDto, trackId: String) {
+    guard !trackId.isEmpty else { return }
+    if let lyrics = KaraokeLyricsAdapter.convert(lines: dto.lines, timeSynced: dto.timeSynced,
+        providerName: dto.providerName, contributors: dto.providerContributors) {
+        KaraokeLyricsStore.shared.set(trackId: trackId, lyrics: lyrics)
+    } else { KaraokeLyricsStore.shared.remove(trackId: trackId) }
 }

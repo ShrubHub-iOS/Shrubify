@@ -1,3 +1,10 @@
+# 4.1.4
+
+- Restore the original Shrubify fullscreen custom lyrics renderer, word animations, scrolling, credits and Metal background removed by the Evolved port.
+- Reconnect saved appearance settings, ShrubPanel/settings entry points and a footer button with its own layout space.
+- Adapt expanded providers to the original renderer without inventing word timing; preserve syllable boundaries, RTL/CJK text and contributor links.
+- Restore guarded real-player capture and direct-clock support, clear stale playback state on track changes, and keep native iPad UI recovery intact.
+
 # 4.1.3
 
 - Restore native iPad player/presentation and skip custom tablet UI hooks that covered fullscreen and playback controls.

@@ -5,6 +5,8 @@ struct KaraokePlaybackSnapshot: Equatable {
     var durationMs = 0
     var isPlaying = false
     var trackID: String?
+    var hasPosition = false
+    var isPlaybackStateKnown = false
 }
 
 /// Receives validated facts from the player bridge. The open lyrics screen polls
@@ -17,6 +19,7 @@ final class KaraokePlaybackTracker {
     private var stamp: TimeInterval = 0
     private var speed: Double = 1
     private var playing = false
+    private var playbackStateKnown = false
     private var observedID: String?
     private var fetchedID: String?
     private var pendingSeek: (seconds: Double, stamp: TimeInterval)?
@@ -51,7 +54,10 @@ final class KaraokePlaybackTracker {
         queue.sync {
             let now = uptime()
             let changed = uri != nil && id != observedID
-            if changed { pendingSeek = nil; position = 0 }
+            if changed {
+                pendingSeek = nil; position = 0; duration = 0; speed = 1
+                playing = false; playbackStateKnown = false
+            }
             let stale = pendingSeek.map { target -> Bool in
                 let expected = target.seconds + (playing ? max(0, now - target.stamp) * speed : 0)
                 return now - target.stamp < 0.6 && abs(value - expected) > 0.75
@@ -62,7 +68,7 @@ final class KaraokePlaybackTracker {
                 pendingSeek = nil
             }
             // Pause is independent of seek acknowledgement, including stale position samples.
-            if let paused { playing = !paused }
+            if let paused { playing = !paused; playbackStateKnown = true }
             if let reportedSpeed, reportedSpeed.isFinite { speed = max(0, reportedSpeed) }
             if let reportedDuration, reportedDuration.isFinite { duration = max(0, reportedDuration) }
             if uri != nil {
@@ -79,7 +85,8 @@ final class KaraokePlaybackTracker {
         queue.sync {
             let elapsed = stamp == 0 || !playing ? 0 : max(0, uptime() - stamp) * speed
             let current = duration > 0 ? min(duration, position + elapsed) : position + elapsed
-            return KaraokePlaybackSnapshot(positionMs: milliseconds(current), durationMs: milliseconds(duration), isPlaying: playing, trackID: observedID ?? fetchedID)
+            return KaraokePlaybackSnapshot(positionMs: milliseconds(current), durationMs: milliseconds(duration), isPlaying: playing,
+                trackID: observedID ?? fetchedID, hasPosition: stamp > 0, isPlaybackStateKnown: playbackStateKnown)
         }
     }
     func currentPositionMs() -> Int { snapshot().positionMs }

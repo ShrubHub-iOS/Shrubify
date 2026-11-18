@@ -17,6 +17,7 @@ struct EeveeLyricsAppearanceSettingsView: View {
 
     var body: some View {
         List {
+            ShrubifyCustomLyricsSettingsSection()
             lyricsTypographySection()
 
             NonIPadSpacerView()

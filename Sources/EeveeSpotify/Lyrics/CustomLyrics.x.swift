@@ -908,6 +908,7 @@ private func loadCustomLyricsForCurrentTrack() throws -> Lyrics {
         }
 
         currentLyricsDto = dto.capitalizingFirstLettersForDisplay()
+        publishShrubifyCustomLyrics(dto, trackId: trackId)
         // 数据到了（哪怕是纯音乐那种"空行 + isInstrumental"）⇒ 取词这一步 = found。
         currentLyricsLookupState = .found
         currentLyricsDtoTrackId = trackId
@@ -965,6 +966,7 @@ private func loadCustomLyricsForCurrentTrack() throws -> Lyrics {
     ) {
         writeDebugLog("[Lyrics] \(reason) — clearing word-by-word layer")
         let clear = {
+            if lookupFailed && !currentLyricsDtoTrackId.isEmpty { KaraokeLyricsStore.shared.remove(trackId: currentLyricsDtoTrackId) }
             currentLyricsDto = nil
             // 听歌页那层靠这个状态决定"点开之后写哪一句" ——「还在查」与「查完了没有」
             // 必须分开（前者写"正在查找"、后者写"未找到"）。
@@ -1315,6 +1317,7 @@ func reapplyLyricsTimingOffset() {
         guard delta != 0 else { return }
 
         currentLyricsDto = dto.applyingTimingOffset(delta)
+        if let updated = currentLyricsDto { publishShrubifyCustomLyrics(updated, trackId: currentLyricsDtoTrackId) }
         currentLyricsTimingOffsetAppliedMs = desired
         currentLyricsVersion += 1
         WordByWordHost.shared.refreshForCurrentLyrics()

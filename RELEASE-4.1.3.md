@@ -1,3 +1,5 @@
+> Archived release. Current release: [Shrubify 4.1.4](RELEASE-4.1.4.md).
+
 # Shrubify 4.1.3
 
 This is an iPad compatibility recovery after the broken replacement UI in 4.1.1–4.1.2.

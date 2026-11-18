@@ -91,16 +91,21 @@ NSDictionary *ShrubPlaybackFacts(id state) {
         NSNumber *speed = ShrubPlaybackNumber(state, @"playbackSpeed");
         if (duration) facts[@"duration"] = duration;
         if (speed) facts[@"speed"] = speed;
-        id track = ShrubPlaybackObject(state, @"track");
+        id track = ShrubPlaybackObject(state, @"track") ?: ShrubPlaybackObject(state, @"currentTrack");
         id uri = ShrubPlaybackObject(track, @"URI");
         if ([uri isKindOfClass:NSURL.class]) uri = [uri absoluteString];
+        else if (![uri isKindOfClass:NSString.class]) uri = ShrubPlaybackObject(uri, @"absoluteString");
         if ([uri isKindOfClass:NSString.class]) facts[@"uri"] = uri;
         return facts;
     } @catch (NSException *exception) { return nil; }
 }
 
 NSDictionary *ShrubReadLivePlayback(id player) {
-    @try { return ShrubPlaybackFacts(ShrubPlaybackObject(player, @"state")); }
+    @try {
+        NSDictionary *facts = ShrubPlaybackFacts(ShrubPlaybackObject(player, @"state"));
+        // StatefulPlayer exposes position directly; SPTEsperantoPlayer exposes state.
+        return facts ?: ShrubPlaybackFacts(player);
+    }
     @catch (NSException *exception) { return nil; }
 }
 

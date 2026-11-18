@@ -7,6 +7,7 @@ struct EeveeLyricsSettingsView: View {
 
     var body: some View {
         List {
+            ShrubifyCustomLyricsSettingsSection()
             wordByWordLyricsSection()
 
             // 「更好的逐词歌词」是「开启逐词歌词」的子项：**必须紧跟主开关**，

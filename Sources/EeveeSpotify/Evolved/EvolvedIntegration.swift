@@ -51,7 +51,7 @@ struct LiquidGlassSettingsView: View {
         List {
             Section(header: Text("Evolved UI"), footer: Text("Custom interface effects require compatible Spotify layouts. System glass requires iOS 26 or later.")) {
                 if EvolvedInterfaceAvailability.usesNativeTabletInterface {
-                    Text("iPad compatibility recovery is active. Spotify handles its player, fullscreen presentation, navigation and page layouts. Expanded lyrics sources remain available.")
+                    Text("iPad compatibility recovery is active. Spotify handles its player, fullscreen presentation, navigation and page layouts. The original Shrubify custom lyrics view and expanded lyrics sources remain available.")
                         .font(.footnote)
                 } else {
                     SettingsLink(title: "Player design", icon: "play.rectangle", color: .blue) { NowPlayingSettingsView() }

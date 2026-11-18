@@ -4,8 +4,12 @@ import Foundation
 enum KaraokeSeek {
     private static let playerLock = NSLock()
     private static weak var storedPlayer: AnyObject?
+    private static weak var livePlayer: AnyObject?
+    static func captureLivePlayer(_ value: AnyObject) {
+        playerLock.lock(); livePlayer = value; playerLock.unlock()
+    }
     static var player: AnyObject? {
-        get { playerLock.lock(); defer { playerLock.unlock() }; return storedPlayer }
+        get { playerLock.lock(); defer { playerLock.unlock() }; return livePlayer ?? storedPlayer }
         set { playerLock.lock(); storedPlayer = newValue; playerLock.unlock() }
     }
 

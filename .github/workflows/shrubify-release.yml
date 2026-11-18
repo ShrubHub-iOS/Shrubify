@@ -112,6 +112,7 @@ jobs:
           python3 scripts/check_release_consistency.py
           find Sources/EeveeSpotify -name '*.swift' -print0 | xargs -0 -n 40 swiftc -frontend -parse
           bash scripts/test_v4_beta.sh
+          bash scripts/test_restored_lyrics.sh
           bash scripts/test_release_support.sh
           bash scripts/test_listening_tools.sh
           bash scripts/test_evolved_lyrics.sh

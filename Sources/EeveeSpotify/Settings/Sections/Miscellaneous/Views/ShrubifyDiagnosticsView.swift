@@ -8,7 +8,7 @@ struct ShrubifyDiagnosticsView: View {
 
     var body: some View {
         List {
-            Section(header: Text("Compatibility"), footer: Text("Stability Mode disables experimental interface hooks, karaoke, remote flag overrides, and other optional hooks the next time Spotify starts. It cannot prevent every crash.")) {
+            Section(header: Text("Compatibility"), footer: Text("Stability Mode disables experimental interface hooks, automatic player decorations, remote flag overrides, and other optional hooks the next time Spotify starts. It cannot prevent every crash.")) {
                 Toggle(isOn: $stabilityMode) {
                     SettingsLabel(title: "Stability Mode", subtitle: "Prefer compatibility over extra effects", icon: "shield.lefthalf.filled", color: .blue)
                 }

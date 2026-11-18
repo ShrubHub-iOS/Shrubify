@@ -1,4 +1,24 @@
 #import "PlaybackBridge.h"
+@interface ShrubDirectTrack : NSObject
+@end
+@implementation ShrubDirectTrack
+- (NSURL *)URI { return [NSURL URLWithString:@"spotify:track:direct-clock"]; }
+@end
+@interface ShrubDirectPlayer : NSObject
+@end
+@implementation ShrubDirectPlayer
+- (double)position { return 24; }
+- (double)duration { return 220; }
+- (BOOL)isPaused { return YES; }
+- (id)currentTrack { return [ShrubDirectTrack new]; }
+@end
+@interface ShrubScalarPositionPlayer : NSObject
+@end
+@implementation ShrubScalarPositionPlayer
+- (NSInteger)position { [NSException raise:@"WrongClockABI" format:@"Must not call an integer getter as double"]; return 0; }
+@end
+id ShrubTestDirectPlayer(void) { return [ShrubDirectPlayer new]; }
+id ShrubTestScalarPositionPlayer(void) { return [ShrubScalarPositionPlayer new]; }
 @interface ShrubFixtureState : NSObject
 @property double position;
 @property double positionAsOfTimestamp;

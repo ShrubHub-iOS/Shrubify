@@ -43,6 +43,8 @@ jobs:
         find Sources/EeveeSpotify -name '*.swift' -print0 | xargs -0 -n 40 swiftc -frontend -parse
     - name: Test beta migration, timing, search and cache behavior
       run: bash scripts/test_v4_beta.sh
+    - name: Test restored original custom lyrics
+      run: bash scripts/test_restored_lyrics.sh
     - name: Test sleep timer deadline, replacement and cancellation
       run: bash scripts/test_listening_tools.sh
     - name: Test Evolved providers and lyrics rendering rules

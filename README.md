@@ -1,6 +1,6 @@
-> **4.1.3 iPad recovery:** Spotify handles its native player, fullscreen controls, navigation and page layouts. Custom Evolved interface hooks are paused on iPad; expanded lyrics sources and the metadata crash guard remain. iPhone appearance controls remain available. iOS 17.4+; system glass requires iOS 26+.
+> **4.1.4 restores your original Shrubify custom lyrics view:** fullscreen karaoke, word animations, animated background and saved appearance settings are back, connected to the expanded providers. iPad keeps the working native player/navigation from the recovery update; the custom lyrics view is independent of Evolved interface styling.
 
-# Shrubify 4.1.3 — Listening is easy with Shrubify!
+# Shrubify 4.1.4 — Listening is easy with Shrubify!
 
 **Created and maintained by shrubbery and the ShrubHub team.**
 
@@ -10,18 +10,19 @@ Shrubify is an **unofficial, community-developed iOS/iPadOS tweak** based on an 
 
 | Feature | What it does | Limitations |
 | --- | --- | --- |
+| **Original custom lyrics** | Fullscreen Shrubify karaoke with word/syllable animations, follow/seek, credits and an animated album-art background. Open from ShrubPanel or lyrics settings. | Requires a timed lyrics source. Saved typography/alignment preferences are retained. Native playback commands depend on Spotify compatibility. |
 | **Shrubify Studio** | Open Evolved’s player, tabs/mini-player, home/library/page and lyrics appearance controls. | iPad uses the native interface during recovery. Old layout archives are retained but no longer applied. iOS 17.4+; system glass requires iOS 26+. Spotify version compatibility needs device testing. |
 | **ShrubPanel** | A small in-app hub for Studio, Replay, ShrubQueue and supported lyrics tools. Reach it from Shrubify settings or (where the player observer attaches) a long press on the mini-player. | The mini-player gesture is version-dependent; the settings entry is the reliable fallback. |
 | **Shrubify Replay** | Private, opt-in local listening records: listening duration, track counts, top artists, seven-day trends and approximate plays. Includes privacy controls and a reset button. | Counts only *observed* playback while Shrubify is active, not your full Spotify history. Accuracy depends on now-playing metadata being present. No network sync. |
 | **ShrubQueue** | Shortcut to Spotify's native queue, bookmark the current song, and save a snapshot of the last 20 locally recorded tracks. | Snapshots are **not** a capture or restoration of Spotify's real queue. Opening tracks requires a captured Spotify track URI and in-app navigation support. |
-| **Evolved UI** | Apple Music-style player, fading artwork backdrop, glass tabs and mini-player, and redesigned home/library/album/playlist/artist pages. | Custom tablet UI is paused in 4.1.3. Private UI hooks on supported devices require version-specific checks. |
+| **Evolved UI** | Apple Music-style player, fading artwork backdrop, glass tabs and mini-player, and redesigned home/library/album/playlist/artist pages. | Custom tablet UI is paused in 4.1.4. Private UI hooks on supported devices require version-specific checks. |
 | **Compatibility & Diagnostics** | Optional Stability Mode, version reporting, issue links and debug-log export. | Cannot guarantee compatibility with all Spotify builds or eliminate every crash. |
 
-Shrubify 4.1.3 restores the native iPad interface after the custom player and navigation regressions. It retains the expanded lyrics providers, metadata crash guards and startup recovery. Evolved tablet integration remains unfinished; real Spotify interactions require device validation.
+Shrubify 4.1.4 restores the original pre-Evolved fullscreen custom lyrics view while retaining the working native iPad player and navigation. It keeps expanded providers, metadata crash guards and startup recovery. Evolved tablet integration remains unfinished; real Spotify interactions require device validation.
 
 ## Install and build
 
-- **Shrubify 4.1.3 release notes:** [RELEASE-4.1.3.md](RELEASE-4.1.3.md)
+- **Shrubify 4.1.4 release notes:** [RELEASE-4.1.4.md](RELEASE-4.1.4.md)
 
 - **Source and full setup:** [SHRUBIFY-SETUP.md](SHRUBIFY-SETUP.md)
 - **Changes in this release:** [CHANGELOG.md](CHANGELOG.md)
