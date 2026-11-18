@@ -57,8 +57,8 @@ class KaraokeObservableHook: ClassHook<NSObject> {
 private func hasObjectGetter(_ name: String, _ getter: String) -> Bool {
     guard let cls = NSClassFromString(name) as? NSObject.Type,
           let method = class_getInstanceMethod(cls, NSSelectorFromString(getter)),
-          method_getNumberOfArguments(method) == 2,
-          let type = method_copyReturnType(method) else { return false }
+          method_getNumberOfArguments(method) == 2 else { return false }
+    let type = method_copyReturnType(method)
     defer { free(type) }
     return type.pointee == 64 // '@': do not hook a scalar as an object.
 }
