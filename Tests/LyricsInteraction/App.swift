@@ -80,7 +80,7 @@ final class RootController: UIViewController {
         row.frame = barHost.bounds; row.axis = .horizontal; row.distribution = .fillEqually
         barHost.addSubview(row)
         for index in 0..<5 {
-            let button = TabBarItemElementView(type: .system); button.setTitle("Tab \(index)", for: .normal)
+            let button = TabBarItemElementView(frame: .zero); button.setTitle("Tab \(index)", for: .normal)
             button.accessibilityIdentifier = "native-tab-\(index)"
             button.addAction(UIAction { [weak self] _ in
                 guard let self else { return }; selections += 1; tabCount.text = "\(selections)"

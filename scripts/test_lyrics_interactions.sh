@@ -9,18 +9,19 @@ python3 scripts/make_lyrics_interaction_project.py "$SHRUBIFY_INTERACTION_ROOT"
 xcrun simctl list runtimes -j > "$SHRUBIFY_INTERACTION_ROOT/runtimes.json"
 SHRUBIFY_INTERACTION_RUNTIME=$(python3 - "$SHRUBIFY_INTERACTION_ROOT/runtimes.json" <<'PY'
 import json,sys
-runtimes=[r for r in json.load(open(sys.argv[1]))['runtimes'] if r.get('isAvailable') and r['name'].startswith('iOS 26')]
-assert runtimes, 'iOS 26 simulator runtime required for production glass interaction tests'
+runtimes=[r for r in json.load(open(sys.argv[1]))['runtimes'] if r.get('isAvailable') and r['version'].startswith('26.1')]
+assert runtimes, 'Matching iOS 26.1 simulator runtime required for production glass interaction tests'
 print(sorted(runtimes,key=lambda r:tuple(int(v) for v in r['version'].split('.')))[-1]['identifier'])
 PY
 )
 SHRUBIFY_INTERACTION_DEVICE=$(xcrun simctl create ShrubifyLyricsInteractions com.apple.CoreSimulator.SimDeviceType.iPad-Air-11-inch-M2 "$SHRUBIFY_INTERACTION_RUNTIME")
 xcrun simctl boot "$SHRUBIFY_INTERACTION_DEVICE"
+xcrun simctl bootstatus "$SHRUBIFY_INTERACTION_DEVICE" -b
 xcodebuild -project "$SHRUBIFY_INTERACTION_ROOT/LyricsInteractions.xcodeproj" -scheme LyricsInteractions \
   -destination "platform=iOS Simulator,id=$SHRUBIFY_INTERACTION_DEVICE" \
   -derivedDataPath "$SHRUBIFY_INTERACTION_ROOT/DerivedData" \
   -resultBundlePath Outputs/lyrics-interactions/Interactions.xcresult \
-  -parallel-testing-enabled NO CODE_SIGNING_ALLOWED=NO test > Outputs/lyrics-interactions/xcodebuild.log 2>&1 || {
+  -parallel-testing-enabled NO CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=- test > Outputs/lyrics-interactions/xcodebuild.log 2>&1 || {
     tail -100 Outputs/lyrics-interactions/xcodebuild.log
     exit 1
   }

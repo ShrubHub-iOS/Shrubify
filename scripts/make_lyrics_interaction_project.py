@@ -41,7 +41,7 @@ app_product = obj('app-product', 'PBXFileReference', explicitFileType='wrapper.a
 test_product = obj('test-product', 'PBXFileReference', explicitFileType='wrapper.cfbundle', includeInIndex=0, path='InteractionUITests.xctest', sourceTree='BUILT_PRODUCTS_DIR')
 products = obj('products', 'PBXGroup', children=[app_product, test_product], name='Products', sourceTree='<group>')
 root = obj('root', 'PBXGroup', children=app_refs + test_refs + [products], sourceTree='<group>')
-common = dict(SWIFT_VERSION='5.0', SDKROOT='iphoneos', IPHONEOS_DEPLOYMENT_TARGET='26.0', CODE_SIGNING_ALLOWED='NO', TARGETED_DEVICE_FAMILY='2')
+common = dict(SWIFT_VERSION='5.0', SDKROOT='iphoneos', IPHONEOS_DEPLOYMENT_TARGET='26.0', CODE_SIGNING_ALLOWED='YES', CODE_SIGN_IDENTITY='-', TARGETED_DEVICE_FAMILY='2')
 
 def configs(prefix, settings):
     entries = []

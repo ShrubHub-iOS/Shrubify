@@ -90,7 +90,7 @@ jobs:
     name: Verify lyrics interactions on iPad
     needs: plan
     if: ${{ needs.plan.outputs.build == 'true' }}
-    runs-on: macos-15-intel
+    runs-on: macos-15
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
