@@ -1,4 +1,7 @@
 import Foundation
+#if canImport(CoreGraphics)
+import CoreGraphics
+#endif
 
 func check(_ value: @autoclosure () -> Bool, _ message: String) {
     guard value() else { fatalError(message) }

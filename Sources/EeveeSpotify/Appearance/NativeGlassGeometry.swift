@@ -1,4 +1,7 @@
 import Foundation
+#if canImport(CoreGraphics)
+import CoreGraphics
+#endif
 
 /// Decorative geometry only: never changes Spotify's own frames or hit regions.
 enum NativeGlassGeometry {
