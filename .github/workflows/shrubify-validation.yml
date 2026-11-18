@@ -4,14 +4,20 @@ name: Shrubify native validation
     branches:
     - Master
     - main
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      navigation_only:
+        description: Run only the iPad rendering regression
+        type: boolean
+        default: false
 permissions:
   contents: read
 concurrency:
-  group: shrubify-validation-${{ github.ref }}
+  group: shrubify-validation-${{ github.ref }}${{ inputs.navigation_only && '-navigation' || '' }}
   cancel-in-progress: true
 jobs:
   compile:
+    if: ${{ !inputs.navigation_only }}
     runs-on: macos-15-intel
     env:
       THEOS: ${{ github.workspace }}/theos

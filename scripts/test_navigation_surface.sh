@@ -5,6 +5,7 @@ SHRUBIFY_SMOKE_ROOT=$(mktemp -d)
 SHRUBIFY_SMOKE_DEVICE=''
 trap 'if [[ -n "$SHRUBIFY_SMOKE_DEVICE" ]]; then xcrun simctl shutdown "$SHRUBIFY_SMOKE_DEVICE" >/dev/null 2>&1 || true; xcrun simctl delete "$SHRUBIFY_SMOKE_DEVICE" >/dev/null 2>&1 || true; fi; rm -rf "$SHRUBIFY_SMOKE_ROOT"' EXIT
 mkdir -p Outputs/ui-smoke "$SHRUBIFY_SMOKE_ROOT/ShrubifyUISmoke.app"
+exec > >(tee Outputs/ui-smoke/run.log) 2>&1
 xcrun simctl list runtimes -j > "$SHRUBIFY_SMOKE_ROOT/runtimes.json"
 xcrun simctl list devicetypes -j > "$SHRUBIFY_SMOKE_ROOT/devices.json"
 read -r SHRUBIFY_SMOKE_RUNTIME SHRUBIFY_SMOKE_TYPE < <(python3 - "$SHRUBIFY_SMOKE_ROOT" <<'PY'

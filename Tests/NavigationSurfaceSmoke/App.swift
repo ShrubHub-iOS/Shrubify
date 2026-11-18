@@ -49,11 +49,11 @@ final class SmokeController: UIViewController {
         NavigationCapsuleSurface.layout(host: host, systemBar: systemBar, nativeBar: nativeBar, target: nativeBar.bounds)
         view.layoutIfNeeded()
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-            self.capture(nativeBar: nativeBar, host: host, oldMaterial: oldMaterial, target: target, reproduced: reproducedMaterial)
+            self.capture(nativeBar: nativeBar, host: host, systemBar: systemBar, oldMaterial: oldMaterial, target: target, reproduced: reproducedMaterial)
         }
     }
 
-    private func capture(nativeBar: UIView, host: UIView, oldMaterial: UIVisualEffectView, target: CGRect, reproduced: Bool) {
+    private func capture(nativeBar: UIView, host: UIView, systemBar: UITabBar, oldMaterial: UIVisualEffectView, target: CGRect, reproduced: Bool) {
         let folder = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
         let format = UIGraphicsImageRendererFormat(); format.scale = 1; format.opaque = true
         let image = UIGraphicsImageRenderer(bounds: view.bounds, format: format).image { _ in

@@ -5,6 +5,7 @@ import ObjectiveC.runtime
 @MainActor
 enum NavigationCapsuleSurface {
     private static var key: UInt8 = 0
+    @MainActor
     private final class Clip {
         let original: CALayer?
         let mask = CAShapeLayer()
