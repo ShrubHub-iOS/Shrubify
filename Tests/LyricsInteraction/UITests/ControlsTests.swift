@@ -23,7 +23,9 @@ final class ControlsTests: XCTestCase {
             // Keep the existing production play and slider controls functional.
             app.buttons["Play"].tap()
             XCTAssertTrue(app.buttons["Pause"].exists)
-            app.sliders["Song position"].adjust(toNormalizedSliderPosition: 0.75)
+            let slider = app.sliders["Song position"]
+            slider.coordinate(withNormalizedOffset: CGVector(dx: 1.0 / 3.0, dy: 0.5))
+                .press(forDuration: 0.2, thenDragTo: slider.coordinate(withNormalizedOffset: CGVector(dx: 0.8, dy: 0.5)))
             let seek = Int(app.staticTexts["seek-value"].label) ?? 0
             XCTAssertGreaterThan(seek, 100_000); XCTAssertLessThan(seek, 160_000)
             let capture = XCTAttachment(screenshot: app.screenshot()); capture.name = "lyrics-controls-cycle-\(cycle)"; capture.lifetime = .keepAlways; add(capture)
