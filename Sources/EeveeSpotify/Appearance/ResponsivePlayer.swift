@@ -204,6 +204,16 @@ final class ResponsivePlayerView: UIView {
     required init?(coder: NSCoder) { return nil }
 
     private func configure(_ button: UIButton, symbol: String, label: String, action: @escaping () -> Void) {
+        // Shrubify owns these buttons in the optional phone player. Keep their
+        // symbols, accessibility and native actions above the material.
+        if #available(iOS 26.0, *) {
+            let plate = GlassCapsule.makeGlassView(wantsInteractive: false).view
+            plate.frame = button.bounds
+            plate.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+            plate.isUserInteractionEnabled = false
+            plate.accessibilityElementsHidden = true
+            button.insertSubview(plate, at: 0)
+        }
         button.tintColor = .white
         button.setImage(UIImage(systemName: symbol, withConfiguration: UIImage.SymbolConfiguration(pointSize: 23, weight: .medium)), for: .normal)
         button.accessibilityLabel = label
@@ -225,7 +235,7 @@ final class ResponsivePlayerView: UIView {
             artwork.image = image
             background.image = NowPlayingIOS27.backdrop(from: image)
         }
-        let info = SafeTrackMetadata(track: statefulPlayer?.currentTrack() as AnyObject?)
+        let info = CurrentSpotifyTrack.snapshot
         if let info {
             title.titleLabel?.font = UIFont.preferredFont(forTextStyle: .title2)
             artist.titleLabel?.font = UIFont.preferredFont(forTextStyle: .body)
@@ -357,7 +367,7 @@ final class ResponsivePlayerView: UIView {
     }
 
     private func openMetadata(_ key: String) {
-        guard let info = SafeTrackMetadata(track: statefulPlayer?.currentTrack() as AnyObject?),
+        guard let info = CurrentSpotifyTrack.snapshot,
               let value = info.metadata[key], let url = URL(string: value) else { return }
         _ = SpotifyURIOpener.open(url.absoluteString)
     }

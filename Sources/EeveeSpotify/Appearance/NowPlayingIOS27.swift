@@ -733,7 +733,7 @@ enum NowPlayingIOS27 {
         }
         // 最多试 6 次（≈1.8s）：metadata 有时比播放器晚一两拍才就绪，失败也不无限刷。
         guard metadataArtworkAttempts < 6,
-              let track = statefulPlayer?.currentTrack(),
+              let track = CurrentSpotifyTrack.snapshot,
               let url = LyricsArtworkResolver.artworkURL(for: track) else { return }
         metadataArtworkAttempts += 1
         metadataArtworkLoading = true
@@ -1767,8 +1767,7 @@ enum NowPlayingIOS27 {
     }
 
     private static func currentTrackMetadata() -> [String: String] {
-        let track = statefulPlayer?.currentTrack() ?? nowPlayingScrollViewController?.loadedTrack
-        return track?.metadata() ?? [:]
+        CurrentSpotifyTrack.snapshot?.metadata ?? [:]
     }
 
     /// 歌词区**左下角**那块「歌词来源 / 上传者·制作者·翻译者」。

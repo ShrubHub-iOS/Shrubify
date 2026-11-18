@@ -65,6 +65,6 @@ final class KaraokeOverlayPresenter {
     }
 
     static func currentTrackId() -> String? {
-        statefulPlayer?.currentTrack()?.trackIdentifier ?? KaraokePlaybackTracker.shared.playerReportedTrackId()
+        CurrentSpotifyTrack.identifier ?? KaraokePlaybackTracker.shared.playerReportedTrackId()
     }
 }

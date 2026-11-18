@@ -241,14 +241,9 @@ enum QueuePage {
         guard let header = headerView, let cover = coverView,
               let title = titleLabel, let artist = artistLabel else { return false }
 
-        let track = statefulPlayer?.currentTrack()
-        // ⚠️ 用 `string(ifResponding:)` 取，**不要**直接调 `artistTitle`：
-        // 那个选择器在 9.1.x 上不存在（见 `SPTPlayerTrack+Extension` 的说明）。
-        let titleText = track?.string(ifResponding: "trackTitle") ?? ""
-        let byName = track?.string(ifResponding: "artistName") ?? ""
-        let artistText = byName.isEmpty
-            ? (track?.string(ifResponding: "artistTitle") ?? "")
-            : byName
+        let track = CurrentSpotifyTrack.snapshot
+        let titleText = track?.title ?? ""
+        let artistText = track?.artist ?? ""
         let key = titleText + "\u{1}" + artistText
 
         var changed = false

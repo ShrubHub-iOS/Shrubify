@@ -128,12 +128,9 @@ extension NowPlayingLyricsPlate {
     /// 当前这首的**歌手名**（页面上的歌手那一行就该写着它）。
     ///
     /// 口径与仓库另外两处一致（`LyricsWordByWord` 的壳 `:897`、`AppleMusicLyricsOverlay` 的页头 `:671`）：
-    /// 9.1.x 上要 `artistName`，老版本只有 `artistTitle`（见 `SPTPlayerTrack+Extension` 的说明）。
+    /// 9.1.x 上要 `artistName`，老版本只有 `artistTitle`（见 `ShrubReadTrackMetadata` 的说明）。
     static func currentArtistName() -> String {
-        let track = statefulPlayer?.currentTrack() ?? nowPlayingScrollViewController?.loadedTrack
-        let name = EeveeSpotify.hookTarget == .lastAvailableiOS14
-            ? track?.artistTitle()
-            : track?.artistName()
+        let name = CurrentSpotifyTrack.snapshot?.artist
         return (name ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
     }
 

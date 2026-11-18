@@ -489,8 +489,7 @@ extension NowPlayingLyricsPlate {
     }
 
     static func currentTrackId() -> String? {
-        let id = (statefulPlayer?.currentTrack() ?? nowPlayingScrollViewController?.loadedTrack)?
-            .trackIdentifier ?? ""
+        let id = CurrentSpotifyTrack.identifier ?? ""
         return id.isEmpty ? nil : id
     }
 

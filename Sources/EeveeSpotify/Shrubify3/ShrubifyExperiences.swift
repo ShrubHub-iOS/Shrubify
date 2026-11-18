@@ -287,77 +287,43 @@ struct ShrubifyPanelView: View {
         }
     }
 
+    @ViewBuilder private func panelLink<V: View>(title: String, subtitle: String, icon: String, color: Color, destination: @escaping () -> V) -> some View {
+        if embeddedInSettings { SettingsLink(title: title, subtitle: subtitle, icon: icon, color: color, destination: destination) }
+        else {
+            NavigationLink(destination: destination()) {
+                SettingsLabel(title: title, subtitle: subtitle, icon: icon, color: color)
+            }
+        }
+    }
+
     private var panelContent: some View {
             List {
-                Section {
-                    HStack(spacing: 12) {
-                        Image(systemName: "waveform.circle.fill")
-                            .font(.system(size: 34))
-                            .foregroundColor(EeveeTheme.accent)
-                        VStack(alignment: .leading) {
-                            Text("Your listening tools").font(.headline)
-                            Text("Listening is easy with Shrubify.")
-                                .font(.footnote).foregroundColor(.secondary)
-                        }
-                    }
-                    .padding(.vertical, 6)
-                }
-                Section(header: Text("Quick access")) {
-                    if showStudio {
-                        if embeddedInSettings {
-                            Button { SettingsNavigator.push(ShrubifyStudioView(usesSettingsNavigation: true), title: "Studio") } label: { SettingsLabel(title: "Shrubify Studio", subtitle: "Player layouts and details", icon: "slider.horizontal.3", color: .blue) }
-                        } else {
-                        NavigationLink(destination: ShrubifyStudioView()) {
-                            SettingsLabel(title: "Shrubify Studio", subtitle: "Player layouts and details", icon: "slider.horizontal.3", color: .blue)
-                        }
-                        }
-                    }
-                    if showReplay {
-                        if embeddedInSettings {
-                            Button { SettingsNavigator.push(ShrubifyReplayView(usesSettingsNavigation: true), title: "Replay") } label: { SettingsLabel(title: "Shrubify Replay", subtitle: "Private listening stats", icon: "chart.bar.xaxis", color: .purple) }
-                        } else {
-                        NavigationLink(destination: ShrubifyReplayView()) {
-                            SettingsLabel(title: "Shrubify Replay", subtitle: "Private listening stats", icon: "chart.bar.xaxis", color: .purple)
-                        }
-                        }
-                    }
+                Section(header: Text("This listening session")) {
+                    KaraokeLaunchButton()
                     if showQueue {
                         if embeddedInSettings {
-                            Button { SettingsNavigator.push(NavigationView { ShrubifyQueueView() }.navigationViewStyle(StackNavigationViewStyle()), title: "Queue") } label: { SettingsLabel(title: "ShrubQueue", subtitle: "Queue and snapshots", icon: "list.bullet", color: .orange) }
+                            SettingsLink(title: "ShrubQueue", subtitle: "Queue and snapshots", icon: "list.bullet", color: .orange) {
+                                NavigationView { ShrubifyQueueView() }.navigationViewStyle(StackNavigationViewStyle())
+                            }
                         } else {
-                        NavigationLink(destination: ShrubifyQueueView()) {
-                            SettingsLabel(title: "ShrubQueue", subtitle: "Queue and snapshots", icon: "list.bullet", color: .orange)
-                        }
+                            NavigationLink(destination: ShrubifyQueueView()) { SettingsLabel(title: "ShrubQueue", subtitle: "Queue and snapshots", icon: "list.bullet", color: .orange) }
                         }
                     }
+                    panelLink(title: "Sleep timer", subtitle: "Stop playback after a countdown", icon: "moon.zzz.fill", color: .purple) { ShrubifySleepTimerView() }
                 }
-                Section {
+                Section(header: Text("Shortcuts")) {
+                    if showReplay {
+                        panelLink(title: "Shrubify Replay", subtitle: "Private listening stats", icon: "chart.bar.xaxis", color: .purple) { ShrubifyReplayView(usesSettingsNavigation: embeddedInSettings) }
+                    }
+                    if showStudio {
+                        panelLink(title: "Shrubify Studio", subtitle: "Change player and app appearance", icon: "slider.horizontal.3", color: .blue) { ShrubifyStudioView(usesSettingsNavigation: embeddedInSettings) }
+                    }
+                    panelLink(title: "Lyrics settings", subtitle: "Sources, appearance and timing", icon: "text.quote", color: .green) { EeveeLyricsSettingsView(usesSettingsNavigation: embeddedInSettings) }
                     DisclosureGroup("Customize shortcuts") {
                         Toggle("Studio", isOn: $showStudio)
                         Toggle("Replay", isOn: $showReplay)
                         Toggle("Queue and snapshots", isOn: $showQueue)
                     }
-                }
-                Section(header: Text("Listening tools")) {
-                    KaraokeLaunchButton()
-                    if embeddedInSettings {
-                        Button { SettingsNavigator.push(ShrubifySleepTimerView(), title: "Sleep timer") } label: {
-                            SettingsLabel(title: "Sleep timer", subtitle: "Wind down with a playback countdown", icon: "moon.zzz.fill", color: .purple)
-                        }
-                    } else {
-                        NavigationLink(destination: ShrubifySleepTimerView()) {
-                            SettingsLabel(title: "Sleep timer", subtitle: "Wind down with a playback countdown", icon: "moon.zzz.fill", color: .purple)
-                        }
-                    }
-                    if embeddedInSettings {
-                        SettingsLink(title: "Lyrics sources", icon: "text.quote", color: .green) { EeveeLyricsSettingsView() }
-                    } else {
-                        NavigationLink(destination: EeveeLyricsSettingsView(usesSettingsNavigation: false)) {
-                            SettingsLabel(title: "Lyrics sources", icon: "text.quote", color: .green)
-                        }
-                    }
-                    Text("ShrubPanel never requires an account or sends your Replay history anywhere.")
-                        .font(.footnote).foregroundColor(.secondary)
                 }
             }
             .eeveeSettingsStyle()

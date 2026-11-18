@@ -134,11 +134,8 @@ final class ShrubifyReplayStore: ObservableObject {
             ?? (playback.isPlaying ? 1 : 0)
         guard rate.isFinite, rate > 0 else { previousStamp = nil; return }
         // MPNowPlayingInfo can lag a native track transition. Do not combine identities.
-        if let track = statefulPlayer?.currentTrack() {
-            guard let metadata = SafeTrackMetadata(track: track as AnyObject),
-                  metadata.title == title, metadata.artist == artist else {
-                previousKey = nil; previousPosition = nil; return
-            }
+        guard CurrentSpotifyTrack.matchesIfPresent(title: title, artist: artist) else {
+            previousKey = nil; previousPosition = nil; return
         }
         let legacyKey = artist.lowercased() + "\u{001F}" + title.lowercased()
         let uri = playback.trackID.map { "spotify:track:" + $0 }
@@ -224,10 +221,7 @@ final class ShrubifyReplayStore: ObservableObject {
               let title = info[MPMediaItemPropertyTitle] as? String,
               let artist = info[MPMediaItemPropertyArtist] as? String,
               !title.isEmpty, !artist.isEmpty else { return false }
-        if let track = statefulPlayer?.currentTrack() {
-            guard let metadata = SafeTrackMetadata(track: track as AnyObject),
-                  metadata.title == title, metadata.artist == artist else { return false }
-        }
+        guard CurrentSpotifyTrack.matchesIfPresent(title: title, artist: artist) else { return false }
         let key = playback.trackID.map { "spotify:track:" + $0 }
             ?? (artist.lowercased() + "\u{001F}" + title.lowercased())
         var entry = archive.tracks.first(where: { $0.id == key }) ?? ShrubifyTrackRecord(id: key, title: title, artist: artist, seconds: 0, plays: 0, lastPlayed: Date(), spotifyURI: nil)

@@ -662,7 +662,7 @@ final class AppleMusicLyricsPlaybackProjection: ObservableObject {
         // 时长不必每帧读（它一次播放内不变），1 秒刷一次足够。
         if now.timeIntervalSince(lastDurationRefresh) > 1 {
             lastDurationRefresh = now
-            if let ms = statefulPlayer?.currentTrack()?.trackDurationMilliseconds, ms > 0 {
+            if let ms = CurrentSpotifyTrack.snapshot?.durationMs, ms > 0 {
                 duration = TimeInterval(ms) / 1000
             }
         }

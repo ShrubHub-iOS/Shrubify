@@ -13,17 +13,61 @@ import SwiftUI
 ///
 /// 预览仍然只在 iOS 26+ 显示：它就是生产页的缩小版（`AppleMusicLyricsPage`）。
 struct EeveeLyricsAppearanceSettingsView: View {
+    @State private var lyricsColors = UserDefaults.lyricsColors
     @StateObject var viewModel = EeveeLyricsSettingsViewModel()
 
     var body: some View {
         List {
             ShrubifyCustomLyricsSettingsSection()
             lyricsTypographySection()
+            if UserDefaults.lyricsSource.isReplacingLyrics { lyricsColorSection }
 
             NonIPadSpacerView()
         }
         .listStyle(InsetGroupedListStyle())
         .animation(.default, value: viewModel.animationValues)
+    }
+
+    private var lyricsColorSection: some View {
+        Section(
+            header: Text("lyrics_background_color_section".localized),
+            footer: Text("lyrics_background_color_section_description".localized)
+        ) {
+            Toggle(
+                "display_original_colors".localized,
+                isOn: $lyricsColors.displayOriginalColors
+            )
+
+            Toggle(
+                "use_static_color".localized,
+                isOn: $lyricsColors.useStaticColor
+            )
+
+            if lyricsColors.useStaticColor {
+                ColorPicker(
+                    "static_color".localized,
+                    selection: Binding<Color>(
+                        get: { Color(hex: lyricsColors.staticColor) },
+                        set: { lyricsColors.staticColor = $0.hexString }
+                    ),
+                    supportsOpacity: false
+                )
+            }
+            else {
+                VStack(alignment: .leading, spacing: 5) {
+                    Text("color_normalization_factor".localized)
+
+                    Slider(
+                        value: $lyricsColors.normalizationFactor,
+                        in: 0.2...0.8,
+                        step: 0.1
+                    )
+                }
+            }
+        }
+        .onChange(of: lyricsColors) { lyricsColors in
+            UserDefaults.lyricsColors = lyricsColors
+        }
     }
 
     /// 「文字」：字号 / 行距两档倍率 + 一块实时预览。

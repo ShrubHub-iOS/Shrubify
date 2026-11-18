@@ -20,6 +20,7 @@ struct KaraokeOptions: Codable, Hashable {
     var fontSize: Double = 30
     var lineSpacing: Double = 16
 
+    var resolvedBlurRadius: Double { Self.clamp(blurIntensity, to: 0...4, fallback: 1.5) * 10 }
     var resolvedFontSize: Double { Self.clamp(fontSize, to: 22...40, fallback: 30) }
     var resolvedLineSpacing: Double { Self.clamp(lineSpacing, to: 8...32, fallback: 16) }
 
@@ -48,6 +49,6 @@ struct KaraokeOptions: Codable, Hashable {
         timingOffsetMs = ShrubifyBetaSupport.timingOffset(try container.decodeIfPresent(Int.self, forKey: .timingOffsetMs) ?? 0)
         fontSize = Self.clamp(try container.decodeIfPresent(Double.self, forKey: .fontSize) ?? 30, to: 22...40, fallback: 30)
         lineSpacing = Self.clamp(try container.decodeIfPresent(Double.self, forKey: .lineSpacing) ?? 16, to: 8...32, fallback: 16)
-        blurIntensity = try container.decodeIfPresent(Double.self, forKey: .blurIntensity) ?? 1.5
+        blurIntensity = Self.clamp(try container.decodeIfPresent(Double.self, forKey: .blurIntensity) ?? 1.5, to: 0...4, fallback: 1.5)
     }
 }

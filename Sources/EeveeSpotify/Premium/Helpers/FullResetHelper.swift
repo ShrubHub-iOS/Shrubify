@@ -54,22 +54,25 @@ class FullResetHelper {
                 kSecMatchLimit: kSecMatchLimitAll,
                 kSecAttrSynchronizable: kSecAttrSynchronizableAny,
                 kSecReturnAttributes: true,
+                kSecReturnPersistentRef: true,
             ]
             var result: CFTypeRef?
             let status = SecItemCopyMatching(query as CFDictionary, &result)
             guard status == errSecSuccess, let items = result as? [[String: Any]] else { continue }
 
-            for attrs in items where looksLikeSpotifyItem(attrs) {
-                var dq: [CFString: Any] = [
-                    kSecClass: cls,
-                    kSecAttrSynchronizable: kSecAttrSynchronizableAny,
-                ]
-                if let s = attrs[kSecAttrService as String]     { dq[kSecAttrService]     = s }
-                if let a = attrs[kSecAttrAccount as String]     { dq[kSecAttrAccount]     = a }
-                if let g = attrs[kSecAttrAccessGroup as String] { dq[kSecAttrAccessGroup] = g }
-                if SecItemDelete(dq as CFDictionary) == errSecSuccess { c.keychain += 1 }
+            for attrs in items {
+                // Attributes identify candidates, not unique items. Never fall back
+                // to deleting by class/account/group if an item has no reference.
+                guard let query = deletionQuery(for: attrs) else { continue }
+                if SecItemDelete(query as CFDictionary) == errSecSuccess { c.keychain += 1 }
             }
         }
+    }
+
+    static func deletionQuery(for attributes: [String: Any]) -> [CFString: Any]? {
+        guard looksLikeSpotifyItem(attributes),
+              let ref = attributes[kSecValuePersistentRef as String] as? Data, !ref.isEmpty else { return nil }
+        return [kSecValuePersistentRef: ref]
     }
 
     private static func wipeUserDefaults(_ c: WipeCounts) {

@@ -43,26 +43,19 @@ struct EeveeSettingsView: View {
     }
 
     private static let groups: [SettingsGroup] = [
-        SettingsGroup(key: "Shrubify · Listening is easy", entries: [
-            SettingsEntry(key: "ShrubPanel", icon: "square.grid.2x2.fill", color: .blue) { AnyView(ShrubifyPanelView(embeddedInSettings: true, dismiss: { SettingsNavigator.navigationController?.popViewController(animated: true) })) },
+        SettingsGroup(key: "Make it yours", entries: [
             SettingsEntry(key: "Shrubify Studio", icon: "slider.horizontal.3", color: .gray) { AnyView(ShrubifyStudioView(usesSettingsNavigation: true)) },
-            SettingsEntry(key: "Shrubify Replay", icon: "chart.bar.xaxis", color: .purple) { AnyView(ShrubifyReplayView(usesSettingsNavigation: true)) },
-            SettingsEntry(key: "ShrubQueue", icon: "list.bullet", color: .orange) { AnyView(NavigationView { ShrubifyQueueView() }.navigationViewStyle(StackNavigationViewStyle())) },
+            SettingsEntry(key: "lyrics", icon: "quote.bubble.fill", color: .blue) { AnyView(EeveeLyricsSettingsView()) },
         ]),
         SettingsGroup(key: "settings_group_listening", entries: [
-            SettingsEntry(key: "patching", icon: "hammer.fill", color: .orange) { AnyView(EeveePatchingSettingsView()) },
+            SettingsEntry(key: "ShrubPanel", icon: "square.grid.2x2.fill", color: .blue) { AnyView(ShrubifyPanelView(embeddedInSettings: true, dismiss: { SettingsNavigator.navigationController?.popViewController(animated: true) })) },
+            SettingsEntry(key: "ShrubQueue", icon: "list.bullet", color: .orange) { AnyView(NavigationView { ShrubifyQueueView() }.navigationViewStyle(StackNavigationViewStyle())) },
             SettingsEntry(key: "Sleep timer", icon: "moon.zzz.fill", color: .purple) { AnyView(ShrubifySleepTimerView()) },
-            SettingsEntry(key: "lyrics", icon: "quote.bubble.fill", color: .blue) { AnyView(EeveeLyricsSettingsView()) },
-            SettingsEntry(key: "Lyrics timing", icon: "timeline.selection", color: .blue) { AnyView(EeveeLyricsOffsetSettingsView()) },
+            SettingsEntry(key: "Shrubify Replay", icon: "chart.bar.xaxis", color: .purple) { AnyView(ShrubifyReplayView(usesSettingsNavigation: true)) },
             SettingsEntry(key: "sponsorblock", icon: "forward.end.fill", color: .red) { AnyView(SponsorBlockSettingsView()) },
         ]),
-        SettingsGroup(key: "settings_group_looks", entries: [
-            SettingsEntry(key: "appearance", icon: "drop.fill", color: Color(hex: "#30B0C7")) { AnyView(EeveeUISettingsView()) },
-            SettingsEntry(key: "Evolved UI", icon: "circle.hexagongrid.fill", color: EeveeTheme.accent) { AnyView(LiquidGlassSettingsView()) },
-            SettingsEntry(key: "Lyrics appearance", icon: "textformat.size", color: .blue) { AnyView(EeveeLyricsAppearanceSettingsView()) },
-            SettingsEntry(key: "appIcon", icon: "app.badge.fill", color: .pink) { AnyView(EeveeAppIconPickerView()) },
-        ]),
         SettingsGroup(key: "settings_group_advanced", entries: [
+            SettingsEntry(key: "patching", icon: "hammer.fill", color: .orange) { AnyView(EeveePatchingSettingsView()) },
             SettingsEntry(key: "spotify_features", icon: "switch.2", color: .green) { AnyView(SpotifyFeaturesView()) },
             SettingsEntry(key: "flags", icon: "flag.fill", color: Color(hex: "#5E5CE6")) { AnyView(FlagBrowserView()) },
             SettingsEntry(key: "experiments", icon: "sparkle", color: .purple) { AnyView(EeveeExperimentsSettingsView()) },
@@ -78,12 +71,6 @@ struct EeveeSettingsView: View {
 
     var body: some View {
         List {
-            if EvolvedInterfaceAvailability.usesNativeTabletInterface {
-                Section {
-                    Text("iPad compatibility recovery: Spotify's native player, fullscreen controls, navigation and page layouts are active. The original Shrubify custom lyrics view and expanded lyrics sources remain available.")
-                        .font(.footnote)
-                }
-            }
             if UserDefaults.standard.bool(forKey: LaunchRecoveryPolicy.recoveryKey),
                UserDefaults.standard.bool(forKey: "ShrubifyStabilityMode") {
                 Section {
@@ -91,34 +78,27 @@ struct EeveeSettingsView: View {
                         .font(.footnote)
                 }
             }
-            Section {
-                SettingsHero()
-            }
-            .listRowBackground(Color.clear)
-            .listRowInsets(EdgeInsets(top: 8, leading: 0, bottom: 4, trailing: 0))
-
-            Section {
-                Button {
-                    SettingsNavigator.push(ShrubifyBetaView(), title: "What’s new")
-                } label: {
-                    SettingsLabel(title: "Shrubify \(EeveeSpotify.version)", subtitle: "Evolved player, expanded lyrics and listening tools", icon: "sparkles", color: .orange, chevron: true)
-                }
-            }
-            EeveeSettingsVersionView()
-
-            if !hasShownCommonIssuesTip {
-                CommonIssuesTipView(
-                    onDismiss: {
-                        hasShownCommonIssuesTip = true
-                        UserDefaults.hasShownCommonIssuesTip = true
-                    }
-                )
-            }
-
             ForEach(Self.groups) { group in
                 SettingsGroupSection(group: group) { entry in
                     SettingsNavigator.push(entry.make(), title: entry.key.localized)
                 }
+            }
+
+            Section(header: Text("About")) {
+                Button {
+                    SettingsNavigator.push(ShrubifyBetaView(), title: "What’s new")
+                } label: {
+                    SettingsLabel(title: "Shrubify \(EeveeSpotify.version)", subtitle: "What’s new in this release", icon: "sparkles", color: .orange, chevron: true)
+                }
+                SettingsLink(title: "Open-source licenses", icon: "doc.text", color: .gray) { EeveeLicensesSettingsView() }
+            }
+            EeveeSettingsVersionView()
+
+            if !hasShownCommonIssuesTip {
+                CommonIssuesTipView(onDismiss: {
+                    hasShownCommonIssuesTip = true
+                    UserDefaults.hasShownCommonIssuesTip = true
+                })
             }
 
             Section {

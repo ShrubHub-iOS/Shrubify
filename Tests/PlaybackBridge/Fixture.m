@@ -87,13 +87,18 @@ id ShrubTestLongPodcast(void) {
 - (NSString *)trackTitle { return @"Modern track"; }
 - (NSString *)artistName { return @"Modern artist"; }
 - (NSString *)artistTitle { [NSException raise:@"UnsupportedLegacySelector" format:@"Modern playback must not call artistTitle"]; return nil; }
-- (NSDictionary *)metadata { return @{@"album_uri": @"spotify:album:fixture", @"bad_field": @42}; }
+- (NSURL *)URI { return [NSURL URLWithString:@"spotify:track:modern"]; }
+- (NSDictionary *)metadata { return @{@"album_uri": @"spotify:album:fixture", @"bad_field": @42, @"duration_ms": @28000,
+                                     @"artist_name:1": @"Guest", @"title": @"Localized title"}; }
 @end
 @interface ShrubLegacyTrack : NSObject
 @end
 @implementation ShrubLegacyTrack
 - (NSString *)trackTitle { return @"Legacy track"; }
+- (NSString *)artistName { [NSException raise:@"Unavailable" format:@"Old build"]; return nil; }
 - (NSString *)artistTitle { return @"Legacy artist"; }
+- (NSString *)extractedColorHex { return @"abcdef"; }
+- (NSInteger)URI { [NSException raise:@"WrongABI" format:@"Not an object getter"]; return 0; }
 @end
 @interface ShrubThrowingTrack : NSObject
 @end
@@ -109,3 +114,15 @@ id ShrubTestModernTrack(void) { return [ShrubModernTrack new]; }
 id ShrubTestLegacyTrack(void) { return [ShrubLegacyTrack new]; }
 id ShrubTestThrowingTrack(void) { return [ShrubThrowingTrack new]; }
 id ShrubTestScalarTrack(void) { return [ShrubScalarTrack new]; }
+
+@interface ShrubLegacyTrackModel : NSObject { id loadedTrack; }
+@end
+@implementation ShrubLegacyTrackModel
+- (instancetype)init { if ((self = [super init])) loadedTrack = ShrubTestLegacyTrack(); return self; }
+@end
+@interface ShrubLegacyController : NSObject { id _scrollViewModel; }
+@end
+@implementation ShrubLegacyController
+- (instancetype)init { if ((self = [super init])) _scrollViewModel = [ShrubLegacyTrackModel new]; return self; }
+@end
+id ShrubTestLegacyController(void) { return [ShrubLegacyController new]; }

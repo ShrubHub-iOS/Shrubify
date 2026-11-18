@@ -65,7 +65,7 @@ final class ShrubifySleepTimer: ObservableObject {
             stopSource()
             remaining = nil
             let token = generation
-            let track = statefulPlayer?.currentTrack()?.trackIdentifier
+            let track = CurrentSpotifyTrack.identifier
             confirmPause(token: token, trackID: track, until: now + 5)
 
         } else {
@@ -75,7 +75,7 @@ final class ShrubifySleepTimer: ObservableObject {
 
     private func confirmPause(token: UInt64, trackID: String?, until deadline: TimeInterval) {
         guard token == generation else { return }
-        if let trackID, let current = statefulPlayer?.currentTrack()?.trackIdentifier, current != trackID {
+        if let trackID, let current = CurrentSpotifyTrack.identifier, current != trackID {
             message = "Timer ended. Track changed before pause could be confirmed."
             return
         }

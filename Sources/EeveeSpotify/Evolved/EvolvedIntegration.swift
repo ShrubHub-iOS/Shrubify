@@ -46,32 +46,6 @@ func activateEvolvedInterface() {
     EntityPageAppearance.start()
 }
 
-/// Existing Shrubify pages remain reachable through the Evolved settings surface.
-struct LiquidGlassSettingsView: View {
-    @AppStorage("ShrubifyNativeTabletGlass") private var nativeGlass = true
-    var body: some View {
-        List {
-            Section(header: Text("Evolved UI"), footer: Text("Custom interface effects require compatible Spotify layouts. System glass requires iOS 26 or later.")) {
-                if EvolvedInterfaceAvailability.usesNativeTabletInterface {
-                    if #available(iOS 26.0, *) {
-                        Toggle("Glass on native controls", isOn: $nativeGlass)
-                            .onChange(of: nativeGlass) { _ in onMainThreadSync { NativeTabletGlass.reapply() } }
-                    }
-                    Text("Glass adds a decorative material to supported native tabs and mini-player layouts. Spotify continues to handle playback, fullscreen and navigation. Custom lyrics have separate glass controls.")
-                        .font(.footnote)
-                } else {
-                    SettingsLink(title: "Player design", icon: "play.rectangle", color: .blue) { NowPlayingSettingsView() }
-                    SettingsLink(title: "Tabs and mini-player", icon: "rectangle.bottomthird.inset.filled", color: .purple) { TabBarAndMiniBarSettingsView() }
-                    SettingsLink(title: "Home, library and pages", icon: "square.grid.2x2", color: .orange) { PagesAppearanceSettingsView() }
-                }
-                SettingsLink(title: "Lyrics appearance", icon: "textformat.size", color: .green) { EeveeLyricsAppearanceSettingsView() }
-                SettingsLink(title: "Open-source licenses", icon: "doc.text", color: .gray) { EeveeLicensesSettingsView() }
-            }
-        }
-        .eeveeSettingsStyle()
-    }
-}
-
 extension UserDefaults {
     // Compatibility alias used by Shrubify's existing settings shell.
     static var accentRGB: Int {

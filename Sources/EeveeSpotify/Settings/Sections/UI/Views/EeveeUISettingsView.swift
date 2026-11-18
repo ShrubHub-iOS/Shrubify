@@ -2,8 +2,6 @@ import SwiftUI
 import UIKit
 
 struct EeveeUISettingsView: View {
-    @State var lyricsColors = UserDefaults.lyricsColors
-
     // 主题（AMOLED 纯黑 + 强调色）。两颗都是**启动时读一次**，
     // 所以下面配了 `RestartSection`（改完出现「立即重启」）。
     @State private var amoledTheme = UserDefaults.amoledTheme
@@ -61,48 +59,6 @@ struct EeveeUISettingsView: View {
                 visible: amoledTheme != Theme.launchAmoled || accentRGB != Theme.launchAccent
             )
 
-            if UserDefaults.lyricsSource.isReplacingLyrics {
-                Section(
-                    header: Text("lyrics_background_color_section".localized),
-                    footer: Text("lyrics_background_color_section_description".localized)
-                ) {
-                    Toggle(
-                        "display_original_colors".localized,
-                        isOn: $lyricsColors.displayOriginalColors
-                    )
-
-                    Toggle(
-                        "use_static_color".localized,
-                        isOn: $lyricsColors.useStaticColor
-                    )
-
-                    if lyricsColors.useStaticColor {
-                        ColorPicker(
-                            "static_color".localized,
-                            selection: Binding<Color>(
-                                get: { Color(hex: lyricsColors.staticColor) },
-                                set: { lyricsColors.staticColor = $0.hexString }
-                            ),
-                            supportsOpacity: false
-                        )
-                    }
-                    else {
-                        VStack(alignment: .leading, spacing: 5) {
-                            Text("color_normalization_factor".localized)
-
-                            Slider(
-                                value: $lyricsColors.normalizationFactor,
-                                in: 0.2...0.8,
-                                step: 0.1
-                            )
-                        }
-                    }
-                }
-                .onChange(of: lyricsColors) { lyricsColors in
-                    UserDefaults.lyricsColors = lyricsColors
-                }
-            }
-
             Section {
                 // ⚠️审计结论：这颗开关在 **Spotify 9.1.x 上点了没反应**。
                 // 原因不在本页：`Tweak.x.swift` 的 9.1.x 分支在 `:782` 就 `return` 了，
@@ -124,6 +80,5 @@ struct EeveeUISettingsView: View {
 
                 // inset-grouped（胶囊卡片）—— 为什么、怎么做的见 `EeveeSettingsView` 顶部那段
         .listStyle(InsetGroupedListStyle())
-        .animation(.default, value: lyricsColors)
     }
 }

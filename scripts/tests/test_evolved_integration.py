@@ -19,8 +19,14 @@ class EvolvedIntegrationTests(unittest.TestCase):
     def test_both_lyrics_transports_remain_asynchronous(self):
         for name in ["DataLoaderServiceHooks.x.swift", "HttpClientURLSessionHooks.x.swift"]:
             source = (ROOT / "Sources/EeveeSpotify" / name).read_text()
-            self.assertIn("loadLyricsDataAsync", source)
+            for handler in ["complete", "response", "forwards"]:
+                self.assertIn("SpotifySessionTransport." + handler, source)
+            self.assertNotIn("URLSessionHelper", source)
             self.assertNotIn("semaphore.wait", source)
+
+        shared = (ROOT / "Sources/EeveeSpotify/Shared/Helpers/SpotifySessionTransport.swift").read_text()
+        self.assertIn("loadLyricsDataAsync", shared)
+        self.assertNotIn("semaphore.wait", shared)
 
     def test_native_deployment_floor(self):
         self.assertIn("latest:17.4", (ROOT / "Makefile").read_text())

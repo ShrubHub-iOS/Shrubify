@@ -129,14 +129,7 @@ func wordByWordSolidBackgroundColor() -> UIColor {
         return UIColor(Color(hex: settings.staticColor))
     }
 
-    let track = statefulPlayer?.currentTrack() ?? nowPlayingScrollViewController?.loadedTrack
-    let extractedHex: String? = {
-        switch EeveeSpotify.hookTarget {
-        case .lastAvailableiOS14: return track?.extractedColorHex()
-        default: return track?.metadata()["extracted_color"]
-        }
-    }()
-    if let hex = extractedHex {
+    if let hex = CurrentSpotifyTrack.snapshot?.extractedColor {
         return UIColor(Color(hex: hex).normalized(settings.normalizationFactor))
     }
 

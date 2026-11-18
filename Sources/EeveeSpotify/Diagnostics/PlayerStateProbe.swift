@@ -80,8 +80,7 @@ enum PlayerStateProbe {
         let now = CFAbsoluteTimeGetCurrent()
         if launchAt == nil { launchAt = now }
 
-        let track = statefulPlayer?.currentTrack()
-        let durationMs = track?.trackDurationMilliseconds ?? 0
+        let durationMs = CurrentSpotifyTrack.snapshot?.durationMs ?? 0
         let duration = Double(durationMs) / 1000
         let position = WordByWordPositionResolver.shared.currentPositionSeconds() ?? -1
 

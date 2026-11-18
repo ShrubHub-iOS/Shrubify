@@ -137,35 +137,10 @@ private func handleLyricsErrorPopUp(_ error: LyricsError?) {
     }
 }
 
-/// 从曲目元数据里把**全部**艺人名抠出来（`artist_name` / `artist_name:1` / `artist_name:2` …）。
-///
-/// 为什么走 metadata 而不是新 API：`SPTPlayerTrack` 是我们**手写**的 protocol，
-/// 只有 `artistName` / `artistTitle` 两个 getter（`artistTitle` 在 9.1.x 上
-/// 并不存在）。metadata 字典是 `SPTPlayerTrackHook` 覆写过的，一定在，
-/// 合作艺人会以 `artist_name:1` 这种键出现。
-///
-/// 只读、失败就返回空数组（选歌那边对空名单会退回"只按时长"的旧行为）。
-private func allArtistNames(from track: SPTPlayerTrack) -> [String] {
-    guard let metadata = track.metadata() as? [String: Any] else { return [] }
-
-    let keys = metadata.keys
-        .filter { $0 == "artist_name" || $0.hasPrefix("artist_name:") }
-        .sorted()
-
-    return keys.compactMap { key -> String? in
-        guard let value = metadata[key] as? String else { return nil }
-        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmed.isEmpty ? nil : trimmed
-    }
-}
-
-private func loadCustomLyricsForCurrentTrack() throws -> Lyrics {
-    guard let track = statefulPlayer?.currentTrack() ?? nowPlayingScrollViewController?.loadedTrack else {
-        throw LyricsError.noCurrentTrack
-    }
-
-    let metadata = track.metadata()
-    let title = track.trackTitle()
+private func loadCustomLyricsForCurrentTrack(_ track: SafeTrackMetadata) throws -> Lyrics {
+    guard let id = track.identifier else { throw LyricsError.noCurrentTrack }
+    let metadata = track.metadata
+    let title = track.title
     let metadataTitle = metadata["title"]?.trimmingCharacters(in: .whitespacesAndNewlines)
     let metadataAlbum = metadata["album_title"]?.trimmingCharacters(in: .whitespacesAndNewlines)
 
@@ -180,12 +155,12 @@ private func loadCustomLyricsForCurrentTrack() throws -> Lyrics {
 
     let searchQuery = LyricsSearchQuery(
         title: title,
-        primaryArtist: EeveeSpotify.hookTarget == .lastAvailableiOS14 ? track.artistTitle() : track.artistName(),
-        spotifyTrackId: track.trackIdentifier,
-        durationMs: track.trackDurationMilliseconds,
+        primaryArtist: track.artist,
+        spotifyTrackId: id,
+        durationMs: track.durationMs,
         // 全部艺人（`artist_name` / `artist_name:1` / …）—— 选歌判定要比对歌手，
         // 只靠 `primaryArtist` 会被同曲异名 / 翻唱骗过去。
-        artistNames: allArtistNames(from: track),
+        artistNames: metadata.keys.filter { $0 == "artist_name" || $0.hasPrefix("artist_name:") }.sorted().compactMap { metadata[$0] },
         titleVariants: titleVariants,
         albumTitle: (metadataAlbum?.isEmpty == false) ? metadataAlbum : nil
     )
@@ -675,14 +650,7 @@ private func loadCustomLyricsForCurrentTrack() throws -> Lyrics {
     // ⚠️ 这两个字段不能一起改：都设黑 = 整片全黑，都设白 = 整片全白。
     func synthesizedLyricsColors() -> LyricsColors {
         let settings = UserDefaults.lyricsColors
-        let track = statefulPlayer?.currentTrack() ?? nowPlayingScrollViewController?.loadedTrack
-
-        let extractedColor: String? = switch EeveeSpotify.hookTarget {
-        case .lastAvailableiOS14:
-            track?.extractedColorHex()
-        default:
-            track?.metadata()["extracted_color"]
-        }
+        let extractedColor = CurrentSpotifyTrack.snapshot?.extractedColor
 
         // 这里只算出"这首歌的底色"本身；归一化放到下面**一处**做（不要两处，
         // 否则读的人无法判断最终明度到底由谁决定）。
@@ -890,7 +858,7 @@ private func loadCustomLyricsForCurrentTrack() throws -> Lyrics {
         // 优先用"这次请求问的那首"（`lyricsLayerTrackId` 在请求入口就写好了），
         // 再退回播放器实时读到的曲目。
         let trackId = lyricsLayerTrackId
-            ?? statefulPlayer?.currentTrack()?.trackIdentifier
+            ?? CurrentSpotifyTrack.identifier
             ?? ""
 
         // 偏移**所有源共用**，并统一在这里加**一次** —— 注入给 Spotify 的 payload 与
@@ -1009,8 +977,7 @@ private func loadCustomLyricsForCurrentTrack() throws -> Lyrics {
         // Validate and publish on the renderer's thread as one operation. A
         // delayed provider must never overwrite the song selected in the meantime.
         let publish = { () -> LyricsDto? in
-            let current = statefulPlayer?.currentTrack()?.trackIdentifier
-                ?? nowPlayingScrollViewController?.loadedTrack.trackIdentifier
+            let current = CurrentSpotifyTrack.identifier
             guard cancellation?.isCancelled != true,
                   LyricsResultPolicy.matchesRequestedTrack(requested: trackId, current: current),
                   deadline.map({ ProcessInfo.processInfo.systemUptime < $0 }) ?? true else { return nil }
@@ -1128,30 +1095,19 @@ func getLyricsDataForCurrentTrack(_ originalPath: String, originalLyrics: Lyrics
     // 这里唯一能拿到的"这一首是谁"只有播放器 / 正在播放页（按 URI 反查元数据没有接口），
     // 所以只能多等：3s 覆盖"播放器元数据比歌词请求晚一拍"这个窗口。
     // 代价：这次响应最多被多留 3s（本来也会挂住到取词完成，18s 预算内）。
-    var track = statefulPlayer?.currentTrack() ?? nowPlayingScrollViewController?.loadedTrack
-    var trackIdentifier = track?.trackIdentifier ?? ""
-    let maxWaitTime: TimeInterval = 3.0
-    let startTime = Date()
-
-    while Date().timeIntervalSince(startTime) < maxWaitTime {
-        let isReady = track != nil &&
-            (trackIdentifier.isEmpty || originalPath.contains(trackIdentifier))
-        if isReady {
-            break
-        }
-
+    guard let requestedTrackId = extractTrackId(from: originalPath) else { throw LyricsError.trackMismatch }
+    var snapshot = CurrentSpotifyTrack.snapshot
+    let start = ProcessInfo.processInfo.systemUptime
+    while snapshot?.identifier != requestedTrackId, ProcessInfo.processInfo.systemUptime - start < 3 {
         try LyricsRequestBudget.sleep(0.05)
-        track = statefulPlayer?.currentTrack() ?? nowPlayingScrollViewController?.loadedTrack
-        trackIdentifier = track?.trackIdentifier ?? ""
+        snapshot = CurrentSpotifyTrack.snapshot
     }
-
-    guard let track = track else {
-        throw LyricsError.noCurrentTrack
-    }
+    guard let track = snapshot else { throw LyricsError.noCurrentTrack }
+    guard track.identifier == requestedTrackId else { throw LyricsError.trackMismatch }
 
     // 记下这一首的时长：占位文案的合成时间轴要用（那几步拿不到 track 对象）。
     // 与 `currentLyricsDto` 同一时机写入，语义都是"这一次请求的曲目"。
-    currentTrackDurationMs = track.trackDurationMilliseconds
+    currentTrackDurationMs = track.durationMs
 
     // ── 切歌信号：**立刻**作废上一首的逐词层，不等新歌词
     //
@@ -1163,7 +1119,6 @@ func getLyricsDataForCurrentTrack(_ originalPath: String, originalLyrics: Lyrics
     // 缓存命中时不一定，那条路由 `AppleMusicLyricsOverlayHost` 里的 `hasForeignLineModel`
     // 每帧兜住）。命中即清 —— `resetWordByWordLyrics` 会摘掉新旧两层并把 dto 清空，
     // 于是看门狗的 `hasUsableWordLevelData` 判据也为假，不会拿旧数据把层挂回来。
-    let requestedTrackId = track.trackIdentifier ?? ""
     if !requestedTrackId.isEmpty, requestedTrackId != lyricsLayerTrackId {
         let isTrackSwitch = lyricsLayerTrackId != nil
         lyricsLayerTrackId = requestedTrackId
@@ -1174,15 +1129,11 @@ func getLyricsDataForCurrentTrack(_ originalPath: String, originalLyrics: Lyrics
         currentLyricsLookupState = .loading
     }
 
-    if !trackIdentifier.isEmpty && !originalPath.contains(trackIdentifier) {
-        throw LyricsError.trackMismatch
-    }
-
     var lyrics: Lyrics
     // 真的开始查了（听歌页那层据此写"正在查找歌词…"）。
     currentLyricsLookupState = .loading
     do {
-        lyrics = try loadCustomLyricsForCurrentTrack()
+        lyrics = try loadCustomLyricsForCurrentTrack(track)
     } catch let error {
         // 这一首没能用上我们的歌词 → 决定**这次 HTTP 响应交什么出去**。
         //

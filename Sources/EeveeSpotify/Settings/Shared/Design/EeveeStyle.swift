@@ -25,15 +25,23 @@ struct SettingsIcon: View {
     let systemName: String
     let color: Color
 
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
+    @ViewBuilder private var tile: some View {
+        let shape = RoundedRectangle(cornerRadius: 8, style: .continuous)
+        if #available(iOS 26.0, *), !reduceTransparency {
+            Color.clear.glassEffect(.regular.tint(color.opacity(0.65)), in: shape)
+        } else {
+            shape.fill(LinearGradient(colors: [color.opacity(0.85), color], startPoint: .top, endPoint: .bottom))
+        }
+    }
+
     var body: some View {
         Image(systemName: systemName)
             .font(.system(size: 15, weight: .semibold))
             .foregroundColor(.white)
             .frame(width: 30, height: 30)
-            .background(
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(LinearGradient(colors: [color.opacity(0.85), color], startPoint: .top, endPoint: .bottom))
-            )
+            .background(tile.allowsHitTesting(false))
     }
 }
 
@@ -152,11 +160,10 @@ struct SettingsGroupSection: View {
                         title: entry.key.hasPrefix("Shrub") ? entry.key : entry.key.localized,
                         subtitle: entry.key == "Shrubify diagnostics"
                             ? "Compatibility, crash reports & build information"
-                            : entry.key == "Shrubify Studio" ? "Personalize your Now Playing layout"
+                            : entry.key == "Shrubify Studio" ? "Player, glass, theme and app icon"
                             : entry.key == "Shrubify Replay" ? "On-device listening history and stats"
                             : entry.key == "ShrubQueue" ? "In-app queue and saved listening snapshots"
-                            : entry.key == "ShrubPanel" ? "Quick access to Shrubify tools"
-                            : entry.key == "Evolved UI" ? "Player, tabs, mini-player and page designs"
+                            : entry.key == "ShrubPanel" ? "Lyrics, queue and sleep timer for this session"
                             : settingsSubtitle(for: entry.key),
                         icon: entry.icon,
                         color: entry.color,

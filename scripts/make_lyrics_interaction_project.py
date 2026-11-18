@@ -25,13 +25,16 @@ def sources(names, prefix):
 
 app_files = [
     'Tests/LyricsInteraction/App.swift',
+    'Tests/LyricsInteraction/ContentFixture.swift',
     'Sources/EeveeSpotify/Karaoke/KaraokeActionButton.swift',
     'Sources/EeveeSpotify/Karaoke/KaraokeModal.swift',
     'Sources/EeveeSpotify/Karaoke/KaraokeGlass.swift',
     'Sources/EeveeSpotify/Karaoke/KaraokeTiming.swift',
+    'Sources/EeveeSpotify/Karaoke/KaraokeReadingPane.swift',
     'Sources/EeveeSpotify/Karaoke/KaraokePlaybackControls.swift',
     'Sources/EeveeSpotify/Appearance/GlassCapsule.swift',
     'Sources/EeveeSpotify/Appearance/NativeTabletGlass.swift',
+    'Sources/EeveeSpotify/Appearance/NativeContentGlass.swift',
     'Sources/EeveeSpotify/Appearance/NativeGlassGeometry.swift',
     'Sources/EeveeSpotify/Lyrics/LyricsChromeVisibility.swift',
 ]

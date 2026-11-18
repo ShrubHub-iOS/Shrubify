@@ -485,8 +485,8 @@ enum NowPlayingBackdrop {
     /// 与 `refreshNowPlayingBackdrop` 同一处口径（`track.metadata["extracted_color"]`）。
     /// **只在换色那一刻调一次** —— 0.3s 的节拍上不碰它。
     private static func currentHex() -> String? {
-        let track = statefulPlayer?.currentTrack() ?? nowPlayingScrollViewController?.loadedTrack
-        return normaliseHex(track?.metadata()["extracted_color"])
+        let track = CurrentSpotifyTrack.snapshot
+        return normaliseHex(track?.metadata["extracted_color"])
     }
 
     // MARK: - 日志
