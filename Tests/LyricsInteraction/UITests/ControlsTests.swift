@@ -26,7 +26,7 @@ final class ControlsTests: XCTestCase {
             let slider = app.sliders["Song position"]
             slider.coordinate(withNormalizedOffset: CGVector(dx: 1.0 / 3.0, dy: 0.5))
                 .press(forDuration: 0.2, thenDragTo: slider.coordinate(withNormalizedOffset: CGVector(dx: 0.8, dy: 0.5)))
-            let seek = Int(app.staticTexts["seek-value"].label) ?? 0
+            let seek = Int(app.staticTexts["seek-value"].label.filter { $0.isNumber }) ?? 0
             XCTAssertGreaterThan(seek, 100_000); XCTAssertLessThan(seek, 160_000)
             let capture = XCTAttachment(screenshot: app.screenshot()); capture.name = "lyrics-controls-cycle-\(cycle)"; capture.lifetime = .keepAlways; add(capture)
             close.coordinate(withNormalizedOffset: CGVector(dx: 0.15, dy: 0.5)).tap()
