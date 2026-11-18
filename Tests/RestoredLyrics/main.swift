@@ -65,3 +65,7 @@ print("Native glass bounds: phone/tablet widths, split-screen and invalid geomet
 
 let dock = NativeGlassGeometry.frame(bounds: CGRect(x: 0, y: 0, width: 720, height: 84), content: CGRect(x: 0, y: 0, width: 666, height: 76), miniPlayer: false)
 check(dock != nil && dock!.width <= 720, "The native five-tab tablet dock must receive glass")
+
+let wideDockBounds = CGRect(x: 0, y: 0, width: 825, height: 84)
+check(NativeGlassGeometry.frame(bounds: wideDockBounds, content: wideDockBounds, miniPlayer: false) == wideDockBounds,
+      "Do not silently skip the actual wide native dock")

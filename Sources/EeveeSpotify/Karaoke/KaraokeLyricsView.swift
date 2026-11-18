@@ -17,6 +17,7 @@ struct KaraokeLyricsView: View {
             ZStack(alignment: .top) {
                 Color.black.ignoresSafeArea()
                 KaraokeBackgroundView().id(model.trackId)
+                    .allowsHitTesting(false)
                     .blur(radius: max(20, min(40, options.blurIntensity * 10)))
                 VStack(spacing: 0) {
                     topBar
@@ -90,15 +91,7 @@ struct KaraokeLyricsView: View {
         return low > 0 ? low - 1 : nil
     }
 
-    private var closeButton: some View {
-        Button(action: onDismiss) {
-            Image(systemName: "chevron.down")
-                .font(.system(size: 18, weight: .semibold))
-                .foregroundColor(.white)
-                .frame(width: 46, height: 46)
-                .background(KaraokeControlSurface())
-        }.buttonStyle(.plain).accessibilityLabel("Close custom lyrics")
-    }
+    private var closeButton: some View { KaraokeCloseButton(action: onDismiss) }
 
     private var topBar: some View {
         HStack(alignment: .center, spacing: 14) {

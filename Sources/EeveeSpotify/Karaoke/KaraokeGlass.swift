@@ -44,17 +44,18 @@ struct KaraokeTimingControls: View {
     @Binding var offset: Int
     var body: some View {
         HStack(spacing: 0) {
-            Button { offset = KaraokeTiming.adjustedOffset(offset, step: -100) } label: {
-                Image(systemName: "minus").frame(width: 44, height: 44)
-            }.accessibilityLabel("Lyrics earlier by 0.1 seconds").disabled(offset <= -5000)
-            Button { offset = 0 } label: {
-                Text(offset == 0 ? "0.0 s" : String(format: "%+.1f s", Double(offset) / 1000))
-                    .font(.system(.caption, design: .monospaced).weight(.semibold))
-                    .frame(width: 66, height: 44)
-            }.accessibilityLabel("Lyrics delay, reset to zero").accessibilityValue("\(offset) milliseconds")
-            Button { offset = KaraokeTiming.adjustedOffset(offset, step: 100) } label: {
-                Image(systemName: "plus").frame(width: 44, height: 44)
-            }.accessibilityLabel("Lyrics later by 0.1 seconds").disabled(offset >= 5000)
+            KaraokeActionButton(symbol: "minus", label: "Lyrics earlier by 0.1 seconds",
+                identifier: "shrubify.lyrics.earlier", enabled: offset > -5000,
+                action: { offset = KaraokeTiming.adjustedOffset(offset, step: -100) })
+                .frame(width: 44, height: 44)
+            KaraokeActionButton(title: offset == 0 ? "0.0 s" : String(format: "%+.1f s", Double(offset) / 1000),
+                label: "Reset lyrics delay", identifier: "shrubify.lyrics.reset", value: "\(offset) milliseconds",
+                action: { offset = 0 })
+                .frame(width: 66, height: 44)
+            KaraokeActionButton(symbol: "plus", label: "Lyrics later by 0.1 seconds",
+                identifier: "shrubify.lyrics.later", enabled: offset < 5000,
+                action: { offset = KaraokeTiming.adjustedOffset(offset, step: 100) })
+                .frame(width: 44, height: 44)
         }
         .font(.system(size: 14, weight: .semibold))
         .foregroundColor(.white).buttonStyle(.plain)

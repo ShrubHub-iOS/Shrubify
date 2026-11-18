@@ -6,7 +6,7 @@ import CoreGraphics
 /// Decorative geometry only: never changes Spotify's own frames or hit regions.
 enum NativeGlassGeometry {
     static func frame(bounds: CGRect, content: CGRect, miniPlayer: Bool) -> CGRect? {
-        let limit: CGFloat = miniPlayer ? 680 : 760
+        let limit = bounds.width
         guard bounds.minX.isFinite, bounds.minY.isFinite,
               bounds.width.isFinite, bounds.height.isFinite,
               content.minX.isFinite, content.minY.isFinite,

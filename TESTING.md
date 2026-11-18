@@ -1,6 +1,14 @@
-# Shrubify 4.1.7 testing checklist
+# Shrubify 4.1.8 testing checklist
 
-## 4.1.7 acceptance
+## 4.1.8 controls and material acceptance
+
+- Run `bash scripts/test_lyrics_interactions.sh` on macOS/Xcode 26.1.1 with an iOS 26 simulator. It taps production controls through XCUITest, including button edges, delay/reset, play/slider and three close/reopen cycles while the view updates.
+- The same suite checks a real UIGlassEffect on an 825-point native-bar fixture, backing removal/restoration, unchanged button frames and native button actions with glass on/off. It does not run Spotify itself.
+- On device: confirm all lyrics controls respond across their full visible areas, close/reopen works repeatedly, native tabs/mini-player show material, and existing fullscreen/playback/follow/line seeking remain functional.
+- Actions attaches XCTest result bundles and screenshots; publication waits for this suite to pass.
+
+
+## 4.1.8 acceptance
 
 - Check bright/white, saturated and dark artwork: no header/reading rectangles or active-line outline; lyrics remain readable over one continuous background.
 - Check −/+ advances/delays the displayed lyrics by 100 ms immediately, reset returns to zero, reopening preserves the value, and tapping a lyric seeks with that same delay.
@@ -9,7 +17,7 @@
 - Confirm playback, fullscreen opening/dismissal, all tabs and multiple windows remain functional.
 
 
-## 4.1.7 appearance and interaction acceptance
+## 4.1.8 appearance and interaction acceptance
 
 - Check that the custom-lyrics icon matches the native footer icons and opens the original fullscreen view.
 - Check bright/dark covers, portrait/landscape and split-screen: blurred artwork remains visible, sharp lyrics stay inside the reading panel, and word timing still follows playback.
@@ -18,7 +26,7 @@
 - Test all native tabs, mini-player play/pause, fullscreen opening/dismissal, lyrics scrubbing and multiple windows. Native actions must work with glass on and off.
 
 
-## 4.1.7 acceptance
+## 4.1.8 acceptance
 
 - Open custom lyrics on bright, dark and high-contrast covers: current and surrounding lines remain sharp and readable, including unsung words.
 - Confirm the filled custom-lyrics button has an icon, rounded label and usable tap target.
@@ -76,13 +84,13 @@ Spotify changes private classes between releases. Hook compatibility and login b
 
 See [integration notes](docs/EVOLVED-INTEGRATION.md#validation) for timer, typography and Replay device checks. Run `bash scripts/test_listening_tools.sh` alongside the beta regression harness on a machine with Swift installed.
 
-## 4.1.7 regression acceptance
+## 4.1.8 regression acceptance
 
 Run `scripts/test_pr_integration.sh` for responsive geometry and obsolete-request cancellation, plus `scripts/test_v4_beta.sh` for ABI-checked native pause/seek and long-podcast clock fixtures. Run the full native validation workflow before shipping.
 
 On device: compare iPhone portrait/landscape and iPad fullscreen/Split View/Stage Manager; rotate and resize with lyrics open; test large text, VoiceOver, Reduce Motion and Reduce Transparency; confirm one menu, readable artwork/controls, reachable footer, native fallback and native-size mini-player controls. Exercise all transport/queue/output/save/seek controls, short tracks in Replay, endpoint resets, token deletion, source changes, rapid track skips, network recovery, old SponsorBlock action toasts, disabling SponsorBlock while playing and sleep-timer pause confirmation in foreground/background.
 
-## 4.1.7 crash and navigation regressions
+## 4.1.8 crash and navigation regressions
 
 - `scripts/test_v4_beta.sh`: modern track with a throwing legacy artist getter, legacy-only track, missing/throwing/scalar metadata, incomplete startup recovery and a subprocess exiting without normal cleanup.
 - `scripts/test_pr_integration.sh`: bounded navigation geometry for 320–1280 point containers.

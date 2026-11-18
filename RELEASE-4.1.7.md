@@ -1,3 +1,5 @@
+> Historical release notes. Current release: [Shrubify 4.1.8](RELEASE-4.1.8.md).
+
 # Shrubify 4.1.7
 
 - Remove the custom lyrics header/reading panels and active-line outline. Use one continuous blurred album-art backdrop with a hue-preserving luminance cap, keeping text contrast without large black containers.

@@ -33,6 +33,7 @@ on:
       - '.github/workflows/shrubify-release.yml'
 
 permissions:
+  actions: read
   contents: write
   issues: write
 
@@ -84,6 +85,27 @@ jobs:
             gh issue create --title "$title" \
               --body "Spotify ${VERSION} was detected. Supply a matching, authorized IPA URL in config/ipa-sources.json or your private catalog. The build will run automatically once an IPA is available. No IPA is sourced or decrypted by this workflow."
           fi
+
+  interactions:
+    name: Verify lyrics interactions on iPad
+    needs: plan
+    if: ${{ needs.plan.outputs.build == 'true' }}
+    runs-on: macos-15-intel
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: '26.1.1'
+      - name: Tap production lyrics controls and verify native materials
+        run: bash scripts/test_lyrics_interactions.sh
+      - name: Upload interaction results and screenshots
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: Lyrics-Interaction-Results
+          path: Outputs/lyrics-interactions/
+          if-no-files-found: warn
 
   build:
     name: Compile Shrubify and inject selected Spotify IPA
@@ -320,6 +342,7 @@ jobs:
           SPOTIFY_VERSION: ${{ steps.ipa.outputs.version }}
           TWEAK_VERSION: ${{ steps.metadata.outputs.tweak_version }}
         run: |
+          python3 scripts/wait_for_lyrics_interactions.py
           IPA_PATH="$(cat Outputs/latest_ipa_path.txt)"
           DEB_PATH="$(cat Outputs/latest_deb_path.txt)"
           test -s "$IPA_PATH"

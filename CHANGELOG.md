@@ -1,3 +1,10 @@
+# 4.1.8
+
+- Repair native hit regions for lyrics Close and timing controls; preserve the already working controls.
+- Scope dismissal to its modal, add escape routes and isolate fullscreen input.
+- Discover late native tablet bars, remove width-based material exclusions and restore obscured legacy backings safely.
+- Require actual iPad UI interaction tests on production components before publishing.
+
 # 4.1.7
 
 - Replace black lyrics containers with a continuous, hue-preserving blurred artwork backdrop and tested contrast limits.

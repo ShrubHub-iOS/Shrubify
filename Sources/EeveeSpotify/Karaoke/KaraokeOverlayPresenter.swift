@@ -9,6 +9,7 @@ import SwiftUI
 /// before enumeration/hooking can happen).
 final class KaraokeOverlayPresenter {
     private(set) static var isPresented = false
+    private static var presentationID: UUID?
     private static weak var displayedController: UIViewController?
 
     static func present() {
@@ -32,25 +33,25 @@ final class KaraokeOverlayPresenter {
             return
         }
 
-        let view = KaraokeLyricsView(trackId: trackId, lyrics: lyrics, onDismiss: {
-            guard isPresented else { return }
-            displayedController?.dismiss(animated: true) {
+        onMainThreadSync {
+            let id = UUID()
+            presentationID = id
+            let hosting = KaraokeModal.make(onDismiss: {
+                guard presentationID == id else { return }
                 isPresented = false
                 displayedController = nil
+                presentationID = nil
+            }) { close in
+                KaraokeLyricsView(trackId: trackId, lyrics: lyrics, onDismiss: close)
             }
-        })
-        let hosting = UIHostingController(rootView: view)
-        hosting.overrideUserInterfaceStyle = .dark
-        // Glass needs the player visible behind it; the animated backdrop is opaque.
-        let glass = KaraokeGlass.isEnabled
-        hosting.modalPresentationStyle = glass ? .overFullScreen : .fullScreen
-        hosting.view.backgroundColor = glass ? .clear : .black
 
-        displayedController = hosting
-        isPresented = true
-        if !WindowHelper.shared.present(hosting) {
-            isPresented = false
-            displayedController = nil
+            displayedController = hosting
+            isPresented = true
+            if !WindowHelper.shared.present(hosting) {
+                isPresented = false
+                displayedController = nil
+                presentationID = nil
+            }
         }
     }
 
