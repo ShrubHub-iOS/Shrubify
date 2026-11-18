@@ -7,20 +7,25 @@ enum GlassCapsule {
     static var hasSystemGlass: Bool { if #available(iOS 26.0, *) { return true }; return false }
 
     @MainActor
-    static func makeGlassView(wantsInteractive: Bool) -> (view: UIVisualEffectView, isInteractive: Bool) {
-        let view = AdaptiveCapsuleGlass(interactive: wantsInteractive)
+    static func makeGlassView(wantsInteractive: Bool, cornerRadius: CGFloat? = nil) -> (view: UIVisualEffectView, isInteractive: Bool) {
+        let view = AdaptiveCapsuleGlass(interactive: wantsInteractive, radius: cornerRadius)
         return (view, hasSystemGlass && wantsInteractive && !UIAccessibility.isReduceTransparencyEnabled)
     }
 }
 
 @MainActor
 private final class AdaptiveCapsuleGlass: UIVisualEffectView {
+    private let radius: CGFloat?
     private let interactive: Bool
     private var observer: NSObjectProtocol?
 
-    init(interactive: Bool) {
+    init(interactive: Bool, radius: CGFloat?) {
+        self.radius = radius
         self.interactive = interactive
         super.init(effect: nil)
+        if #available(iOS 26.0, *) {
+            cornerConfiguration = radius.map { .corners(radius: .fixed(Double($0))) } ?? .capsule()
+        }
         clipsToBounds = true
         layer.cornerCurve = .continuous
         refreshMaterial()
@@ -39,7 +44,9 @@ private final class AdaptiveCapsuleGlass: UIVisualEffectView {
 
     override func layoutSubviews() {
         super.layoutSubviews()
-        layer.cornerRadius = min(bounds.width, bounds.height) / 2
+        if #unavailable(iOS 26.0) {
+            layer.cornerRadius = radius ?? min(bounds.width, bounds.height) / 2
+        }
     }
 
     private func refreshMaterial() {

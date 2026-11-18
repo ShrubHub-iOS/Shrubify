@@ -292,20 +292,17 @@ final class AppleMusicLyricsOverlayHost {
     /// 而曲名在 TTML 里也不一定准（`musicName` 可能是别的语言写法）。
     /// 直接问播放器拿，和手机其他界面显示的一致。
     private func refreshShellMetadata() {
-        let track = statefulPlayer?.currentTrack() ?? nowPlayingScrollViewController?.loadedTrack
+        let track = CurrentSpotifyTrack.snapshot
         // 行模型与壳文本一起对齐：这一份模型从此就"属于"这首歌（见 `hasForeignLineModel`）。
-        currentModelTrackId = track?.trackIdentifier ?? ""
-        currentTrackTitle = track?.trackTitle() ?? ""
-        currentTrackArtist = (EeveeSpotify.hookTarget == .lastAvailableiOS14
-            ? track?.artistTitle()
-            : track?.artistName()) ?? ""
+        currentModelTrackId = track?.identifier ?? ""
+        currentTrackTitle = track?.title ?? ""
+        currentTrackArtist = track?.artist ?? ""
         writeDebugLog("[Shell] metadata \"\(currentTrackTitle)\" — \"\(currentTrackArtist)\"")
     }
 
     /// 当前播放器的曲目 id。判据两侧必须取自**同一个来源**。
     private func liveTrackId() -> String {
-        (statefulPlayer?.currentTrack() ?? nowPlayingScrollViewController?.loadedTrack)?
-            .trackIdentifier ?? ""
+        CurrentSpotifyTrack.identifier ?? ""
     }
 
     /// 行模型是不是"**别的**曲目"的。

@@ -7,24 +7,28 @@ trap 'if [[ -n "$SHRUBIFY_INTERACTION_DEVICE" ]]; then xcrun simctl shutdown "$S
 mkdir -p Outputs/lyrics-interactions
 python3 scripts/make_lyrics_interaction_project.py "$SHRUBIFY_INTERACTION_ROOT"
 xcrun simctl list runtimes -j > Outputs/lyrics-interactions/runtimes.json
-xcrun simctl list devices available -j > Outputs/lyrics-interactions/devices.json
-SHRUBIFY_INTERACTION_DEVICE=$(python3 - <<'PYSELECT'
+# Select a compatible *type*, never take ownership of an installed device.
+# Only the UDID returned by our own successful create is eligible for cleanup.
+xcrun simctl list devicetypes -j > Outputs/lyrics-interactions/device-types.json
+selection=$(python3 - <<'PYSELECT'
 import json
 from pathlib import Path
-root=Path('Outputs/lyrics-interactions')
-runtimes=json.loads((root/'runtimes.json').read_text())['runtimes']
-devices=json.loads((root/'devices.json').read_text())['devices']
-for runtime in runtimes:
-    if not runtime.get('isAvailable') or runtime['version'] != '26.1': continue
-    candidates=[d for d in devices.get(runtime['identifier'],[]) if d.get('isAvailable') and d['name'].startswith('iPad')]
-    if candidates:
-        chosen=next((d for d in candidates if d['name']=='iPad Air 11-inch (M2)'),candidates[0])
-        (root/'selected-device.json').write_text(json.dumps({'runtime':runtime,'device':chosen},indent=2))
-        print(chosen['udid']); break
-else: raise SystemExit('No preconfigured compatible iPad for the selected Xcode iOS 26.1 runtime')
+root = Path('Outputs/lyrics-interactions')
+runtimes = json.loads((root / 'runtimes.json').read_text())['runtimes']
+types = json.loads((root / 'device-types.json').read_text())['devicetypes']
+runtime = next((r for r in runtimes if r.get('isAvailable') and r['identifier'].endswith('iOS-26-1')), None)
+if not runtime: raise SystemExit('Install the iOS 26.1 simulator runtime')
+supported = {d['identifier'] for d in runtime.get('supportedDeviceTypes', [])}
+ipads = [d for d in types if d['name'].startswith('iPad') and (not supported or d['identifier'] in supported)]
+if not ipads: raise SystemExit('No compatible iPad simulator type')
+device = next((d for d in ipads if d['name'] == 'iPad Air 11-inch (M2)'), ipads[0])
+print(runtime['identifier'], device['identifier'])
 PYSELECT
 )
-xcrun simctl boot "$SHRUBIFY_INTERACTION_DEVICE" || true
+read -r runtime device_type <<< "$selection"
+created=$(xcrun simctl create "Shrubify-Interactions-${SHRUBIFY_INTERACTION_ROOT##*/}" "$device_type" "$runtime")
+SHRUBIFY_INTERACTION_DEVICE="$created"
+xcrun simctl boot "$SHRUBIFY_INTERACTION_DEVICE"
 xcrun simctl bootstatus "$SHRUBIFY_INTERACTION_DEVICE" -b
 xcodebuild -project "$SHRUBIFY_INTERACTION_ROOT/LyricsInteractions.xcodeproj" -scheme LyricsInteractions \
   -destination "platform=iOS Simulator,id=$SHRUBIFY_INTERACTION_DEVICE" \

@@ -48,6 +48,7 @@ final class RootController: UIViewController {
     private var selections = 0
     private let barSurface = UIVisualEffectView(effect: UIBlurEffect(style: .systemMaterialDark))
     private var barHost: UIView { barSurface.contentView }
+    private let content = ContentFixture(frame: .zero)
     private let row = UIStackView()
     private let legacy = TabBarGradientView()
     private var nativeFrames: [CGRect] = []
@@ -72,6 +73,7 @@ final class RootController: UIViewController {
             NativeTabletGlass.reapply(); self?.reportMaterial()
         }, for: .touchUpInside); view.addSubview(toggle)
         barSurface.frame = CGRect(x: 32, y: 300, width: 825, height: 84)
+        view.addSubview(content)
         view.addSubview(barSurface)
         barHost.backgroundColor = .darkGray
         legacy.frame = CGRect(x: 0, y: -112, width: 825, height: 195); legacy.backgroundColor = .black
@@ -90,6 +92,7 @@ final class RootController: UIViewController {
     }
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
+        content.frame = CGRect(x: 24, y: 402, width: min(660, view.bounds.width - 48), height: 180)
         row.frame = barHost.bounds
         legacy.frame = CGRect(x: 0, y: -112, width: barHost.bounds.width, height: 195)
     }
@@ -102,6 +105,7 @@ final class RootController: UIViewController {
         reportMaterial()
     }
     private func reportMaterial() {
+        content.report()
         let plate = row.subviews.compactMap { $0 as? UIVisualEffectView }.first
         let glass = plate?.effect is UIGlassEffect
         let unchanged = nativeFrames == row.arrangedSubviews.map(\.frame)
@@ -128,7 +132,11 @@ struct LyricsControlsFixture: View {
             LinearGradient(colors: [.purple, .blue, .orange], startPoint: .topLeading, endPoint: .bottomTrailing).ignoresSafeArea()
             VStack(spacing: 24) {
                 HStack { Text("Production lyrics controls"); Spacer(); KaraokeCloseButton(action: close) }
-                KaraokeTimingControls(offset: $offset)
+                KaraokeReadingPane(offset: $offset, activeLine: 20) { _ in
+                    LazyVStack {
+                        ForEach(0..<50) { line in Text("Lyric line \(line)").frame(height: 48).id(line) }
+                    }
+                }
                 Text("\(offset)").accessibilityIdentifier("offset-value")
                 Text("\(seekTarget)").accessibilityIdentifier("seek-value")
                 // Continuous redraw reproduces the live renderer's 30 Hz updates.

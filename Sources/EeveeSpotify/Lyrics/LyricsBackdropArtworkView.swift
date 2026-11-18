@@ -37,11 +37,10 @@ enum LyricsArtworkResolver {
     private static var lastResolved: (trackKey: String, url: URL)?
     private static var didLogMetadataDump = false
 
-    static func artworkURL(for track: SPTPlayerTrack?) -> URL? {
-        guard let track else { return nil }
+    static func artworkURL(for track: SafeTrackMetadata?) -> URL? {
+        guard let track, let trackKey = track.identifier else { return nil }
 
-        let metadata = track.metadata()
-        let trackKey = track.trackIdentifier
+        let metadata = track.metadata
 
         if !didLogMetadataDump {
             didLogMetadataDump = true
@@ -402,8 +401,8 @@ final class LyricsBackdropView: UIView {
     }
 
     private func loadArtworkIfNeeded() {
-        let track = statefulPlayer?.currentTrack() ?? nowPlayingScrollViewController?.loadedTrack
-        let trackKey = track?.trackIdentifier ?? "unknown"
+        let track = CurrentSpotifyTrack.snapshot
+        let trackKey = track?.identifier ?? "unknown"
 
         guard !isLoading, lastLoadedTrackKey != trackKey else { return }
 
@@ -433,8 +432,7 @@ final class LyricsBackdropView: UIView {
                 return
             }
             // 期间可能已经换歌，只在仍是同一首时套用。
-            let current = statefulPlayer?.currentTrack() ?? nowPlayingScrollViewController?.loadedTrack
-            guard (current?.trackIdentifier ?? "unknown") == trackKey else { return }
+            guard (CurrentSpotifyTrack.identifier ?? "unknown") == trackKey else { return }
             self.blurredImageView.image = image
         }
     }

@@ -265,11 +265,9 @@ struct EeveeLyricsOffsetSettingsView: View {
     /// 以前只在"当前歌词来自网易云"时才取得到 track id；现在任何源都取，
     /// Genius 也取（但要靠 `currentSongSupportsOffset` 把 ± 按钮挡住）。
     private func refreshCurrentSongOffset() {
-        let track = statefulPlayer?.currentTrack() ?? nowPlayingScrollViewController?.loadedTrack
-        currentSongTitle = track?.string(ifResponding: "trackTitle") ?? ""
-        currentSongArtist = track?.string(ifResponding: "artistName")
-            ?? track?.string(ifResponding: "artistTitle")
-            ?? ""
+        let track = CurrentSpotifyTrack.snapshot
+        currentSongTitle = track?.title ?? ""
+        currentSongArtist = track?.artist ?? ""
 
         let source = currentLyricsSource
         let trackId = currentLyricsDtoTrackId

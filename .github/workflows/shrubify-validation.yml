@@ -139,7 +139,7 @@ jobs:
 
   interactions:
     name: Production lyrics interaction verification
-    if: ${{ inputs.interactions_only }}
+    if: ${{ inputs.interactions_only || github.event_name == 'pull_request' }}
     runs-on: macos-15
     timeout-minutes: 25
     steps:

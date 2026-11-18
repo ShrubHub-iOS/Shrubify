@@ -16,12 +16,6 @@ extension NowPlayingScrollViewController {
         }
     }
     
-    var loadedTrack: SPTPlayerTrack {
-        get {
-            Ivars<SPTPlayerTrack>(nowPlayingScrollViewModel).loadedTrack
-        }
-    }
-    
     var dataSource: NowPlayingScrollDataSourceImplementation {
         get {
             Ivars<NowPlayingScrollDataSourceImplementation>(nowPlayingScrollViewModel).dataSource

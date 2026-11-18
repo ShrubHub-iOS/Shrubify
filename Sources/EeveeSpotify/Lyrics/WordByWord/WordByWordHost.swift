@@ -160,7 +160,7 @@ final class WordByWordHost {
     /// 详见文件顶部 `currentLyricsDtoTrackId` 的说明。
     var lineModelIsForeign: Bool {
         let model = currentLyricsDtoTrackId
-        let live = statefulPlayer?.currentTrack()?.trackIdentifier ?? ""
+        let live = CurrentSpotifyTrack.identifier ?? ""
         guard !model.isEmpty, !live.isEmpty else { return false }
         return model != live
     }

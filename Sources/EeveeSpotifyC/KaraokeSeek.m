@@ -1,5 +1,6 @@
 #import <Foundation/Foundation.h>
 #import <objc/message.h>
+#import <objc/runtime.h>
 #import <math.h>
 #import <string.h>
 
@@ -30,32 +31,74 @@ BOOL ShrubSeekPlaybackSeconds(id target, double seconds) {
 // Read the native clock rather than relying on observer arrival times. Every
 // getter is checked for its ABI and exceptions stay on the Objective-C side.
 static id ShrubPlaybackObject(id object, NSString *name) {
-    SEL selector = NSSelectorFromString(name);
-    if (![object respondsToSelector:selector]) return nil;
-    NSMethodSignature *signature = [object methodSignatureForSelector:selector];
-    if (!signature || signature.numberOfArguments != 2 || signature.methodReturnType[0] != '@') return nil;
-    return ((id (*)(id, SEL))objc_msgSend)(object, selector);
+    @try {
+        SEL selector = NSSelectorFromString(name);
+        if (![object respondsToSelector:selector]) return nil;
+        NSMethodSignature *signature = [object methodSignatureForSelector:selector];
+        if (!signature || signature.numberOfArguments != 2 || signature.methodReturnType[0] != '@') return nil;
+        return ((id (*)(id, SEL))objc_msgSend)(object, selector);
+    } @catch (NSException *exception) { return nil; }
 }
 
-// Spotify renamed the artist getter. Never invoke a protocol declaration as
-// proof that a private runtime object implements that selector or return ABI.
+// The legacy scroll controller exposes object ivars rather than getters.
+// Missing/renamed/scalar ivars mean "no current track", never a forced read.
+static id ShrubLegacyObject(id object, NSString *name) {
+    id value = ShrubPlaybackObject(object, name);
+    if (value || !object) return value;
+    for (NSString *key in @[name, [@"_" stringByAppendingString:name]]) {
+        Ivar ivar = class_getInstanceVariable(object_getClass(object), key.UTF8String);
+        const char *type = ivar ? ivar_getTypeEncoding(ivar) : NULL;
+        if (type && type[0] == '@') return object_getIvar(object, ivar);
+    }
+    return nil;
+}
+
+id ShrubReadCurrentTrack(id player, id legacyController) {
+    @try {
+        return ShrubPlaybackObject(player, @"currentTrack") ?:
+            ShrubLegacyObject(ShrubLegacyObject(legacyController, @"scrollViewModel"), @"loadedTrack");
+    } @catch (NSException *exception) { return nil; }
+}
+
+static NSString *ShrubString(id value) {
+    return [value isKindOfClass:NSString.class] && [value length] ? value : nil;
+}
+
+NSString *ShrubTrackIdentifier(id track) {
+    @try {
+        id uri = ShrubPlaybackObject(track, @"URI");
+        NSString *identifier = ShrubString(ShrubPlaybackObject(uri, @"spt_trackIdentifier"));
+        if (identifier) return identifier;
+        NSString *string = ShrubString(uri) ?: ShrubString(ShrubPlaybackObject(uri, @"absoluteString"));
+        NSArray *parts = [string componentsSeparatedByString:@":"];
+        if (parts.count == 3 && [parts[0] isEqual:@"spotify"] &&
+            ([parts[1] isEqual:@"track"] || [parts[1] isEqual:@"episode"])) return ShrubString(parts.lastObject);
+        return nil;
+    } @catch (NSException *exception) { return nil; }
+}
+
+// Read an immutable set of facts for one track. A missing/throwing optional
+// getter must not cost us the other fields (or require guessing a build number).
 NSDictionary *ShrubReadTrackMetadata(id track) {
     if (!track) return nil;
     @try {
-        id title = ShrubPlaybackObject(track, @"trackTitle");
-        if (![title isKindOfClass:NSString.class] || [title length] == 0) return nil;
-        id artist = ShrubPlaybackObject(track, @"artistName");
-        if (![artist isKindOfClass:NSString.class]) artist = ShrubPlaybackObject(track, @"artistTitle");
         id rawMetadata = ShrubPlaybackObject(track, @"metadata");
         NSMutableDictionary *metadata = [NSMutableDictionary dictionary];
         if ([rawMetadata isKindOfClass:NSDictionary.class]) {
             for (id key in rawMetadata) {
+                if (![key isKindOfClass:NSString.class]) continue;
                 id value = rawMetadata[key];
-                if ([key isKindOfClass:NSString.class] && [value isKindOfClass:NSString.class]) metadata[key] = value;
+                if ([value isKindOfClass:NSString.class]) metadata[key] = value;
+                else if ([key hasPrefix:@"duration"] && [value isKindOfClass:NSNumber.class]) metadata[key] = [value stringValue];
             }
         }
-        return @{@"title": title, @"artist": [artist isKindOfClass:NSString.class] ? artist : @"",
-                 @"metadata": metadata};
+        NSString *title = ShrubString(ShrubPlaybackObject(track, @"trackTitle")) ?: ShrubString(metadata[@"title"]);
+        if (!title) return nil;
+        NSString *artist = ShrubString(ShrubPlaybackObject(track, @"artistName")) ?:
+            ShrubString(ShrubPlaybackObject(track, @"artistTitle")) ?: metadata[@"artist_name"];
+        NSString *color = ShrubString(metadata[@"extracted_color"]) ?: ShrubString(ShrubPlaybackObject(track, @"extractedColorHex"));
+        return @{@"title": title, @"artist": artist ?: @"", @"metadata": metadata,
+                 @"identifier": ShrubTrackIdentifier(track) ?: @"", @"color": color ?: @""};
     } @catch (NSException *exception) { return nil; }
 }
 

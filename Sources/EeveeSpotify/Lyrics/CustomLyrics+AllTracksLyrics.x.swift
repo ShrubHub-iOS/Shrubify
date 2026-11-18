@@ -9,8 +9,8 @@ class SPTPlayerTrackHook: ClassHook<NSObject> {
         ? "SPTPlayerTrackImplementation"
         : "SPTPlayerTrack"
 
-    func metadata() -> [String: String] {
-        var meta = orig.metadata()
+    func metadata() -> NSDictionary? {
+        let meta = orig.metadata()?.mutableCopy() as? NSMutableDictionary ?? NSMutableDictionary()
 
         // 诊断日志已移除 —— 它的使命完成了：
         // · 确认了这条覆写**确实被调用**；
@@ -528,8 +528,8 @@ func refreshNowPlayingBackdrop(page: UIViewController? = nil) {
         return
     }
 
-    let track = statefulPlayer?.currentTrack() ?? nowPlayingScrollViewController?.loadedTrack
-    let hex = track?.metadata()["extracted_color"]
+    let track = CurrentSpotifyTrack.snapshot
+    let hex = track?.metadata["extracted_color"]
     if hex == nil {
         // 而当时分不清
         // 是"没跑到"还是"跑到但没取色"。现在两种情况各有一条日志。

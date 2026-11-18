@@ -506,11 +506,9 @@ final class LyricsWordByWordOverlayView: UIView, UIScrollViewDelegate {
     /// 从 `SPTPlayerTrack` 取（与新层一致）：歌词里没有歌手名，
     /// 而曲名在歌词数据里可能是别的语言写法。
     private func refreshShellMetadata() {
-        let track = statefulPlayer?.currentTrack() ?? nowPlayingScrollViewController?.loadedTrack
-        shellTitle = track?.trackTitle() ?? ""
-        shellArtist = (EeveeSpotify.hookTarget == .lastAvailableiOS14
-            ? track?.artistTitle()
-            : track?.artistName()) ?? ""
+        let track = CurrentSpotifyTrack.snapshot
+        shellTitle = track?.title ?? ""
+        shellArtist = track?.artist ?? ""
         shellHosts.update(title: shellTitle, artist: shellArtist)
         writeDebugLog("[Shell] legacy metadata \"\(shellTitle)\" — \"\(shellArtist)\"")
     }
@@ -565,7 +563,7 @@ final class LyricsWordByWordOverlayView: UIView, UIScrollViewDelegate {
     // 与壳上的曲名同一个来源（`refreshShellMetadata` 也是从这里读的），
     // 所以"壳显示的歌"和"这个判据认为的歌"永远是同一首。
     private var liveTrackIdentifier: String {
-        statefulPlayer?.currentTrack()?.trackIdentifier ?? ""
+        CurrentSpotifyTrack.identifier ?? ""
     }
 
     /// `currentLyricsDto` 是不是**别的**曲目的（切歌但没来歌词请求时会发生）。
@@ -942,8 +940,7 @@ final class LyricsWordByWordOverlayView: UIView, UIScrollViewDelegate {
     /// 是在歌词注入**之后**才写回这个值，只按歌名做 key 会一直用首次算出的底色。
     private func backdropKey() -> String? {
         guard backdropEnabled else { return nil }
-        let track = statefulPlayer?.currentTrack() ?? nowPlayingScrollViewController?.loadedTrack
-        let trackKey = track?.trackIdentifier ?? "unknown"
+        let trackKey = CurrentSpotifyTrack.identifier ?? "unknown"
         return "\(trackKey)|\(NgzhwmSettingsViewModel.isLyricsBackdropMaterialEnabled)|\(currentLyricsBackgroundColorARGB)"
     }
 

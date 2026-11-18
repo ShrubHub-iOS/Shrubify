@@ -13,43 +13,41 @@ struct KaraokeLyricsView: View {
     }
 
     var body: some View {
-        GeometryReader { geo in
-            ZStack(alignment: .top) {
-                Color.black.ignoresSafeArea()
-                KaraokeBackgroundView().id(model.trackId)
-                    .allowsHitTesting(false)
-                    .blur(radius: max(20, min(40, options.blurIntensity * 10)))
-                VStack(spacing: 0) {
-                    topBar
-                        .padding(.horizontal, 16).padding(.top, 8)
-                    if let lyrics = model.lyrics {
-                        content(lyrics: lyrics, layouts: model.layouts, screenWidth: min(900, max(0, geo.size.width - 32)))
-                            .frame(maxWidth: 900)
-                            .padding(.horizontal, 16).padding(.vertical, 10)
-                            .id(model.trackId)
-                    } else {
-                        VStack(spacing: 16) {
-                            if model.loading {
-                                ProgressView().tint(.white)
-                                Text("Finding lyrics…").font(.headline)
-                                Text("Trying your sources in order").foregroundColor(.white.opacity(0.86))
-                            } else {
-                                Image(systemName: "text.quote").font(.largeTitle)
-                                Text("Timed lyrics unavailable").font(.headline)
-                                Button("Try again") { model.retryLyrics() }
-                                    .buttonStyle(.bordered)
-                            }
+        ZStack(alignment: .top) {
+            Color.black.ignoresSafeArea()
+            KaraokeBackgroundView().id(model.trackId)
+                .allowsHitTesting(false)
+                .blur(radius: options.resolvedBlurRadius)
+            VStack(spacing: 0) {
+                topBar
+                    .padding(.top, 8)
+                if let lyrics = model.lyrics {
+                    content(lyrics: lyrics, layouts: model.layouts)
+                        .frame(maxWidth: 900)
+                        .padding(.horizontal, 20).padding(.vertical, 10)
+                        .id(model.trackId)
+                } else {
+                    VStack(spacing: 16) {
+                        if model.loading {
+                            ProgressView().tint(.white)
+                            Text("Finding lyrics…").font(.headline)
+                            Text("Trying your sources in order").foregroundColor(.white.opacity(0.86))
+                        } else {
+                            Image(systemName: "text.quote").font(.largeTitle)
+                            Text("Timed lyrics unavailable").font(.headline)
+                            Button("Try again") { model.retryLyrics() }
+                                .buttonStyle(.bordered)
                         }
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .padding(24)
-                        .padding(16)
                     }
-                    KaraokePlaybackControls(playback: model.playback, seek: { model.seek(to: $0) }, toggle: { model.togglePlayback() })
-                        .disabled(model.playback.trackID != nil && model.playback.trackID != model.trackId)
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .padding(24)
+                    .padding(16)
                 }
-
+                KaraokePlaybackControls(playback: model.playback, seek: { model.seek(to: $0) }, toggle: { model.togglePlayback() })
+                    .disabled(model.playback.trackID != nil && model.playback.trackID != model.trackId)
             }
+
         }
         .preferredColorScheme(.dark)
         .onAppear { model.startPlaybackUpdates() }
@@ -61,7 +59,7 @@ struct KaraokeLyricsView: View {
         }
     }
 
-    private func content(lyrics: KaraokeLyricsDto, layouts: [KaraokeLineLayout], screenWidth: CGFloat) -> some View {
+    private func content(lyrics: KaraokeLyricsDto, layouts: [KaraokeLineLayout]) -> some View {
         let currentMs = model.playback.hasPosition
             ? ShrubifyBetaSupport.lyricPosition(playbackMs: model.playback.positionMs, delayMs: options.timingOffsetMs) : -1
         return KaraokeScrollingLines(
@@ -71,7 +69,6 @@ struct KaraokeLyricsView: View {
             timingOffsetMs: $options.timingOffsetMs,
             currentMs: currentMs,
             activeLineIndex: model.playback.hasPosition ? activeLineIndex(in: lyrics, at: currentMs) : nil,
-            screenWidth: screenWidth,
             seek: { model.seek(to: $0) }
         )
     }
@@ -118,7 +115,7 @@ struct KaraokeLyricsView: View {
     private var trackMetadata: (title: String, artist: String)? {
         guard let id = model.trackId else { return nil }
         if KaraokeOverlayPresenter.currentTrackId() == id,
-           let info = SafeTrackMetadata(track: statefulPlayer?.currentTrack() as AnyObject?) {
+           let info = CurrentSpotifyTrack.snapshot {
             return (info.title, info.artist)
         }
         guard KaraokePlaybackTracker.shared.playerReportedTrackId() == id,
@@ -147,93 +144,50 @@ private struct KaraokeScrollingLines: View {
     @Binding var timingOffsetMs: Int
     let currentMs: Int
     let activeLineIndex: Int?
-    let screenWidth: CGFloat
     let seek: (Int) -> Bool
 
     @State private var seekUnavailable = false
-    @State private var followLyrics = true
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    private let horizontalPadding: CGFloat = 24
-
     var body: some View {
         let alignment = options.textAlignment.horizontalAlignment
         let flip: CGFloat = options.reversedDirection ? -1 : 1
 
-        ScrollViewReader { proxy in
-            VStack(spacing: 0) {
-            HStack(spacing: 12) {
-                KaraokeTimingControls(offset: $timingOffsetMs)
-                Spacer(minLength: 4)
-                Button { followLyrics.toggle(); if followLyrics, let activeLineIndex { proxy.scrollTo(activeLineIndex, anchor: .center) } } label: {
-                    HStack(spacing: 6) {
-                        Image(systemName: followLyrics ? "location.fill" : "location")
-                        if screenWidth >= 420 { Text(followLyrics ? "Following lyrics" : "Follow lyrics") }
+        KaraokeReadingPane(offset: $timingOffsetMs, activeLine: activeLineIndex, reversed: options.reversedDirection) { proxy in
+            LazyVStack(alignment: alignment, spacing: CGFloat(options.resolvedLineSpacing)) {
+                Spacer().frame(height: 24)
+
+                ForEach(0..<min(layouts.count, lyrics.lines.count), id: \.self) { index in
+                    KaraokeLineView(
+                        layout: layouts[index],
+                        currentMs: currentMs,
+                        isActiveLine: index == activeLineIndex,
+                        alignment: alignment,
+                        fontSize: CGFloat(options.resolvedFontSize)
+                    )
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        guard lyrics.lines.indices.contains(index) else { return }
+                        let succeeded = seek(ShrubifyBetaSupport.seekPosition(lineMs: lyrics.lines[index].startMs, delayMs: options.timingOffsetMs))
+                        seekUnavailable = !succeeded
+                        if succeeded { proxy.scrollTo(index, anchor: .center) }
                     }
-                    .font(.caption.weight(.semibold))
-                    .frame(minWidth: 44, minHeight: 44)
-                    .padding(.horizontal, screenWidth >= 420 ? 12 : 0)
-                    .foregroundColor(.white)
-                    .background(KaraokeControlSurface())
+                    .accessibilityLabel(lyrics.lines[index].plainText)
+                    .accessibilityAddTraits(.isButton)
+                    .accessibilityHint("Jump to this lyric")
+                    .id(index)
+                    .scaleEffect(x: 1, y: flip)
                 }
-                .buttonStyle(.plain)
-                .accessibilityLabel(followLyrics ? "Following lyrics" : "Follow lyrics")
-                .accessibilityHint("Turn off to read lyrics without automatic scrolling")
-            }
-            .padding(.horizontal, 16).padding(.bottom, 8)
-            ScrollView(showsIndicators: false) {
-                LazyVStack(alignment: alignment, spacing: CGFloat(options.resolvedLineSpacing)) {
-                    Spacer().frame(height: 24)
 
-                    ForEach(0..<min(layouts.count, lyrics.lines.count), id: \.self) { index in
-                        KaraokeLineView(
-                            layout: layouts[index],
-                            currentMs: currentMs,
-                            isActiveLine: index == activeLineIndex,
-                            availableWidth: max(0, screenWidth - horizontalPadding * 2 - 36),
-                            alignment: alignment,
-                            fontSize: CGFloat(options.resolvedFontSize)
-                        )
-                        .contentShape(Rectangle())
-                        .onTapGesture {
-                            guard lyrics.lines.indices.contains(index) else { return }
-                            let succeeded = seek(ShrubifyBetaSupport.seekPosition(lineMs: lyrics.lines[index].startMs, delayMs: options.timingOffsetMs))
-                            seekUnavailable = !succeeded
-                            if succeeded { proxy.scrollTo(index, anchor: .center) }
-                        }
-                        .accessibilityLabel(lyrics.lines[index].plainText)
-                        .accessibilityAddTraits(.isButton)
-                        .accessibilityHint("Jump to this lyric")
-                        .id(index)
-                        .padding(.horizontal, horizontalPadding)
-                        .scaleEffect(x: 1, y: flip)
-                    }
+                Text(lyrics.lines.contains { $0.syllables.contains { $0.endMs > $0.startMs } }
+                     ? "Word-synced lyrics" : "Line-synced lyrics · word timing unavailable from this source")
+                    .font(.caption).foregroundColor(.white.opacity(0.86))
+                    .multilineTextAlignment(.center).padding(.horizontal, 24)
+                    .scaleEffect(x: 1, y: flip)
+                KaraokeCreditsFooterView(lyrics: lyrics)
+                    .scaleEffect(x: 1, y: flip)
 
-                    Text(lyrics.lines.contains { $0.syllables.contains { $0.endMs > $0.startMs } }
-                         ? "Word-synced lyrics" : "Line-synced lyrics · word timing unavailable from this source")
-                        .font(.caption).foregroundColor(.white.opacity(0.86))
-                        .multilineTextAlignment(.center).padding(.horizontal, 24)
-                        .scaleEffect(x: 1, y: flip)
-                    KaraokeCreditsFooterView(lyrics: lyrics)
-                        .scaleEffect(x: 1, y: flip)
-
-                    Spacer().frame(height: 200)
-                }
-                .frame(maxWidth: .infinity)
+                Spacer().frame(height: 200)
             }
-            .onAppear {
-                guard let activeLineIndex = activeLineIndex, activeLineIndex < lyrics.lines.count else { return }
-                proxy.scrollTo(activeLineIndex, anchor: .center)
-            }
-            .onChange(of: activeLineIndex) { newIndex in
-                guard followLyrics, let newIndex = newIndex, newIndex < lyrics.lines.count else { return }
-                // Single-curve stand-in for SpicyLyrics' overshoot scroll.
-                withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.38)) {
-                    proxy.scrollTo(newIndex, anchor: .center)
-                }
-            }
-            // Flip the list and counter-flip rows; y-only so leading/trailing alignment isn't mirrored.
-            .scaleEffect(x: 1, y: flip)
-            }
+            .frame(maxWidth: .infinity)
         }
         .environment(\.layoutDirection, lyrics.isRTL ? .rightToLeft : .leftToRight)
         .alert(isPresented: $seekUnavailable) {

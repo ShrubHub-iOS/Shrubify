@@ -20,7 +20,6 @@ struct KaraokeLineView: View {
     let layout: KaraokeLineLayout
     let currentMs: Int
     let isActiveLine: Bool
-    let availableWidth: CGFloat
     let alignment: HorizontalAlignment
     var fontSize: CGFloat = 30
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -31,8 +30,7 @@ struct KaraokeLineView: View {
                 KaraokeWordView(syllables: word, currentMs: currentMs, isActiveLine: isActiveLine, isRTL: layout.isRTL, fontSize: fontSize)
             }
         }
-        .frame(width: availableWidth)
-        .padding(.horizontal, 18)
+        .frame(maxWidth: .infinity)
         .padding(.vertical, 8)
 
         .scaleEffect(reduceMotion ? 1 : (isActiveLine ? 1.015 : 1), anchor: .center)

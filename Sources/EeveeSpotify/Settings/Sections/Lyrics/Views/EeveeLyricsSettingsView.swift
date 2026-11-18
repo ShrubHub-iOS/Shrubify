@@ -7,7 +7,15 @@ struct EeveeLyricsSettingsView: View {
 
     var body: some View {
         List {
-            ShrubifyCustomLyricsSettingsSection()
+            Section {
+                if usesSettingsNavigation {
+                    SettingsLink(title: "Lyrics appearance", icon: "textformat.size", color: .blue) { EeveeLyricsAppearanceSettingsView() }
+                    SettingsLink(title: "Lyrics timing", icon: "timeline.selection", color: .blue) { EeveeLyricsOffsetSettingsView() }
+                } else {
+                    NavigationLink("Lyrics appearance", destination: EeveeLyricsAppearanceSettingsView())
+                    NavigationLink("Lyrics timing", destination: EeveeLyricsOffsetSettingsView())
+                }
+            }
             wordByWordLyricsSection()
 
             // 「更好的逐词歌词」是「开启逐词歌词」的子项：**必须紧跟主开关**，

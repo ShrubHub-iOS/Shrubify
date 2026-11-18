@@ -109,11 +109,9 @@ enum LyricsOffsetMenuRow {
         let trackId = currentLyricsDtoTrackId.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trackId.isEmpty, let source = currentLyricsSource else { return nil }
         guard LyricsTimingOffset.supportsOffset(source: source) else { return nil }
-        let track = statefulPlayer?.currentTrack() ?? nowPlayingScrollViewController?.loadedTrack
-        let title = track?.string(ifResponding: "trackTitle") ?? ""
-        let artist = track?.string(ifResponding: "artistName")
-            ?? track?.string(ifResponding: "artistTitle")
-            ?? ""
+        let track = CurrentSpotifyTrack.snapshot
+        let title = track?.title ?? ""
+        let artist = track?.artist ?? ""
         let song = [title, artist]
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }

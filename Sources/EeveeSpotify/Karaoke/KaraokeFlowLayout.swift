@@ -81,7 +81,7 @@ private struct KaraokeFlowLayoutImpl: Layout {
         let rows = computeRows(subviews: subviews, maxWidth: maxWidth)
         let totalHeight = rows.reduce(CGFloat(0)) { $0 + $1.height }
             + CGFloat(max(0, rows.count - 1)) * spacing
-        return CGSize(width: maxWidth, height: totalHeight)
+        return CGSize(width: proposal.width ?? rows.map(\.width).max() ?? 0, height: totalHeight)
     }
 
     func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {

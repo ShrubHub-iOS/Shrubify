@@ -12,6 +12,8 @@ final class ControlsTests: XCTestCase {
             let later = app.buttons["shrubify.lyrics.later"]
             let reset = app.buttons["shrubify.lyrics.reset"]
             let value = app.staticTexts["offset-value"]
+            XCTAssertFalse(later.exists)
+            app.buttons["shrubify.lyrics.sync"].tap()
             // These points are deliberately away from the small symbol strokes.
             later.coordinate(withNormalizedOffset: CGVector(dx: 0.85, dy: 0.15)).tap()
             XCTAssertEqual(value.label, "100")
@@ -33,6 +35,42 @@ final class ControlsTests: XCTestCase {
             XCTAssertTrue(app.buttons["open-lyrics"].waitForExistence(timeout: 10))
             XCTAssertEqual(app.staticTexts["close-count"].label, "\(cycle)")
         }
+    }
+
+    @MainActor
+    func testBrowseAndReturnToPlayingLine() {
+        let app = XCUIApplication(); app.launch()
+        app.buttons["open-lyrics"].tap()
+        let lines = app.scrollViews["shrubify.lyrics.lines"]
+        XCTAssertTrue(lines.waitForExistence(timeout: 10))
+        let resume = app.buttons["shrubify.lyrics.resume-follow"]
+        XCTAssertFalse(resume.exists)
+        lines.swipeUp()
+        XCTAssertTrue(resume.waitForExistence(timeout: 5))
+        resume.tap()
+        XCTAssertFalse(resume.exists)
+        XCTAssertTrue(lines.staticTexts["Lyric line 20"].isHittable)
+        XCTAssertTrue(app.buttons["Play"].isHittable)
+    }
+
+    @MainActor
+    func testContentGlassRestoresReusedViewsAndLeavesNativeScrollAndTaps() {
+        let app = XCUIApplication(); app.launch()
+        let material = app.staticTexts["content-material-count"]
+        XCTAssertTrue(material.waitForExistence(timeout: 10))
+        XCTAssertEqual(material.label, "4 · intact")
+        let action = app.staticTexts["content-action"]
+        for (id, value) in [("Shortcut.Card.Home", "shortcut"), ("Album.Row.Library", "track"), ("SPTNowPlayingPlayButton", "play")] {
+            app.buttons[id].tap(); XCTAssertEqual(action.label, value)
+        }
+        let capture = XCTAttachment(screenshot: app.screenshot()); capture.name = "native-content-glass"; capture.lifetime = .keepAlways; add(capture)
+        app.buttons["toggle-glass"].tap(); XCTAssertEqual(material.label, "0 · intact")
+        app.buttons["toggle-glass"].tap(); XCTAssertEqual(material.label, "4 · intact")
+        app.buttons["reuse-row"].tap(); XCTAssertEqual(material.label, "3 · intact")
+        app.buttons["unknown-row"].tap(); XCTAssertEqual(action.label, "track")
+        app.scrollViews["native-content-scroll"].swipeLeft()
+        XCTAssertTrue(app.buttons["shelf-end"].isHittable)
+        app.buttons["shelf-end"].tap(); XCTAssertEqual(action.label, "shelf end")
     }
 
     @MainActor

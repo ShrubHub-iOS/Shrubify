@@ -1,4 +1,5 @@
 import Foundation
+import Security
 #if canImport(Darwin)
 import Darwin
 #endif
@@ -137,6 +138,35 @@ check(SafeTrackMetadata(track: ShrubTestLegacyTrack() as AnyObject)?.artist == "
 check(SafeTrackMetadata(track: ShrubTestThrowingTrack() as AnyObject) == nil, "Objective-C exceptions cannot escape display metadata reads")
 check(SafeTrackMetadata(track: ShrubTestScalarTrack() as AnyObject) == nil, "Wrong metadata return ABI is rejected")
 check(SafeTrackMetadata(track: NSObject()) == nil, "Missing metadata methods fall back to native UI")
+check(modernInfo?.identifier == "modern" && modernInfo?.durationMs == 28000, "A short explicit millisecond duration is not seconds")
+check(modernInfo?.metadata["artist_name:1"] == "Guest" && modernInfo?.metadata["title"] == "Localized title", "Keep collaborator and localized search data")
+let legacyTrack = ShrubReadCurrentTrack(nil, ShrubTestLegacyController())
+let legacyInfo = SafeTrackMetadata(track: legacyTrack as AnyObject?)
+check(legacyInfo?.title == "Legacy track" && legacyInfo?.extractedColor == "abcdef" && legacyInfo?.identifier == nil, "Guarded legacy object ivars; a malformed URI does not lose other metadata")
+check(ShrubReadCurrentTrack(nil, NSObject()) == nil, "No fallback when the legacy controller layout changes")
+check(ShrubTrackIdentifier(ShrubReadCurrentTrack(ShrubTestDirectPlayer(), nil)) == "direct-clock", "Identity does not depend on display metadata")
+for key in ["duration_ms", "durationMs", "durationInMilliseconds"] {
+    check(SafeTrackMetadata.durationMilliseconds(in: [key: "1234.5", "duration": "400"]) == 1235, "Explicit duration units take priority")
+}
+check(SafeTrackMetadata.durationMilliseconds(in: ["duration": "2.25"]) == 2250, "Preserve fractional seconds")
+for invalid in ["-1", "nan", "inf", "1e200", "bad"] {
+    check(SafeTrackMetadata.durationMilliseconds(in: ["duration_ms": invalid]) == nil, "Reject unrepresentable duration")
+}
+let blurLevels = (0...40).map { KaraokeOptions(blurIntensity: Double($0) / 10).resolvedBlurRadius }
+check(blurLevels.first == 0 && blurLevels.last == 40 && Set(blurLevels).count == 41, "Every blur slider stop has an effect")
+
+// Exercise the production delete planner without touching the runner's Keychain.
+let ref = Data([1, 2, 3])
+let labelKey = kSecAttrLabel as String, refKey = kSecValuePersistentRef as String
+for cls in [kSecClassKey, kSecClassInternetPassword, kSecClassGenericPassword, kSecClassCertificate, kSecClassIdentity] {
+    let attrs: [String: Any] = [labelKey: "Spotify fixture", kSecClass as String: cls]
+    check(FullResetHelper.deletionQuery(for: attrs) == nil, "Never fall back to a class-only delete")
+    let exact = FullResetHelper.deletionQuery(for: attrs.merging([refKey: ref]) { _, new in new })
+    check(exact?.count == 1 && exact?[kSecValuePersistentRef] as? Data == ref, "Delete only this exact item")
+}
+check(FullResetHelper.deletionQuery(for: [labelKey: "Other app", refKey: ref]) == nil, "Do not delete unrelated references")
+check(FullResetHelper.deletionQuery(for: [labelKey: "Spotify", refKey: Data()]) == nil, "Reject empty references")
+
 let recoverySuite = "Shrubify.RecoveryTests." + UUID().uuidString
 let recoveryDefaults = UserDefaults(suiteName: recoverySuite)!
 check(!LaunchRecoveryPolicy.begin(in: recoveryDefaults), "First launch leaves interface preference intact")
