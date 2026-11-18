@@ -2,7 +2,7 @@ import SwiftUI
 
 struct ShrubifyStudioView: View {
     var usesSettingsNavigation = false
-    @AppStorage("ShrubifyNativeTabletGlass") private var nativeGlass = true
+    @AppStorage(NativeTabletGlass.preferenceKey) private var nativeGlass = false
     @ViewBuilder private func studioLink<V: View>(title: String, subtitle: String? = nil, icon: String, color: Color, destination: @escaping () -> V) -> some View {
         if usesSettingsNavigation {
             SettingsLink(title: title, subtitle: subtitle, icon: icon, color: color, destination: destination)
@@ -15,15 +15,16 @@ struct ShrubifyStudioView: View {
     var body: some View {
         List {
             if EvolvedInterfaceAvailability.usesNativeTabletInterface {
-                Section(header: Text("iPad player & pages"), footer: Text("Spotify keeps its native layout and controls. Glass decorates supported Home tiles, album artwork, track rows, buttons and the player without changing what a tap does.")) {
+                Section(header: Text("iPad appearance"), footer: Text("Artwork, track lists and the full-screen player keep Spotify’s original appearance.")) {
                     if #available(iOS 26.0, *) {
                         if UserDefaults.standard.bool(forKey: "ShrubifyStabilityMode") {
-                            Text("Stability Mode limits glass to the native dock. Content styling resumes after restarting with Stability Mode off.").font(.footnote)
+                            Text("Stability Mode uses Spotify’s original bottom bars.").font(.footnote)
+                        } else {
+                            Toggle("Glass on bottom bars", isOn: $nativeGlass)
+                                .onChange(of: nativeGlass) { _ in NativeTabletGlass.reapply() }
                         }
-                        Toggle("Liquid Glass", isOn: $nativeGlass)
-                            .onChange(of: nativeGlass) { _ in NativeTabletGlass.reapply() }
                     } else {
-                        Text("Liquid Glass requires iPadOS 26 or later.").font(.footnote)
+                        Text("Glass on bottom bars requires iPadOS 26 or later.").font(.footnote)
                     }
                 }
             } else {

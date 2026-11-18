@@ -256,7 +256,6 @@ struct EeveeSpotify: Tweak {
         activateTheme()
         // Lightweight, opt-in local statistics timer. No private Spotify hooks required.
         DispatchQueue.main.async { ShrubifyReplayStore.shared.start() }
-        onMainThreadSync { NativeTabletGlass.start() }
         if !stabilityMode {
             activateEvolvedInterface()
             if EvolvedInterfaceAvailability.supportsCustomInterface { activateRemoteFlags() }

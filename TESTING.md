@@ -3,15 +3,16 @@
 ## UI changes on this branch
 
 - `bash scripts/test_lyrics_interactions.sh` creates its own disposable iPad on the **iOS 26.1** runtime; it must not boot, shut down or delete an existing simulator. The PR runs the compile job and this interaction suite independently.
-- The fixture checks real native glass on a Home shortcut, artwork sleeve, track row and player button; it taps native controls, scrolls a shelf, reuses a row and toggles Studio’s material setting. The custom-lyrics fixture exercises the production Sync disclosure and browse/resume behavior. Screenshots in the XCTest bundle are **fixtures, not Spotify screenshots**.
-- On an actual iPad, compare **Studio → Liquid Glass** off/on on Home (category pills, eight shortcuts and both artwork shelves), in an album/playlist track list, and with the player expanded. Scroll until cells recycle, rotate, resize Split View and navigate back. Check that art stays sharp, selected filters stay distinguishable, and play/skip, artwork, menu, row, swipe and tab targets still work. With Reduce Transparency, content should revert to native surfaces. With Stability Mode enabled at launch, only the existing dock discovery should run. Unknown Spotify view identities should look native, not gain a page-sized overlay.
+- The iPad fixture samples rendered pixels in a high-contrast Home thumbnail and player cover. They must stay sharp with the old glass preference explicitly on and with it off. It scrolls a real collection view through reuse, taps a shortcut, a track and a player control, and checks for zero content materials or icon wells. The independent custom-lyrics fixture still exercises Sync and browse/resume.
+- On the **reported iPad**, update in place and compare **Studio → Glass on bottom bars** off/on. Check the eight Home shortcuts, “Jump back in”, “Recents”, a long track list and the expanded Now Playing cover. In both settings, compare the art with the native mini-player thumbnail: no frost, extra outlines or button bubbles. Fling the same warmed-up shelves in both directions while music plays, skip tracks, expand/collapse the player, rotate and resize Split View. Verify native taps/swipes and smooth scrolling. If hitches persist, record the device, OS, Spotify build and an Animation Hitches trace on the same route.
+- With Reduce Transparency on, or Stability Mode on at launch, both bars must be native. Unknown or oversized bar layouts should also stay native. Simulator captures are **fixtures, not Spotify screenshots or device frame-time measurements**.
 - In **Lyrics → Lyrics appearance**, compare blur 0, 1, 2 and 4; open custom lyrics on a narrow phone. Drag through the words, let playback advance, then tap **Back to current line**. Confirm line taps still seek and **Sync** expands/collapses without moving the playback bar offscreen. Check both settings navigation and the long-press ShrubPanel route.
 
 ## 4.1.8 controls and material acceptance
 
 - Run `bash scripts/test_lyrics_interactions.sh` on macOS/Xcode 26.1.1 with an iOS 26 simulator. It taps production controls through XCUITest, including button edges, delay/reset, play/slider and three close/reopen cycles while the view updates.
-- The same suite checks a real UIGlassEffect on an 825-point native-bar fixture, backing removal/restoration, unchanged button frames and native button actions with glass on/off. It does not run Spotify itself.
-- On device: confirm all lyrics controls respond across their full visible areas, close/reopen works repeatedly, native tabs/mini-player show material, and existing fullscreen/playback/follow/line seeking remain functional.
+- The same suite starts with a missing preference (native bars), then checks exactly one decorative UIGlassEffect behind each recognized bar, backing restoration, unchanged button frames and native actions. It does not run Spotify itself.
+- On device: confirm all lyrics controls respond across their full visible areas, close/reopen works repeatedly, only opted-in, supported native tabs/mini-player show material, and existing fullscreen/playback/follow/line seeking remain functional.
 - Actions attaches XCTest result bundles and screenshots; publication waits for this suite to pass.
 
 
@@ -28,7 +29,7 @@
 
 - Check that the custom-lyrics icon matches the native footer icons and opens the original fullscreen view.
 - Check bright/dark covers, portrait/landscape and split-screen: blurred artwork remains visible, sharp lyrics stay inside the reading panel, and word timing still follows playback.
-- On iOS 26, check glass close/follow/playback controls and native iPad tab/mini-player materials. Turn off native-control glass and confirm its material disappears without changing controls.
+- On iOS 26, check glass close/follow/playback controls and native iPad tab/mini-player materials. Turn off **Glass on bottom bars** and confirm its material disappears without changing controls.
 - Test Reduce Motion, Reduce Transparency, Low Power Mode, track changes and foreground return.
 - Test all native tabs, mini-player play/pause, fullscreen opening/dismissal, lyrics scrubbing and multiple windows. Native actions must work with glass on and off.
 
@@ -57,7 +58,7 @@ This checklist is for **real builds on devices**; passing source-only syntax tes
 
 - [ ] Verify native iPad player expands to fullscreen and returns to its pane.
 - [ ] Verify play/pause, skip, seek, volume, output routing, queue and save using native controls.
-- [ ] Verify the original navigation has no injected capsule or native-bar mask, including during scrolling and pane resizing.
+- [ ] With bottom-bar glass off, verify navigation has no injected material or mask, including during scrolling and pane resizing.
 - [ ] Verify album/playlist/artist headers and track rows retain native alignment.
 - [ ] Verify new lyrics providers, login and local data survive an in-place update.
 

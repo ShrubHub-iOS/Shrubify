@@ -1,66 +1,105 @@
 import UIKit
 
-/// Native controls with the same identities as the supported Spotify surfaces.
-/// The test does not inject into Spotify, relay a tap, or draw a fake material.
-final class ContentFixture: UIScrollView {
+// Test-side inspection only. Production glass must never visit these surfaces.
+extension UIView {
+    var fixtureGlassCount: Int {
+        if (self as? UIVisualEffectView)?.effect is UIGlassEffect { return 1 }
+        return subviews.reduce(0) { $0 + $1.fixtureGlassCount }
+    }
+}
+
+/// Known Home/player identities, plus a real scrolling and recycling shelf.
+/// A high-contrast image makes a frosted cover detectable in an actual screenshot.
+final class ContentFixture: UIView, UICollectionViewDataSource {
     private let tile = UIButton(type: .system)
-    private let cover = UIImageView(image: UIImage(systemName: "opticaldisc.fill"))
+    private let cover = UIImageView()
+    private let player = UIView()
+    private let playerCover = UIImageView()
     private let play = UIButton(type: .system)
-    private let reusable = UICollectionViewCell()
-    private let track = UIButton(type: .system)
-    private let result = UILabel()
     private let action = UILabel()
-    private let ids = ["Shortcut.Card.Home", "Components.Header.UI.ArtworkImage", "SPTNowPlayingPlayButton", "Album.Row.Library"]
+    private let result = UILabel()
+    private let shelf: UICollectionView
+    private var sawReuse = false
     private var nativeFrames: [CGRect] = []
-    private var surfaces: [UIView] { [tile, cover, play, track] }
+    private var surfaces: [UIView] { [tile, cover, player, playerCover, play] }
 
     override init(frame: CGRect) {
+        let layout = UICollectionViewFlowLayout()
+        layout.scrollDirection = .horizontal; layout.itemSize = CGSize(width: 150, height: 52)
+        shelf = UICollectionView(frame: .zero, collectionViewLayout: layout)
         super.init(frame: frame)
-        accessibilityIdentifier = "native-content-scroll"
-        alwaysBounceHorizontal = true
-        contentSize = CGSize(width: 1160, height: 180)
-        tile.frame = CGRect(x: 4, y: 6, width: 184, height: 52)
-        tile.setTitle("Home shortcut", for: .normal)
-        tile.backgroundColor = .darkGray
-        cover.frame = CGRect(x: 202, y: 6, width: 90, height: 90)
-        cover.backgroundColor = .systemIndigo
-        play.frame = CGRect(x: 304, y: 6, width: 54, height: 54)
-        play.setImage(UIImage(systemName: "play.fill"), for: .normal)
-        reusable.frame = CGRect(x: 374, y: 6, width: 216, height: 54)
-        track.frame = reusable.bounds; track.setTitle("Native track", for: .normal)
-        reusable.contentView.addSubview(track)
-        for view in [tile, cover, play, reusable] { addSubview(view) }
-        for (view, id) in zip(surfaces, ids) { view.accessibilityIdentifier = id }
-        nativeFrames = surfaces.map(\.frame)
-        for (button, title) in [(tile, "shortcut"), (play, "play"), (track, "track")] {
-            button.addAction(UIAction { [weak self] _ in self?.action.text = title }, for: .touchUpInside)
+        let artwork = UIGraphicsImageRenderer(size: CGSize(width: 80, height: 80)).image { context in
+            for y in 0..<16 { for x in 0..<16 {
+                context.cgContext.setFillColor(((x + y).isMultiple(of: 2) ? UIColor.white : .black).cgColor)
+                context.cgContext.fill(CGRect(x: CGFloat(x * 5), y: CGFloat(y * 5), width: 5, height: 5))
+            } }
         }
-        action.frame = CGRect(x: 300, y: 114, width: 120, height: 44)
-        action.accessibilityIdentifier = "content-action"; action.text = "none"; addSubview(action)
-        result.frame = CGRect(x: 4, y: 64, width: 180, height: 40)
-        result.accessibilityIdentifier = "content-material-count"; addSubview(result)
-        let reuse = UIButton(type: .system); reuse.setTitle("Repurpose row", for: .normal)
-        reuse.frame = CGRect(x: 4, y: 114, width: 180, height: 44); reuse.accessibilityIdentifier = "reuse-row"
-        reuse.addAction(UIAction { [weak self] _ in
-            guard let self else { return }
-            NativeContentGlass.prepareForReuse(reusable)
-            track.accessibilityIdentifier = "unknown-row"
-            NativeContentGlass.refresh(in: reusable)
-            report()
-        }, for: .touchUpInside); addSubview(reuse)
-        let far = UIButton(type: .system); far.setTitle("Shelf end", for: .normal)
-        far.frame = CGRect(x: 1000, y: 10, width: 140, height: 52); far.accessibilityIdentifier = "shelf-end"
-        far.addAction(UIAction { [weak self] _ in self?.action.text = "shelf end" }, for: .touchUpInside); addSubview(far)
+        tile.frame = CGRect(x: 4, y: 4, width: 150, height: 52)
+        tile.setTitle("Home shortcut", for: .normal); tile.backgroundColor = .darkGray
+        tile.accessibilityIdentifier = "Shortcut.Card.Home"
+        play.frame = CGRect(x: 166, y: 4, width: 54, height: 54)
+        play.setImage(UIImage(systemName: "play.fill"), for: .normal)
+        play.accessibilityIdentifier = "SPTNowPlayingPlayButton"
+        for (button, name) in [(tile, "shortcut"), (play, "play")] {
+            button.addAction(UIAction { [weak self] _ in self?.action.text = name }, for: .touchUpInside)
+        }
+        cover.frame = CGRect(x: 240, y: 4, width: 80, height: 80)
+        cover.accessibilityIdentifier = "Components.UI.CardLibrary.Artwork"
+        player.frame = CGRect(x: 350, y: 4, width: 120, height: 120)
+        player.accessibilityIdentifier = "SPTNowPlayingView"
+        playerCover.frame = player.bounds; playerCover.accessibilityIdentifier = "Encore.ImageView"
+        player.addSubview(playerCover)
+        for image in [cover, playerCover] {
+            image.image = artwork; image.isAccessibilityElement = true; image.accessibilityTraits = .image
+        }
+        action.frame = CGRect(x: 4, y: 60, width: 180, height: 32)
+        action.accessibilityIdentifier = "content-action"; action.text = "none"
+        result.frame = CGRect(x: 4, y: 92, width: 300, height: 32)
+        result.accessibilityIdentifier = "content-state"
+        shelf.backgroundColor = .clear; shelf.dataSource = self; shelf.isPrefetchingEnabled = false
+        shelf.register(TrackCell.self, forCellWithReuseIdentifier: "track")
+        shelf.accessibilityIdentifier = "native-shelf"
+        for view in [tile, cover, player, play, action, result, shelf] { addSubview(view) }
+        nativeFrames = surfaces.map(\.frame)
     }
     required init?(coder: NSCoder) { return nil }
 
-    func report() {
-        // Repeated local layout passes must be idempotent. Count actual effects,
-        // not flags, and verify they cannot intercept the intended native touch.
-        for view in surfaces { NativeContentGlass.refresh(in: view); NativeContentGlass.refresh(in: view) }
-        let plates = surfaces.flatMap { $0.subviews.compactMap { $0 as? UIVisualEffectView } }
-        let count = plates.filter { $0.effect is UIGlassEffect && !$0.isUserInteractionEnabled && $0.accessibilityElementsHidden }.count
-        let unchanged = nativeFrames == surfaces.map(\.frame) && tile.backgroundColor == .darkGray
-        result.text = "\(count) · \(unchanged ? "intact" : "changed")"
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        shelf.frame = CGRect(x: 4, y: 136, width: min(520, max(0, bounds.width - 8)), height: 60)
     }
+
+    func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int { 16 }
+    func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
+        let cell = collectionView.dequeueReusableCell(withReuseIdentifier: "track", for: indexPath) as! TrackCell
+        let item = indexPath.item
+        if cell.wasReused { sawReuse = true }
+        cell.contentView.accessibilityIdentifier = item.isMultiple(of: 2) ? "Album.Row.Library" : "unknown-row"
+        cell.button.setTitle("Track \(item)", for: .normal)
+        cell.button.accessibilityIdentifier = "track-\(item)"
+        cell.tap = { [weak self] in
+            self?.action.text = "track \(item)"; self?.report()
+        }
+        return cell
+    }
+
+    func report() {
+        let intact = nativeFrames == surfaces.map(\.frame) && tile.backgroundColor == .darkGray
+        result.text = "\(fixtureGlassCount) effects · \(intact ? "intact" : "changed") · \(sawReuse ? "reused" : "initial")"
+    }
+}
+
+private final class TrackCell: UICollectionViewCell {
+    let button = UIButton(type: .system)
+    var tap: (() -> Void)?
+    var wasReused = false
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        isAccessibilityElement = false
+        button.frame = contentView.bounds; button.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        button.addAction(UIAction { [weak self] _ in self?.tap?() }, for: .touchUpInside)
+        contentView.addSubview(button)
+    }
+    required init?(coder: NSCoder) { return nil }
+    override func prepareForReuse() { super.prepareForReuse(); wasReused = true; tap = nil }
 }
