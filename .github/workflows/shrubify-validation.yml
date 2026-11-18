@@ -6,6 +6,10 @@ name: Shrubify native validation
     - main
   workflow_dispatch:
     inputs:
+      interactions_only:
+        description: Run production lyrics controls and native glass interaction tests
+        type: boolean
+        default: false
       navigation_only:
         description: Run only the iPad rendering regression
         type: boolean
@@ -17,7 +21,7 @@ concurrency:
   cancel-in-progress: true
 jobs:
   compile:
-    if: ${{ !inputs.navigation_only }}
+    if: ${{ !inputs.navigation_only && !inputs.interactions_only }}
     runs-on: macos-15-intel
     env:
       THEOS: ${{ github.workspace }}/theos
@@ -132,3 +136,23 @@ jobs:
       with:
         name: navigation-surface-smoke
         path: Outputs/ui-smoke/
+
+  interactions:
+    name: Production lyrics interaction verification
+    if: ${{ inputs.interactions_only }}
+    runs-on: macos-15
+    timeout-minutes: 25
+    steps:
+    - uses: actions/checkout@v4
+    - uses: maxim-lobanov/setup-xcode@v1
+      with:
+        xcode-version: 26.1.1
+    - name: Tap production controls on a booted compatible iPad
+      run: bash scripts/test_lyrics_interactions.sh
+    - name: Upload interaction evidence
+      if: ${{ always() }}
+      uses: actions/upload-artifact@v4
+      with:
+        name: Lyrics-Interaction-Results
+        path: Outputs/lyrics-interactions/
+        if-no-files-found: warn
