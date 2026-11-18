@@ -59,7 +59,7 @@ enum NativeTabletGlass {
             var nodes = [window as UIView]; var index = 0
             while index < nodes.count && index < 2048 {
                 let node = nodes[index]; index += 1
-                if node.accessibilityIdentifier == "tabs-container-view-identifier" { apply(to: node, miniPlayer: false) }
+                if isTabRow(node) { apply(to: node, miniPlayer: false) }
                 if node.accessibilityIdentifier == "SPTNowPlayingBar" { apply(to: node, miniPlayer: true) }
                 nodes.append(contentsOf: node.subviews.filter { $0.accessibilityIdentifier != "shrubify.native.glass.material" })
             }
@@ -91,12 +91,7 @@ enum NativeTabletGlass {
         while index < nodes.count && index < 96 {
             let node = nodes[index]; index += 1
             if miniPlayer && node.accessibilityIdentifier == "SPTNowPlayingBar" { owner = node; break }
-            if !miniPlayer, let row = node as? UIStackView, row.axis == .horizontal,
-               (row.accessibilityIdentifier == "tabs-container-view-identifier"
-                || (2...6).contains(row.arrangedSubviews.count) && row.bounds.height <= 96
-                   && row.arrangedSubviews.filter({ NSStringFromClass(type(of: $0)).contains("TabBarItem") }).count >= 2) {
-                owner = row; break
-            }
+            if !miniPlayer, isTabRow(node) { owner = node; break }
             nodes.append(contentsOf: node.subviews.filter { $0 !== state.plate })
         }
         guard let owner, owner.bounds.height <= 100 else { state.remove(); return }
@@ -142,6 +137,13 @@ enum NativeTabletGlass {
         state.plate?.layer.cornerRadius = min(26, frame.height / 2)
         // No masks, content transforms, safe-area changes, gestures or action relays.
     }
+    private static func isTabRow(_ view: UIView) -> Bool {
+        guard let row = view as? UIStackView, row.axis == .horizontal,
+              row.bounds.height <= 100, (2...6).contains(row.arrangedSubviews.count) else { return false }
+        return row.accessibilityIdentifier == "tabs-container-view-identifier"
+            || row.arrangedSubviews.filter { NSStringFromClass(type(of: $0)).contains("TabBarItem") }.count >= 2
+    }
+
     private static func clearLegacyBacking(around owner: UIView, state: State) {
         var ancestor: UIView? = owner
         for _ in 0..<3 {
@@ -159,7 +161,7 @@ enum NativeTabletGlass {
             }
             for child in root.subviews where child !== owner && child !== state.plate {
                 let name = NSStringFromClass(type(of: child))
-                guard child.bounds.height <= 110, name.contains("TabBarGradientView") || name.contains("TabBarBackgroundView") else { continue }
+                guard name.contains("TabBarGradientView") || name.contains("TabBarBackgroundView") else { continue }
                 var nodes = [child]; var index = 0; var ownsContent = false
                 while index < nodes.count && index < 64 {
                     let view = nodes[index]; index += 1

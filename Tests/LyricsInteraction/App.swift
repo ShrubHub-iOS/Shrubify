@@ -38,6 +38,7 @@ final class InteractionScene: UIResponder, UIWindowSceneDelegate {
 }
 
 final class TabBarGradientView: UIView {}
+final class TabBarItemElementView: UIButton {}
 
 final class RootController: UIViewController {
     private var closes = 0
@@ -73,19 +74,24 @@ final class RootController: UIViewController {
         barSurface.frame = CGRect(x: 32, y: 300, width: 825, height: 84)
         view.addSubview(barSurface)
         barHost.backgroundColor = .darkGray
-        legacy.frame = barHost.bounds; legacy.backgroundColor = .black
+        legacy.frame = CGRect(x: 0, y: -112, width: 825, height: 195); legacy.backgroundColor = .black
         legacy.accessibilityIdentifier = "fixture-legacy"
         barHost.addSubview(legacy)
         row.frame = barHost.bounds; row.axis = .horizontal; row.distribution = .fillEqually
-        row.accessibilityIdentifier = "tabs-container-view-identifier"; barHost.addSubview(row)
+        barHost.addSubview(row)
         for index in 0..<5 {
-            let button = UIButton(type: .system); button.setTitle("Tab \(index)", for: .normal)
+            let button = TabBarItemElementView(type: .system); button.setTitle("Tab \(index)", for: .normal)
             button.accessibilityIdentifier = "native-tab-\(index)"
             button.addAction(UIAction { [weak self] _ in
                 guard let self else { return }; selections += 1; tabCount.text = "\(selections)"
             }, for: .touchUpInside)
             row.addArrangedSubview(button)
         }
+    }
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        row.frame = barHost.bounds
+        legacy.frame = CGRect(x: 0, y: -112, width: barHost.bounds.width, height: 195)
     }
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
