@@ -93,8 +93,13 @@ enum NowPlayingIOS27 {
     /// 我们自己画的那根小横条。
     static let grabberIdentifier = "eevee-ios27-grabber"
 
-    /// 这颗开关自己就是全部条件（旧的"歌词进播放器"在它那边让位，见文件头）。
-    static var isEnabled: Bool { UserDefaults.nowPlayingIOS27 }
+    /// iPad retains the native player until replacement presentation is supported.
+    static var isEnabled: Bool {
+        // The replacement page has no native iPad fullscreen/presentation route.
+        // Preserve Spotify's real controls and gestures on both tablet panes and
+        // fullscreen until that integration is implemented and verified.
+        UserDefaults.nowPlayingIOS27 && EvolvedInterfaceAvailability.supportsCustomInterface
+    }
 
     // MARK: - 状态
 
@@ -295,7 +300,10 @@ enum NowPlayingIOS27 {
     /// 蹭 `DeclutterChrome` 既有的 0.3s 复查节拍（**不新开定时器**，本仓库纪律）。
     @discardableResult
     static func reconcile() -> Bool {
-        guard isEnabled else { ResponsivePlayer.removeAll(); return false }
+        guard isEnabled else {
+            restore(reason: "replacement player unavailable")
+            return false
+        }
         if let track = NowPlayingLyricsPlate.currentTrackId() { refreshMetadataArtwork(trackId: track) }
         return ResponsivePlayer.reconcile()
     }
@@ -309,6 +317,7 @@ enum NowPlayingIOS27 {
     }
 
     static func setLyricsMode(_ on: Bool, in page: UIView) {
+        guard isEnabled else { return }
         guard on != lyricsModeActive else { return }
         // 转场里页面会被短暂摘出窗口。这里静默 return 的话，
         guard page.window != nil else {

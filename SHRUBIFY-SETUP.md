@@ -1,6 +1,6 @@
-# Shrubify 4.1.2 setup and releases
+# Shrubify 4.1.3 setup and releases
 
-Shrubify 4.1.2 uses Evolved’s player, in-app pages and lyrics layer. It requires iOS 17.4+; system glass effects require iOS 26+. Read [RELEASE-4.1.2.md](RELEASE-4.1.2.md), [TESTING.md](TESTING.md) and [integration notes](docs/EVOLVED-INTEGRATION.md).
+Shrubify 4.1.3 uses native Spotify player/navigation/page layouts on iPad during compatibility recovery, retaining expanded lyrics sources. Evolved appearance remains available on iPhone. It requires iOS 17.4+; system glass effects require iOS 26+. Read [RELEASE-4.1.3.md](RELEASE-4.1.3.md), [TESTING.md](TESTING.md) and [integration notes](docs/EVOLVED-INTEGRATION.md).
 
 The tweak keeps the internal `EeveeSpotify.dylib` and `EeveeSpotify.bundle` identifiers for compatibility. The package is `com.shrubify.spotify`; branded IPAs use `com.shrubify.client`. The Shrubify version comes from `control`, which generates the in-app version at build time. Spotify’s app version is a separate value.
 

@@ -31,7 +31,7 @@ enum TabBarSystemGlass {
     /// `TabBarContainerImpl` 的类名：它是 Spotify 那条栏的容器 VC，按类名找它。
     private static let containerClassName = "_TtC23NavigationUI_TabBarImpl19TabBarContainerImpl"
 
-    static var isEnabled: Bool { UserDefaults.tabBarSystemGlass }
+    static var isEnabled: Bool { UserDefaults.tabBarSystemGlass && EvolvedInterfaceAvailability.supportsCustomInterface }
 
     // MARK: - 状态（全部挂在**别人的对象**上：关联对象 / 弱注册表）
 

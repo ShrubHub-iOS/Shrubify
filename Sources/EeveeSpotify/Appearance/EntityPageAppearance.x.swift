@@ -277,7 +277,7 @@ enum EntityPageAppearance {
 
     // MARK: - 入口
 
-    static var isEnabled: Bool { UserDefaults.entityPageDissolve }
+    static var isEnabled: Bool { UserDefaults.entityPageDissolve && EvolvedInterfaceAvailability.supportsCustomInterface }
 
     /// 缓存"这一拍那棵树里的封面元素"（见 `layoutPass`），省掉每帧一次子树搜索。
     private static var layoutCoverKey: UInt8 = 0
@@ -441,6 +441,7 @@ enum EntityPageAppearance {
     }
 
     static func start() {
+        guard EvolvedInterfaceAvailability.supportsCustomInterface else { return }
         guard timer == nil else { return }
         let timer = Timer(timeInterval: 0.6, repeats: true) { _ in tick() }
         timer.tolerance = 0.2

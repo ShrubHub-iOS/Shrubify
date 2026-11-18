@@ -78,6 +78,12 @@ struct EeveeSettingsView: View {
 
     var body: some View {
         List {
+            if EvolvedInterfaceAvailability.usesNativeTabletInterface {
+                Section {
+                    Text("iPad compatibility recovery: Spotify's native player, fullscreen controls, navigation and page layouts are active. Expanded lyrics sources remain available.")
+                        .font(.footnote)
+                }
+            }
             if UserDefaults.standard.bool(forKey: LaunchRecoveryPolicy.recoveryKey),
                UserDefaults.standard.bool(forKey: "ShrubifyStabilityMode") {
                 Section {

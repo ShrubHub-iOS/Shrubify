@@ -1,3 +1,10 @@
+# 4.1.3
+
+- Restore native iPad player/presentation and skip custom tablet UI hooks that covered fullscreen and playback controls.
+- Restore native tablet navigation, mini-player and entity-page layouts; avoid injected capsules, native-bar clipping and conflicting remote flag overrides.
+- Retain metadata crash guards, startup recovery, expanded lyrics providers and stored preferences. Explain iPad recovery in settings.
+- Remove the misleading standalone capsule check from release acceptance; retain native compilation and behavioral regressions.
+
 # 4.1.2
 
 - Fix the playback crash confirmed from the released 4.1.1 binary: current Spotify does not support the legacy `artistTitle` getter called by the new player and Replay. Read display metadata through an exception- and ABI-checked bridge.

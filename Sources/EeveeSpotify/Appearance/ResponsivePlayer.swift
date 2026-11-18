@@ -11,6 +11,7 @@ enum ResponsivePlayer {
     private static let views = NSHashTable<ResponsivePlayerView>.weakObjects()
 
     static func apply(in page: UIView, image: UIImage?, trackID: String) {
+        guard NowPlayingIOS27.isEnabled else { removeAll(); return }
         let view: ResponsivePlayerView
         if let existing = objc_getAssociatedObject(page, &key) as? ResponsivePlayerView {
             view = existing
@@ -26,7 +27,7 @@ enum ResponsivePlayer {
     }
 
     static func reconcile() -> Bool {
-        guard UserDefaults.nowPlayingIOS27 else { removeAll(); return false }
+        guard NowPlayingIOS27.isEnabled else { removeAll(); return false }
         for view in views.allObjects {
             guard let page = view.page, page.window != nil else { view.removePlayer(); continue }
             view.refresh(image: NowPlayingIOS27.metadataArtworkImage, trackID: NowPlayingIOS27.metadataArtworkTrackId)

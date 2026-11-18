@@ -1,3 +1,5 @@
+> Archived release. Current release: [Shrubify 4.1.3](RELEASE-4.1.3.md). The navigation component test from this release did not cover the reported Spotify iPad UI failures.
+
 # Shrubify 4.1.2
 
 This hotfix addresses the playback crash and oversized navigation backing reported in 4.1.1.

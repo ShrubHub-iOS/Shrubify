@@ -256,7 +256,7 @@ struct EeveeSpotify: Tweak {
         DispatchQueue.main.async { ShrubifyReplayStore.shared.start() }
         if !stabilityMode {
             activateEvolvedInterface()
-            activateRemoteFlags()
+            if EvolvedInterfaceAvailability.supportsCustomInterface { activateRemoteFlags() }
         }
         activateRatingPromptBlock()
 

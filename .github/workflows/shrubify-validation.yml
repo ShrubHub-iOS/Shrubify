@@ -112,7 +112,8 @@ jobs:
     timeout-minutes: 30
 
   navigation:
-    name: Render iPad navigation regression
+    name: Experimental capsule component (not device acceptance)
+    if: ${{ inputs.navigation_only }}
     runs-on: macos-15-intel
     timeout-minutes: 18
     steps:

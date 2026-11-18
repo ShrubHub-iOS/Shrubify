@@ -8,8 +8,19 @@ import ObjectiveC.runtime
 
 struct PlayerAppearanceGroup: HookGroup {}
 
+/// Preserve Spotify's tablet presentation and real controls during recovery.
+enum EvolvedInterfaceAvailability {
+    static var usesNativeTabletInterface: Bool { UIDevice.current.userInterfaceIdiom == .pad }
+    static var supportsCustomInterface: Bool { !usesNativeTabletInterface }
+}
+
 func activateEvolvedInterface() {
     _ = UserDefaults.normalizeNowPlayingLayoutKeys()
+    activateSpotifyURIOpener()
+    guard EvolvedInterfaceAvailability.supportsCustomInterface else {
+        writeDebugLog("[Shrubify] iPad UI recovery: native player, navigation and page layouts; custom interface hooks skipped")
+        return
+    }
     if let controller = NSClassFromString("NowPlaying_ScrollImpl.NPVScrollViewController"),
        ["viewWillAppear:", "viewDidAppear:", "viewWillDisappear:"].allSatisfy({
            class_getInstanceMethod(controller, NSSelectorFromString($0)) != nil
@@ -24,7 +35,6 @@ func activateEvolvedInterface() {
     activatePlayerCardsDeclutter()
     activateNowPlayingControls()
     activateCoverFlashGuard()
-    activateSpotifyURIOpener()
     activateEntityPageHeader()
     activateArtistBioTranslateGuard()
     activatePlayerMenuOffsetRow()
@@ -39,10 +49,15 @@ func activateEvolvedInterface() {
 struct LiquidGlassSettingsView: View {
     var body: some View {
         List {
-            Section(header: Text("Evolved UI"), footer: Text("Evolved’s player, tab bar, mini-player and page designs replace the previous glass renderer. System glass effects require iOS 26 or later.")) {
-                SettingsLink(title: "Player design", icon: "play.rectangle", color: .blue) { NowPlayingSettingsView() }
-                SettingsLink(title: "Tabs and mini-player", icon: "rectangle.bottomthird.inset.filled", color: .purple) { TabBarAndMiniBarSettingsView() }
-                SettingsLink(title: "Home, library and pages", icon: "square.grid.2x2", color: .orange) { PagesAppearanceSettingsView() }
+            Section(header: Text("Evolved UI"), footer: Text("Custom interface effects require compatible Spotify layouts. System glass requires iOS 26 or later.")) {
+                if EvolvedInterfaceAvailability.usesNativeTabletInterface {
+                    Text("iPad compatibility recovery is active. Spotify handles its player, fullscreen presentation, navigation and page layouts. Expanded lyrics sources remain available.")
+                        .font(.footnote)
+                } else {
+                    SettingsLink(title: "Player design", icon: "play.rectangle", color: .blue) { NowPlayingSettingsView() }
+                    SettingsLink(title: "Tabs and mini-player", icon: "rectangle.bottomthird.inset.filled", color: .purple) { TabBarAndMiniBarSettingsView() }
+                    SettingsLink(title: "Home, library and pages", icon: "square.grid.2x2", color: .orange) { PagesAppearanceSettingsView() }
+                }
                 SettingsLink(title: "Lyrics appearance", icon: "textformat.size", color: .green) { EeveeLyricsAppearanceSettingsView() }
                 SettingsLink(title: "Open-source licenses", icon: "doc.text", color: .gray) { EeveeLicensesSettingsView() }
             }

@@ -37,7 +37,7 @@ var coverProbeHeightKey: UInt8 = 0
 /// · `+Layout`：文字块识别、满幅封面、取色渐变
 /// · `+Hooks`：`activateEntityPageHeader()` 挂点
 enum EntityPageHeaderManager {
-    static var isEnabled: Bool { UserDefaults.entityPageAMHeader }
+    static var isEnabled: Bool { UserDefaults.entityPageAMHeader && EvolvedInterfaceAvailability.supportsCustomInterface }
 
     static var applying = false
     static var logged = Set<String>()

@@ -1,3 +1,5 @@
+> **4.1.3 recovery:** custom interface hooks are not activated on iPad. Native player, fullscreen, navigation and page controls take precedence while tablet integration is unfinished. The expanded provider layer remains active. The historical capsule screenshot check is not proof of Spotify device compatibility.
+
 # Evolved player, UI and lyrics port
 
 Imported from [zbzxbg/EeveeSpotifyEvolved](https://github.com/zbzxbg/EeveeSpotifyEvolved)
