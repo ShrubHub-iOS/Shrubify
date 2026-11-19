@@ -65,23 +65,37 @@ enum ShrubifyLiquidGlass {
 
     /// Master switch. Default on: Shrubify ships glass, not flat panels.
     static var isEnabled: Bool {
-        UserDefaults.container.object(forKey: enabledKey) as? Bool ?? true
+        UserDefaults.standard.object(forKey: enabledKey) as? Bool ?? true
     }
 
     static var style: ShrubifyGlassStyle {
-        guard let raw = UserDefaults.container.string(forKey: styleKey),
+        guard let raw = UserDefaults.standard.string(forKey: styleKey),
               let style = ShrubifyGlassStyle(rawValue: raw) else { return .regular }
         return style
     }
 
     /// 0…1. Drives tint, sheen and rim strength together.
     static var intensity: CGFloat {
-        let stored = UserDefaults.container.object(forKey: intensityKey) as? Double ?? 0.55
+        let stored = UserDefaults.standard.object(forKey: intensityKey) as? Double ?? 0.55
         return CGFloat(min(max(stored, 0), 1))
     }
 
+    /// The user's accent colour, or Shrubify green when none is set.
+    ///
+    /// Read directly rather than through `Theme`: this file is also compiled
+    /// into the isolated lyrics-interaction harness, which has no Theme or
+    /// settings extension.
     static var accent: UIColor {
-        Theme.color(Theme.accentOrGreen(UserDefaults.accentRGB))
+        let stored = UserDefaults.standard.object(forKey: "accentColorRGB") as? Int ?? -1
+        guard stored >= 0 else {
+            return UIColor(red: 0.114, green: 0.725, blue: 0.329, alpha: 1)
+        }
+        return UIColor(
+            red: CGFloat((stored >> 16) & 0xFF) / 255,
+            green: CGFloat((stored >> 8) & 0xFF) / 255,
+            blue: CGFloat(stored & 0xFF) / 255,
+            alpha: 1
+        )
     }
 
     /// A fresh plate. `radius == nil` means a capsule.

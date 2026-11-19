@@ -32,6 +32,7 @@ app_files = [
     'Sources/EeveeSpotify/Karaoke/KaraokeTiming.swift',
     'Sources/EeveeSpotify/Karaoke/KaraokeReadingPane.swift',
     'Sources/EeveeSpotify/Karaoke/KaraokePlaybackControls.swift',
+    'Sources/EeveeSpotify/Appearance/ShrubifyLiquidGlass.swift',
     'Sources/EeveeSpotify/Appearance/GlassCapsule.swift',
     'Sources/EeveeSpotify/Appearance/NativeTabletGlass.swift',
     'Sources/EeveeSpotify/Appearance/NativeGlassGeometry.swift',

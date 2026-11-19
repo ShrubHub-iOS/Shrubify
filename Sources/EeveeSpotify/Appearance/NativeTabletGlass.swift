@@ -60,7 +60,7 @@ enum NativeTabletGlass {
 
     /// Default on for the native iPad bars; a stored choice still wins.
     nonisolated static var isOnForCurrentDevice: Bool {
-        UserDefaults.container.object(forKey: preferenceKey) as? Bool ?? true
+        UserDefaults.standard.object(forKey: preferenceKey) as? Bool ?? true
     }
 
     static func reapply() {
