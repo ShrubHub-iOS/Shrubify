@@ -1,3 +1,11 @@
+# 4.1.9
+
+- Rebuild Liquid Glass as one shared material for the player, tab bar, mini-player, lyrics key and the native iPad bottom bars. iOS 26 uses `UIGlassEffect`; older supported versions use a tuned blur with the same rim and specular sheen, and Reduce Transparency still yields an opaque fill.
+- Add a single Studio -> App appearance -> Liquid Glass page with a master switch, Clear/Regular/Tinted material, live intensity and the iPad bottom-bar backing, so the same choice applies on iPhone and iPad.
+- Default the native iPad bottom-bar glass on and drive it from the same master switch.
+- Restore the custom lyrics entry in the native player: it joins the recognised footer row on iPhone and falls back to a floating Liquid Glass button on iPad layouts without that row.
+- Harden in-stream ad blocking with ad-break endpoint matching (`adbreak`, `adslot`, `UpdateAdState`, `SetAlwaysEligibleForAdBreak`, `adlogic`, ad media paths) and independent kills for the ad-slot registrar, ad state controller and Betamax audio-ad picture-in-picture service.
+
 # 4.1.8
 
 - Repair native hit regions for lyrics Close and timing controls; preserve the already working controls.

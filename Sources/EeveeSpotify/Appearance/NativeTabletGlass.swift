@@ -9,6 +9,7 @@ enum NativeTabletGlass {
 
     private static let bars = NSMapTable<UIView, State>.weakToStrongObjects()
     private static var accessibilityObserver: NSObjectProtocol?
+    private static var glassObserver: NSObjectProtocol?
     private static var enabled = false
 
     @MainActor private final class State {
@@ -49,14 +50,26 @@ enum NativeTabletGlass {
         accessibilityObserver = NotificationCenter.default.addObserver(
             forName: UIAccessibility.reduceTransparencyStatusDidChangeNotification, object: nil, queue: .main
         ) { _ in onMainThreadSync { reapply() } }
+        // One material for the whole app: a change on the Liquid Glass page
+        // must reach these bare bars without reopening the player.
+        glassObserver = NotificationCenter.default.addObserver(
+            forName: .shrubifyLiquidGlassDidChange, object: nil, queue: .main
+        ) { _ in onMainThreadSync { reapply() } }
         reapply()
+    }
+
+    /// Default on for the native iPad bars; a stored choice still wins.
+    nonisolated static var isOnForCurrentDevice: Bool {
+        UserDefaults.container.object(forKey: preferenceKey) as? Bool ?? true
     }
 
     static func reapply() {
         guard #available(iOS 26.0, *), accessibilityObserver != nil else { return }
         // A missing key means native. An explicit choice from an older install
         // still works, but even explicit ON means bars only.
-        enabled = UserDefaults.standard.bool(forKey: preferenceKey) && !UIAccessibility.isReduceTransparencyEnabled
+        enabled = ShrubifyLiquidGlass.isEnabled
+            && isOnForCurrentDevice
+            && !UIAccessibility.isReduceTransparencyEnabled
         for case let host as UIView in bars.keyEnumerator().allObjects {
             guard let state = bars.object(forKey: host) else { continue }
             if enabled, host.window != nil { update(host, state) } else { state.remove() }
@@ -116,10 +129,7 @@ enum NativeTabletGlass {
             state.remove() // Spotify replaced the backing; release our old edits.
             state.owner = owner
         }
-        let glass = UIGlassEffect(style: .regular)
-        glass.isInteractive = false
-        let plate = UIVisualEffectView(effect: glass)
-        plate.cornerConfiguration = .capsule()
+        let plate = ShrubifyLiquidGlass.makePlate(radius: nil, interactive: false)
         plate.accessibilityIdentifier = "shrubify.native.glass.material"
         plate.isUserInteractionEnabled = false
         plate.accessibilityElementsHidden = true

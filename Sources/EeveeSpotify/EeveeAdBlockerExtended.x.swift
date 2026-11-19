@@ -30,6 +30,9 @@ struct HtmlAdViewGroup: HookGroup {}
 struct DSAAdViewGroup: HookGroup {}
 struct ScrollFeedAdServiceGroup: HookGroup {}
 struct ScrollFeedAdControllerGroup: HookGroup {}
+struct AdSlotRegistrarGroup: HookGroup {}
+struct AudioAdPipServiceGroup: HookGroup {}
+struct AdStateControllerGroup: HookGroup {}
 
 private let killAdsServiceImpl         = true
 private let killInStreamAdsService     = true
@@ -288,6 +291,39 @@ class LeavebehindAdElementProviderKill: ClassHook<NSObject> {
     }
 }
 
+// Ad-break bookkeeping. `AdSlotRegistrarImpl` registers the slots that make
+// an in-stream break eligible, and the Betamax coordinator owns the
+// audio-ad picture-in-picture player (the "Advertisement in progress" screen).
+// Starving both keeps a free-tier session from scheduling the break at all.
+class AdSlotRegistrarKill: ClassHook<NSObject> {
+    typealias Group = AdSlotRegistrarGroup
+    static let targetName =
+        "_TtC28AdsPlatform_AdsBaseSwiftImpl19AdSlotRegistrarImpl"
+
+    func load() {
+        adlog("AdSlotRegistrarImpl.load")
+    }
+}
+
+class AudioAdPictureInPictureServiceKill: ClassHook<NSObject> {
+    typealias Group = AudioAdPipServiceGroup
+    static let targetName =
+        "_TtC46Betamax_AudioAdPictureInPictureCoordinatorImpl41AudioAdPictureInPictureCoordinatorService"
+
+    func load() {
+        adlog("AudioAdPictureInPictureCoordinatorService.load")
+    }
+}
+
+class AdStateControllerKill: ClassHook<NSObject> {
+    typealias Group = AdStateControllerGroup
+    static let targetName = "_TtC19AdsPlatform_AdsImpl17AdStateController"
+
+    func load() {
+        adlog("AdStateController.load")
+    }
+}
+
 // HTML-backed brand-ad creative. NSObject-based with an internal cast:
 // ElementUI classes have proven non-UIView on some 9.1.x builds.
 class HtmlAdElementUIKill: ClassHook<NSObject> {
@@ -350,6 +386,9 @@ private func activateAvailableAdHooks() {
         (LeavebehindAdElementProviderKill.targetName, "load", false, { LeavebehindAdElementProviderGroup().activate() }),
         (HtmlAdElementUIKill.targetName, "didMoveToSuperview", true, { HtmlAdViewGroup().activate() }),
         (DSAMainViewKill.targetName, "didMoveToSuperview", true, { DSAAdViewGroup().activate() }),
+        (AdSlotRegistrarKill.targetName, "load", false, { AdSlotRegistrarGroup().activate() }),
+        (AudioAdPictureInPictureServiceKill.targetName, "load", false, { AudioAdPipServiceGroup().activate() }),
+        (AdStateControllerKill.targetName, "load", false, { AdStateControllerGroup().activate() }),
     ]
     for (className, selectorName, requiresView, activate) in targets {
         guard !activatedAdTargets.contains(className),

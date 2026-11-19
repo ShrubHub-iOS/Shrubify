@@ -83,7 +83,24 @@ extension URL {
         }
         
         // Block ad-logic (Marquee, in-stream ads)
-        if path.contains("/ad-logic/") {
+        if path.contains("/ad-logic/") || path.contains("/adlogic/") {
+            return true
+        }
+
+        // Ad-break bookkeeping and ad-state RPCs. These decide whether an
+        // in-stream audio ad is eligible, so a free-tier account can still get
+        // an ad even when the creative endpoints are blocked.
+        if path.contains("adbreak") || path.contains("ad-break")
+            || path.contains("adslot") || path.contains("ad-slot")
+            || path.contains("updateadstate")
+            || path.contains("setalwayseligibleforadbreak") {
+            return true
+        }
+
+        // Ad creative media and its player plumbing.
+        if path.contains("audio-ad/") || path.contains("video-ad/")
+            || path.contains("in-stream-ad") || path.contains("in-streamad")
+            || path.contains("ad-player/") || path.contains("adplayer/") {
             return true
         }
         
@@ -94,9 +111,11 @@ extension URL {
         }
         
         // Block Esperanto ad slot service (in-stream and overlay ads)
-        if path.contains("/esperanto/") && path.split(separator: "/").contains(where: {
-            ["ads", "ad", "ad-slot", "ad-slots", "adslotservice", "adservice"].contains(String($0))
-                || $0.hasSuffix(".adslotservice") || $0.hasSuffix(".adservice")
+        if path.contains("/esperanto/") && self.path.lowercased().split(separator: "/").contains(where: { segment in
+            let name = String(segment)
+            return ["ads", "ad", "ad-slot", "ad-slots", "adslotservice", "adservice"].contains(name)
+                || name.hasSuffix(".adslotservice") || name.hasSuffix(".adservice")
+                || name.contains("adbreak") || name.contains("adslot")
         }) {
             return true
         }

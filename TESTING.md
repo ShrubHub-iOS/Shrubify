@@ -1,4 +1,12 @@
-# Shrubify 4.1.8 testing checklist
+# Shrubify 4.1.9 testing checklist
+
+## 4.1.9 glass, player and ad acceptance
+
+- Studio → App appearance → **Liquid Glass** on iPhone and iPad: switch the material between Clear/Regular/Tinted and drag intensity while the player, tab bar and mini-player are visible; every mounted surface must update without relaunching.
+- Confirm Reduce Transparency replaces the material with an opaque fill and Increase Contrast strengthens the rim on both idioms.
+- iPadOS 26: enable **Glass on bottom bars**; the native tab bar and mini-player get the same material. Turn the master switch off and confirm both return to Spotify's original backings.
+- Open the player on iPhone and iPad: the custom lyrics button must be reachable. On layouts without the recognised footer row it appears as a floating glass button and opens the fullscreen custom lyrics view.
+- Play a free-tier session through several track changes and check that no in-stream audio ad, under-player ad card or ad-break eligibility request appears. Inspect the debug log for `[AdBlock]` attribution when one does.
 
 ## UI changes on this branch
 

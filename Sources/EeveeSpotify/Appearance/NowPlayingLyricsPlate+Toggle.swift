@@ -120,10 +120,11 @@ extension NowPlayingLyricsPlate {
         }
 
         let zone = UIControl(frame: wanted)
-        zone.backgroundColor = UIColor.white.withAlphaComponent(0.12)
+        zone.backgroundColor = .clear
         zone.layer.cornerRadius = toggleSide / 2
         zone.layer.cornerCurve = .continuous
         zone.clipsToBounds = true
+        installGlass(in: zone)
         zone.accessibilityIdentifier = "eevee-npv-lyrics-toggle"
         zone.accessibilityLabel = "歌词"
         zone.addTarget(
@@ -158,6 +159,7 @@ extension NowPlayingLyricsPlate {
     /// （收起仍然靠点这一颗 —— 图标不变，位置也不变。）
     static func applyToggleAppearance(to zone: UIControl) {
         let symbol = "quote.bubble.fill"
+        installGlass(in: zone)
 
         let glyph = zone.subviews
             .compactMap { $0 as? UIImageView }
@@ -182,6 +184,19 @@ extension NowPlayingLyricsPlate {
         // 判据从 `hasLyricsAvailable`（只认"有时间轴的词级/行级"）换成热路径版的
         // `hasAnythingToDrawFast` —— 否则"没有时间轴但能静态列出全文"那一档会被错误地变灰。
         zone.alpha = hasAnythingToDrawFast() ? 1 : toggleDisabledAlpha
+    }
+
+    /// Liquid Glass behind the lyrics key — the same material as the player,
+    /// tab bar and mini-player, on iPhone and iPad.
+    static func installGlass(in zone: UIControl) {
+        guard !zone.subviews.contains(where: { $0 is ShrubifyGlassPlate }) else { return }
+        let plate = ShrubifyLiquidGlass.makePlate(radius: toggleSide / 2, interactive: true)
+        plate.frame = zone.bounds
+        plate.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        plate.isUserInteractionEnabled = false
+        plate.accessibilityElementsHidden = true
+        zone.insertSubview(plate, at: 0)
+        zone.backgroundColor = .clear
     }
 
     /// 把那枚键拿走（关开关 / 离开页面）。
