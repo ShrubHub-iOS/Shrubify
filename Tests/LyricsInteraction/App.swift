@@ -77,8 +77,10 @@ final class RootController: UIViewController {
         let toggle = UIButton(type: .system); toggle.setTitle("Toggle native glass", for: .normal)
         toggle.frame = CGRect(x: 300, y: 190, width: 240, height: 48); toggle.accessibilityIdentifier = "toggle-glass"
         toggle.addAction(UIAction { [weak self] _ in
+            // Flip the effective choice: with no stored value the bars are
+            // already glassed, so reading the raw key would leave them on.
             let key = NativeTabletGlass.preferenceKey
-            UserDefaults.standard.set(!UserDefaults.standard.bool(forKey: key), forKey: key)
+            UserDefaults.standard.set(!NativeTabletGlass.isOnForCurrentDevice, forKey: key)
             NativeTabletGlass.reapply(); self?.reportMaterial()
         }, for: .touchUpInside); view.addSubview(toggle)
         view.addSubview(content)

@@ -96,8 +96,12 @@ final class ControlsTests: XCTestCase {
         XCTAssertEqual(state.label, "0 effects · intact · reused")
         for id in ["Components.UI.CardLibrary.Artwork", "Encore.ImageView"] { assertSharpCover(app.images[id]) }
         let first = app.buttons["track-0"]
-        for _ in 0..<8 where !first.isHittable { shelf.swipeRight() }
-        XCTAssertTrue(first.isHittable); first.tap(); XCTAssertEqual(action.label, "track 0")
+        // Scroll all the way back instead of asking for hittability of a cell
+        // the shelf has already carried off screen: XCTest fails that query
+        // ("activation point invalid") rather than answering false.
+        for _ in 0..<8 { shelf.swipeRight() }
+        XCTAssertTrue(first.waitForExistence(timeout: 5)); XCTAssertTrue(first.isHittable)
+        first.tap(); XCTAssertEqual(action.label, "track 0")
     }
 
     @MainActor
@@ -105,16 +109,16 @@ final class ControlsTests: XCTestCase {
         let app = XCUIApplication(); app.launch()
         let state = app.staticTexts["material-state"]
         XCTAssertTrue(state.waitForExistence(timeout: 10))
-        XCTAssertEqual(state.label, "0/0 bars · 0 wells · intact · native") // no preference set
+        XCTAssertEqual(state.label, "1/1 bars · 0 wells · intact · cleared") // glass ships on
         app.buttons["TabBar.Item.fixture-0"].tap()
         XCTAssertEqual(app.staticTexts["tab-count"].label, "1")
         app.buttons["toggle-glass"].tap()
-        XCTAssertEqual(state.label, "1/1 bars · 0 wells · intact · cleared")
+        XCTAssertEqual(state.label, "0/0 bars · 0 wells · intact · native")
         for index in 0..<5 { app.buttons["TabBar.Item.fixture-\(index)"].tap() }
         XCTAssertEqual(app.staticTexts["tab-count"].label, "6")
         app.buttons["mini-play"].tap(); XCTAssertEqual(app.buttons["mini-play"].label, "Pause")
         app.buttons["toggle-glass"].tap()
-        XCTAssertEqual(state.label, "0/0 bars · 0 wells · intact · native")
+        XCTAssertEqual(state.label, "1/1 bars · 0 wells · intact · cleared")
         app.buttons["TabBar.Item.fixture-4"].tap()
         XCTAssertEqual(app.staticTexts["tab-count"].label, "7")
     }
