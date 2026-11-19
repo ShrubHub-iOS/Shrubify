@@ -28,6 +28,7 @@ on:
       - 'Assets/**'
       - 'config/ipa-sources.json'
       - 'scripts/**'
+      - 'Tests/**'
       - 'Makefile'
       - 'control'
       - '.github/workflows/shrubify-release.yml'
