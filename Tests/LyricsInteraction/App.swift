@@ -11,13 +11,17 @@ struct KaraokePlaybackSnapshot {
     var isPlaybackStateKnown = true
     var trackID: String? = "fixture"
 }
-extension Notification.Name { static let eeveeKaraokeLyricsChanged = Notification.Name("eeveeKaraokeLyricsChanged") }
 
 @main
 final class InteractionApp: UIResponder, UIApplicationDelegate {
     func application(_ application: UIApplication, didFinishLaunchingWithOptions options: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         UserDefaults.standard.set(true, forKey: "ShrubifyCustomLyricsGlass")
-        UserDefaults.standard.set(true, forKey: "ShrubifyNativeTabletGlass")
+        if ProcessInfo.processInfo.arguments.contains("saved-glass-on") {
+            UserDefaults.standard.set(true, forKey: NativeTabletGlass.preferenceKey)
+        } else {
+            UserDefaults.standard.removeObject(forKey: NativeTabletGlass.preferenceKey)
+        }
+        NativeTabletGlass.start()
         return true
     }
     func application(_ application: UIApplication, configurationForConnecting session: UISceneSession, options: UIScene.ConnectionOptions) -> UISceneConfiguration {
@@ -49,8 +53,12 @@ final class RootController: UIViewController {
     private let barSurface = UIVisualEffectView(effect: UIBlurEffect(style: .systemMaterialDark))
     private var barHost: UIView { barSurface.contentView }
     private let content = ContentFixture(frame: .zero)
+    private let miniHost = UIView()
+    private let mini = UIView()
+    private let miniPlay = UIButton(type: .system)
     private let row = UIStackView()
     private let legacy = TabBarGradientView()
+    private var baselineSize = CGSize.zero
     private var nativeFrames: [CGRect] = []
 
     override func viewDidLoad() {
@@ -69,17 +77,25 @@ final class RootController: UIViewController {
         let toggle = UIButton(type: .system); toggle.setTitle("Toggle native glass", for: .normal)
         toggle.frame = CGRect(x: 300, y: 190, width: 240, height: 48); toggle.accessibilityIdentifier = "toggle-glass"
         toggle.addAction(UIAction { [weak self] _ in
-            UserDefaults.standard.set(!UserDefaults.standard.bool(forKey: "ShrubifyNativeTabletGlass"), forKey: "ShrubifyNativeTabletGlass")
+            let key = NativeTabletGlass.preferenceKey
+            UserDefaults.standard.set(!UserDefaults.standard.bool(forKey: key), forKey: key)
             NativeTabletGlass.reapply(); self?.reportMaterial()
         }, for: .touchUpInside); view.addSubview(toggle)
-        barSurface.frame = CGRect(x: 32, y: 300, width: 825, height: 84)
         view.addSubview(content)
         view.addSubview(barSurface)
+        miniHost.frame = CGRect(x: 568, y: 64, width: 240, height: 56); view.addSubview(miniHost)
+        mini.frame = miniHost.bounds; mini.accessibilityIdentifier = "SPTNowPlayingBar"
+        mini.backgroundColor = .darkGray; miniHost.addSubview(mini)
+        miniPlay.frame = CGRect(x: 64, y: 0, width: 112, height: 56)
+        miniPlay.accessibilityIdentifier = "mini-play"; miniPlay.setTitle("Play", for: .normal)
+        miniPlay.addAction(UIAction { [weak self] _ in self?.miniPlay.setTitle("Pause", for: .normal) }, for: .touchUpInside)
+        mini.addSubview(miniPlay)
         barHost.backgroundColor = .darkGray
         legacy.frame = CGRect(x: 0, y: -112, width: 825, height: 195); legacy.backgroundColor = .black
         legacy.accessibilityIdentifier = "fixture-legacy"
         barHost.addSubview(legacy)
-        row.frame = barHost.bounds; row.axis = .horizontal; row.distribution = .fillEqually
+        row.axis = .horizontal; row.distribution = .fillEqually
+        row.accessibilityIdentifier = "tabs-container-view-identifier"
         barHost.addSubview(row)
         for index in 0..<5 {
             let button = TabBarItemElementView(frame: .zero); button.setTitle("Tab \(index)", for: .normal)
@@ -93,26 +109,36 @@ final class RootController: UIViewController {
     }
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
-        content.frame = CGRect(x: 24, y: 402, width: min(660, view.bounds.width - 48), height: 180)
+        content.frame = CGRect(x: 24, y: 264, width: min(660, view.bounds.width - 48), height: 200)
+        barSurface.frame = CGRect(x: 32, y: view.bounds.height - 104, width: min(825, view.bounds.width - 64), height: 84)
+        barSurface.layoutIfNeeded()
         row.frame = barHost.bounds
         legacy.frame = CGRect(x: 0, y: -112, width: barHost.bounds.width, height: 195)
+        row.layoutIfNeeded()
+        if baselineSize != row.bounds.size {
+            baselineSize = row.bounds.size; nativeFrames = controlFrames
+        }
+        // Mirror the two layout hooks. The production API never receives the
+        // window, shelf, artwork or a cell; there is no test-only content pass.
+        NativeTabletGlass.layout(.tabs, in: barSurface)
+        NativeTabletGlass.layout(.miniPlayer, in: miniHost)
     }
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
         view.layoutIfNeeded()
-        if nativeFrames.isEmpty { nativeFrames = row.arrangedSubviews.map(\.frame) }
-        NativeTabletGlass.start()
-        NativeTabletGlass.reapply()
         reportMaterial()
     }
+    private var controlFrames: [CGRect] { row.arrangedSubviews.map(\.frame) + [miniPlay.frame] }
     private func reportMaterial() {
         content.report()
-        let plate = row.subviews.compactMap { $0 as? UIVisualEffectView }.first
-        let glass = plate?.effect is UIGlassEffect
-        let unchanged = nativeFrames == row.arrangedSubviews.map(\.frame)
-        let cleared = legacy.alpha == 0 && barSurface.effect == nil && (barHost.backgroundColor?.cgColor.alpha ?? 0) == 0
-        let icons = row.arrangedSubviews.flatMap(\.subviews).compactMap { $0 as? UIVisualEffectView }.filter { $0.effect is UIGlassEffect }.count
-        materialState.text = "\(glass ? "glass" : "native") · \(unchanged ? "frames intact" : "FRAMES CHANGED") · \(cleared ? "backing cleared" : "backing intact") · \(icons) icons"
+        let tabs = row.subviews.compactMap { $0 as? UIVisualEffectView }.filter { $0.effect is UIGlassEffect }
+        let minis = mini.subviews.compactMap { $0 as? UIVisualEffectView }.filter { $0.effect is UIGlassEffect }
+        let safe = (tabs + minis).allSatisfy { !$0.isUserInteractionEnabled && $0.accessibilityElementsHidden && $0.superview?.subviews.first === $0 }
+        let wells = (row.arrangedSubviews + [miniPlay]).reduce(0) { $0 + $1.fixtureGlassCount }
+        let cleared = legacy.alpha == 0 && barSurface.effect == nil && barHost.backgroundColor == .clear && mini.backgroundColor == .clear
+        let restored = legacy.alpha == 1 && barSurface.effect is UIBlurEffect && barHost.backgroundColor == .darkGray && mini.backgroundColor == .darkGray
+        let backing = cleared ? "cleared" : (restored ? "native" : "partial")
+        materialState.text = "\(tabs.count)/\(minis.count) bars · \(wells) wells · \(nativeFrames == controlFrames && safe ? "intact" : "changed") · \(backing)"
     }
     private func openLyrics() {
         let modal = KaraokeModal.make(onDismiss: { [weak self] in

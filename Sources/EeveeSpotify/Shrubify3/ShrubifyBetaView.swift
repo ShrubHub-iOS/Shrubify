@@ -14,7 +14,7 @@ struct ShrubifyBetaView: View {
             Section(header: Text("Made for daily use")) {
                 SettingsLabel(title: "More dependable settings", subtitle: "A separate settings window keeps your customizations together.", icon: "gearshape", color: .gray)
                 SettingsLabel(title: "Artwork that follows the music", subtitle: "Lyrics backgrounds refresh as tracks change and honor Reduce Motion and Low Power Mode.", icon: "photo", color: .pink)
-                SettingsLabel(title: "Keep your style", subtitle: "Studio holds player and app appearance, including native glass on iPad. Find text size and background blur under Lyrics → Lyrics appearance.", icon: "slider.horizontal.3", color: .blue)
+                SettingsLabel(title: "Keep your style", subtitle: "Studio holds player and app appearance, including optional glass on iPad bottom bars. Find text size and background blur under Lyrics → Lyrics appearance.", icon: "slider.horizontal.3", color: .blue)
             }
             Section(header: Text("Private Replay"), footer: Text("Replay remains opt-in and records estimates while Shrubify is active. Listening snapshots are not a capture of Spotify’s actual queue.")) {
                 SettingsLabel(title: "Find your listening", subtitle: "Search history, filter by last heard, export your records and keep separate track identities where available.", icon: "clock", color: .purple)

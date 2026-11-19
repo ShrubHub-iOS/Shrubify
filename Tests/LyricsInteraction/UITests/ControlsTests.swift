@@ -1,4 +1,5 @@
 import XCTest
+import UIKit
 
 final class ControlsTests: XCTestCase {
     @MainActor
@@ -54,44 +55,67 @@ final class ControlsTests: XCTestCase {
     }
 
     @MainActor
-    func testContentGlassRestoresReusedViewsAndLeavesNativeScrollAndTaps() {
-        let app = XCUIApplication(); app.launch()
-        let material = app.staticTexts["content-material-count"]
-        XCTAssertTrue(material.waitForExistence(timeout: 10))
-        XCTAssertEqual(material.label, "4 · intact")
-        let action = app.staticTexts["content-action"]
-        for (id, value) in [("Shortcut.Card.Home", "shortcut"), ("Album.Row.Library", "track"), ("SPTNowPlayingPlayButton", "play")] {
-            app.buttons[id].tap(); XCTAssertEqual(action.label, value)
+    private func assertSharpCover(_ element: XCUIElement, file: StaticString = #filePath, line: UInt = #line) {
+        // Sample the rendered pixels, not UIImage identity: a glass layer over
+        // an unchanged image still destroys this checkerboard's local contrast.
+        guard element.waitForExistence(timeout: 5), let image = element.screenshot().image.cgImage,
+              let gray = CGContext(data: nil, width: 80, height: 80, bitsPerComponent: 8, bytesPerRow: 80,
+                                   space: CGColorSpaceCreateDeviceGray(), bitmapInfo: CGImageAlphaInfo.none.rawValue),
+              let pixels = gray.data?.assumingMemoryBound(to: UInt8.self) else {
+            return XCTFail("Could not sample cover", file: file, line: line)
         }
-        let capture = XCTAttachment(screenshot: app.screenshot()); capture.name = "native-content-glass"; capture.lifetime = .keepAlways; add(capture)
-        app.buttons["toggle-glass"].tap(); XCTAssertEqual(material.label, "0 · intact")
-        app.buttons["toggle-glass"].tap(); XCTAssertEqual(material.label, "4 · intact")
-        app.buttons["reuse-row"].tap(); XCTAssertEqual(material.label, "3 · intact")
-        app.buttons["unknown-row"].tap(); XCTAssertEqual(action.label, "track")
-        let shelf = app.scrollViews["native-content-scroll"]
-        let end = app.buttons["shelf-end"]
-        for _ in 0..<3 where !end.isHittable { shelf.swipeLeft() }
-        XCTAssertTrue(end.isHittable)
-        end.tap(); shelf.swipeRight()
-        XCTAssertEqual(action.label, "shelf end")
+        gray.draw(image, in: CGRect(x: 0, y: 0, width: 80, height: 80))
+        var contrast = 0
+        for y in 4..<12 { for x in 4..<12 {
+            let index = (5 * y + 2) * gray.bytesPerRow + 5 * x + 2
+            contrast += abs(Int(pixels[index]) - Int(pixels[index + 5]))
+        } }
+        XCTAssertGreaterThan(contrast / 64, 220, "Cover is obscured", file: file, line: line)
     }
 
     @MainActor
-    func testWideNativeGlassDoesNotReplaceActionsOrMoveControls() {
+    func testSavedGlassPreferenceLeavesCoversSharpAndRecycledShelfNative() {
+        let app = XCUIApplication(); app.launchArguments.append("saved-glass-on"); app.launch()
+        let state = app.staticTexts["content-state"]
+        XCTAssertTrue(state.waitForExistence(timeout: 10))
+        XCTAssertEqual(app.staticTexts["material-state"].label, "1/1 bars · 0 wells · intact · cleared")
+        XCTAssertTrue(state.label.hasPrefix("0 effects · intact"))
+        for id in ["Components.UI.CardLibrary.Artwork", "Encore.ImageView"] { assertSharpCover(app.images[id]) }
+        let action = app.staticTexts["content-action"]
+        for (id, value) in [("Shortcut.Card.Home", "shortcut"), ("track-0", "track 0"), ("SPTNowPlayingPlayButton", "play")] {
+            app.buttons[id].tap(); XCTAssertEqual(action.label, value)
+        }
+        let shelf = app.collectionViews["native-shelf"]
+        let last = app.buttons["track-15"]
+        for _ in 0..<8 where !last.isHittable { shelf.swipeLeft() }
+        XCTAssertTrue(last.isHittable); last.tap()
+        XCTAssertEqual(action.label, "track 15")
+        XCTAssertEqual(state.label, "0 effects · intact · reused")
+        let capture = XCTAttachment(screenshot: app.screenshot()); capture.name = "unobscured-content-with-bars-on"; capture.lifetime = .keepAlways; add(capture)
+        app.buttons["toggle-glass"].tap()
+        XCTAssertEqual(state.label, "0 effects · intact · reused")
+        for id in ["Components.UI.CardLibrary.Artwork", "Encore.ImageView"] { assertSharpCover(app.images[id]) }
+        let first = app.buttons["track-0"]
+        for _ in 0..<8 where !first.isHittable { shelf.swipeRight() }
+        XCTAssertTrue(first.isHittable); first.tap(); XCTAssertEqual(action.label, "track 0")
+    }
+
+    @MainActor
+    func testOptionalBarBackingsDoNotReplaceActionsOrDecorateIcons() {
         let app = XCUIApplication(); app.launch()
         let state = app.staticTexts["material-state"]
         XCTAssertTrue(state.waitForExistence(timeout: 10))
-        XCTAssertEqual(state.label, "glass · frames intact · backing cleared · 5 icons")
-        for index in 0..<5 { app.buttons["TabBar.Item.fixture-\(index)"].tap() }
-        XCTAssertEqual(app.staticTexts["tab-count"].label, "5")
-        app.buttons["toggle-glass"].tap()
-        XCTAssertEqual(state.label, "native · frames intact · backing intact · 0 icons")
+        XCTAssertEqual(state.label, "0/0 bars · 0 wells · intact · native") // no preference set
         app.buttons["TabBar.Item.fixture-0"].tap()
-        XCTAssertEqual(app.staticTexts["tab-count"].label, "6")
+        XCTAssertEqual(app.staticTexts["tab-count"].label, "1")
         app.buttons["toggle-glass"].tap()
-        XCTAssertEqual(state.label, "glass · frames intact · backing cleared · 5 icons")
+        XCTAssertEqual(state.label, "1/1 bars · 0 wells · intact · cleared")
+        for index in 0..<5 { app.buttons["TabBar.Item.fixture-\(index)"].tap() }
+        XCTAssertEqual(app.staticTexts["tab-count"].label, "6")
+        app.buttons["mini-play"].tap(); XCTAssertEqual(app.buttons["mini-play"].label, "Pause")
+        app.buttons["toggle-glass"].tap()
+        XCTAssertEqual(state.label, "0/0 bars · 0 wells · intact · native")
         app.buttons["TabBar.Item.fixture-4"].tap()
         XCTAssertEqual(app.staticTexts["tab-count"].label, "7")
-        let capture = XCTAttachment(screenshot: app.screenshot()); capture.name = "native-glass-wide-dock"; capture.lifetime = .keepAlways; add(capture)
     }
 }
