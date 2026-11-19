@@ -152,7 +152,7 @@ final class ShrubifyGlassPlate: UIVisualEffectView {
         let center = NotificationCenter.default
         for name in [
             UIAccessibility.reduceTransparencyStatusDidChangeNotification,
-            UIAccessibility.increaseContrastStatusDidChangeNotification,
+            UIAccessibility.darkerSystemColorsStatusDidChangeNotification,
             Notification.Name.shrubifyLiquidGlassDidChange,
         ] {
             observers.append(
@@ -183,7 +183,8 @@ final class ShrubifyGlassPlate: UIVisualEffectView {
     func refresh() {
         let style = ShrubifyLiquidGlass.style
         let intensity = ShrubifyLiquidGlass.intensity
-        let contrast = UIAccessibility.isIncreaseContrastEnabled
+        // Increase Contrast is exposed as "Darker System Colors" in UIKit.
+        let contrast = UIAccessibility.isDarkerSystemColorsEnabled
 
         guard ShrubifyLiquidGlass.isEnabled else {
             effect = nil

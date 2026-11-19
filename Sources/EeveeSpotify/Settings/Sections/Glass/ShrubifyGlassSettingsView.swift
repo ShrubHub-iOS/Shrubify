@@ -48,11 +48,7 @@ struct ShrubifyGlassSettingsView: View {
                             .font(.footnote.monospacedDigit())
                             .foregroundColor(.secondary)
                     }
-                    Slider(value: $intensity, in: 0...1) { editing in
-                        guard !editing else { return }
-                        UserDefaults.container.set(intensity, forKey: ShrubifyLiquidGlass.intensityKey)
-                        ShrubifyLiquidGlass.notifyChange()
-                    }
+                    Slider(value: $intensity, in: 0...1)
                     .onChange(of: intensity) { value in
                         UserDefaults.container.set(value, forKey: ShrubifyLiquidGlass.intensityKey)
                         ShrubifyLiquidGlass.notifyChange()
