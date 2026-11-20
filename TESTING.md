@@ -1,9 +1,12 @@
-# Shrubify 4.2.3 testing checklist
+# Shrubify 4.2.4 testing checklist
 
-## 4.2.3 player glass and lyric-rescue acceptance
+## 4.2.4 one owner per bar and glass in the player
 
-- Studio -> Liquid Glass -> **Glass status** must add a **Player buttons: 3 of 3 glass** line once the player has been opened. Each of the three transport keys shows a glass ring; the glyphs stay sharp because the ring sits *behind* the button.
-- The player's transport row also carries one plate across the three keys, and the mini-player reads as glass in the bottom bar even when Spotify has renamed its container (the pass falls back to shape, then to the compact bar around the play key).
+- The tab bar must read as **one** capsule over the page: no doubled rim, no second capsule edge inside the first, and the page shows through it. On iPad the mini-player is owned by the native glass layer too (the iPhone mini-bar capsule is switched off there), so the two bars no longer overlap.
+- Open the full-screen player. One rounded glass card sits behind the title, progress bar, transport row and tool row, and each key (shuffle, previous, play, next, repeat, share, queue, lyrics, plus the top-left and top-right keys) has a faint glass circle behind it. Glyphs stay sharp because every plate is behind the button.
+- Studio -> Liquid Glass -> **Glass status** should read **Tab bar: native glass**, **Mini-player: native glass** and **Player: glass on** once the player has been opened, with **Player buttons: N with glass** above zero.
+- Turn Liquid Glass off and back on: the bars return to Spotify's own look byte for byte (backgrounds, materials and hidden gradients restored), then the glass returns without a restart.
+- 4.2.3 lyrics acceptance still applies: a source that cannot answer is rescued by LRCLIB (then Genius when its switch is on) before "no lyrics found", and a title with a suffix still resolves.
 - Play a popular song with a source that cannot answer (for example select Musixmatch with an invalid token). The lyrics must still appear: the log shows `safety net: trying LRCLIB` and the provider line names the source that actually answered.
 - A Spotify title with a suffix (`(feat. …)`, `- Remastered …`) must still resolve on LRCLIB: the log shows either an exact match for a stripped variant or `search matched "…"`.
 - Open lyrics for a track whose Musixmatch subtitle list is empty; the app must show "no lyrics found" at worst — never crash.

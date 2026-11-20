@@ -63,6 +63,18 @@ enum NativeTabletGlass {
         UserDefaults.standard.object(forKey: preferenceKey) as? Bool ?? true
     }
 
+    /// True when this bar already carries a live native plate. The window-pass
+    /// chrome asks this before mounting its fallback, because two owners on one
+    /// bar double the material, the rim and the sheen — the "fake glass" look.
+    static func owns(_ bar: Bar) -> Bool {
+        guard enabled, accessibilityObserver != nil else { return false }
+        for case let host as UIView in bars.keyEnumerator().allObjects {
+            guard let state = bars.object(forKey: host), state.bar == bar else { continue }
+            if let plate = state.plate, plate.window != nil { return true }
+        }
+        return false
+    }
+
     static func reapply() {
         guard #available(iOS 26.0, *), accessibilityObserver != nil else { return }
         // A missing key means native. An explicit choice from an older install
@@ -111,6 +123,17 @@ enum NativeTabletGlass {
         } else { content = owner.bounds }
         guard let frame = NativeGlassGeometry.frame(bounds: owner.bounds, content: content, miniPlayer: state.bar == .miniPlayer)
         else { state.remove(); return }
+        // The window-pass fallback may already own this bar. The native bars
+        // always win, and this has to run **before** the "Spotify already has
+        // glass" checks below: our own fallback is a `UIGlassEffect` view, so
+        // those checks would read it as Spotify's material and yield to it.
+        // The fallback notices on its next pass and leaves the backing alone
+        // (it must not undo a clear that this plate needs).
+        for subview in owner.subviews {
+            guard let id = subview.accessibilityIdentifier,
+                  id.hasPrefix("shrubify.glass.chrome.") else { continue }
+            subview.removeFromSuperview()
+        }
         // Yield if Spotify supplies its own bar material, even after install.
         if owner.subviews.contains(where: { $0 !== state.plate && ($0 as? UIVisualEffectView)?.effect is UIGlassEffect }) {
             state.remove(); return
@@ -120,14 +143,6 @@ enum NativeTabletGlass {
             if (view as? UIVisualEffectView)?.effect is UIGlassEffect { state.remove(); return }
             if view === host { break }
             ancestor = view.superview
-        }
-        // The window chrome pass may already own this host. Two plates in one
-        // row would double the material and the rim.
-        if owner.subviews.contains(where: {
-            $0.accessibilityIdentifier?.hasPrefix("shrubify.glass.chrome.") ?? false
-        }) {
-            state.remove()
-            return
         }
         if let plate = state.plate {
             if plate.superview === owner {

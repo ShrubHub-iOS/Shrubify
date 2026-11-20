@@ -1,3 +1,11 @@
+# 4.2.4
+
+- Give each bottom bar exactly one glass owner. The native iPad glass layer wins the tab bar and mini-player; the window-pass fallback checks for it before mounting, drops its own plate when the native one appears, and skips its backing undo in that case so it cannot paint over the native material. The iPhone mini-bar capsule is switched off on iPad (round artwork unaffected). Overlapping capsules were what made the tab bar look like a plastic remake of Liquid Glass.
+- Make the shared material read as glass: the specular sheen is a narrow top-edge highlight instead of a full-height white wash, its alpha is capped regardless of boost, and the neutral tint has a hard ceiling.
+- Put glass in the player on iPad: a rounded card behind the whole control block (title, progress, time, transport, tools) and a circle behind every key (shuffle, previous, play, next, repeat, share, queue, lyrics and the two top keys). Plates sit behind the controls, never resize them and never change a hit region; nested controls are skipped so a key cannot get a second rim.
+- Activate a player hook on the transport row and make the window scan breadth-first: the previous depth-first walk exhausted its node budget in the Home feed and never reached the modal player, which is why the player never mounted.
+- Report the player and the key count in Studio's **Glass status**, and label the two bars as native glass.
+
 # 4.2.3
 
 - Put glass on the player's transport keys: each of the previous, play and next buttons now carries its own decorative glass circle, inserted behind the button so the glyph is never blurred and the button keeps its hit region.

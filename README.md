@@ -1,6 +1,6 @@
-> **4.2.3 finishes the glass and fixes lyrics detection:** the player's transport keys now get their own glass circles (found through their common ancestor, not one shared superview), the mini-player is recognised by shape when Spotify renames it, and a failed lyrics source is rescued by a free, token-less provider instead of showing "no lyrics found".
+> **4.2.4 makes the glass look like glass everywhere:** the bottom bars now have exactly one owner each (the tab bar was drawing two or three overlapping capsules, which is why it looked like a plastic remake), the material no longer washes the page out white, and the player's own control block and every key finally carry glass — including on iPad, where the player had none.
 
-# Shrubify 4.2.3 — Listening is easy with Shrubify!
+# Shrubify 4.2.4 — Listening is easy with Shrubify!
 
 **Created and maintained by shrubbery and the ShrubHub team.**
 
@@ -18,11 +18,11 @@ Shrubify is an **unofficial, community-developed iOS/iPadOS tweak** based on an 
 | **Evolved UI** | Apple Music-style player, fading artwork backdrop, glass tabs and mini-player, and redesigned home/library/album/playlist/artist pages. | Custom tablet UI is paused; iPad keeps its native player and gains the shared Liquid Glass entry points. Private UI hooks on supported devices require version-specific checks. |
 | **Compatibility & Diagnostics** | Optional Stability Mode, version reporting, issue links and debug-log export. | Cannot guarantee compatibility with all Spotify builds or eliminate every crash. |
 
-Shrubify 4.2.3 keeps the original pre-Evolved fullscreen custom lyrics view and the working native iPad player, and puts real Liquid Glass on the tab bar, the mini-player, the player's transport row and each transport key. The plates anchor on the tab items and transport buttons themselves — through their common ancestor, so a build that wraps every key in its own view still gets one row and three circles — and the bars' opaque backing is cleared with a captured undo so the glass shows the page beneath instead of a black pill. Lyrics lookup now rescues a failed source with a free, token-less provider before it ever reports "no lyrics found", LRCLIB matches titles with suffix variants or a scored search instead of one exact string, and the Musixmatch path no longer crashes on an empty subtitle list. Studio shows which surfaces were found. Evolved tablet integration remains unfinished; real Spotify interactions require device validation.
+Shrubify 4.2.4 keeps the original pre-Evolved fullscreen custom lyrics view and the working native iPad player, and gives every surface **one** glass owner. The tab bar and mini-player belong to the native iPad glass layer; the window pass only fills in when that layer cannot mount, and it drops its own plate (and its cleared backing) the moment the native one appears — previously two or three capsules were drawn on the same bar, which is exactly why it read as a fake Liquid Glass remake. The shared material lost the full-height white wash that turned glass grey, so plates now show the page through them. The player carries a rounded glass card behind its whole control block (title, progress, transport, tools) plus a circle behind every key, mounted from the player's own layout hook because the iPad build never activated the player chrome before. Lyrics lookup keeps the free-source safety net from 4.2.3. Studio shows which surfaces were found. Evolved tablet integration remains unfinished; real Spotify interactions require device validation.
 
 ## Install and build
 
-- **Shrubify 4.2.3 release notes:** [RELEASE-4.2.3.md](RELEASE-4.2.3.md)
+- **Shrubify 4.2.4 release notes:** [RELEASE-4.2.4.md](RELEASE-4.2.4.md)
 
 - **Source and full setup:** [SHRUBIFY-SETUP.md](SHRUBIFY-SETUP.md)
 - **Changes in this release:** [CHANGELOG.md](CHANGELOG.md)

@@ -225,9 +225,11 @@ final class ShrubifyGlassPlate: UIVisualEffectView {
                 min(0.42, style.baseTintAlpha * (0.4 + intensity) * boost)
             )
         case .clear, .regular:
+            // The tint only nudges the material; anything heavier turns the
+            // system glass into the flat grey slab it replaced.
             let alpha = min(
-                0.30,
-                style.baseTintAlpha * (0.35 + intensity * 0.9) * boost + 0.06 * (boost - 1)
+                0.13,
+                style.baseTintAlpha * (0.30 + intensity * 0.8) * boost + 0.015 * (boost - 1)
             )
             tint = UIColor(red: 0.96, green: 0.99, blue: 1, alpha: alpha)
         }
@@ -242,20 +244,26 @@ final class ShrubifyGlassPlate: UIVisualEffectView {
             effect = UIBlurEffect(style: style.blurStyle)
             // A blur cannot carry a tint; a translucent fill over it can.
             contentView.backgroundColor = tint.withAlphaComponent(
-                min(0.32, tint.cgColor.alpha * 0.6)
+                min(0.16, tint.cgColor.alpha * 0.6)
             )
         }
 
-        let sheenAlpha = min(0.62, (0.10 + intensity * 0.32) * boost)
+        // A white wash over the whole plate is what made the bars read as grey
+        // plastic instead of glass. Glass is mostly the backdrop itself plus a
+        // narrow specular band at the top edge, so the sheen now fades out by
+        // the upper third and its alpha is capped no matter how much `boost`
+        // asks for.
+        let sheenAlpha = min(0.19, (0.035 + intensity * 0.08) * min(boost, 1.25))
         sheen.isHidden = false
+        sheen.locations = [0, 0.16, 0.46]
         sheen.colors = [
             UIColor.white.withAlphaComponent(sheenAlpha).cgColor,
-            UIColor.white.withAlphaComponent(sheenAlpha * 0.22).cgColor,
+            UIColor.white.withAlphaComponent(sheenAlpha * 0.30).cgColor,
             UIColor.clear.cgColor,
         ]
         layer.borderWidth = contrast ? 1.2 : 0.75
         layer.borderColor = UIColor.white
-            .withAlphaComponent(min(0.62, (contrast ? 0.42 : 0.16 + intensity * 0.12) * boost))
+            .withAlphaComponent(min(0.42, (contrast ? 0.34 : 0.14 + intensity * 0.09) * min(boost, 1.3)))
             .cgColor
     }
 

@@ -21,7 +21,15 @@ import EeveeSpotifyC
 enum MiniBarGlassPlate {
 
     /// 开关：设置 → EeveeSpotify → 扩展功能 → 迷你播放条 →「迷你播放条用液态玻璃」，默认开。
-    static var isEnabled: Bool { UserDefaults.miniBarGlass && EvolvedInterfaceAvailability.supportsCustomInterface }
+    ///
+    /// iPad 上这条不画：那条迷你条由 `NativeTabletGlass` 持有（真·系统玻璃、自己的几何）。
+    /// 两边同时画 = 两条胶囊叠在一起（材质、描边都翻倍），就是"假玻璃"那种观感 ——
+    /// 一条栏只能有一个主人。圆封面（`MiniBarArtwork`）不在这道门里，照样生效。
+    static var isEnabled: Bool {
+        UserDefaults.miniBarGlass
+            && EvolvedInterfaceAvailability.supportsCustomInterface
+            && !EvolvedInterfaceAvailability.usesNativeTabletInterface
+    }
 
     /// 内容视图在真机树里的 id（它的类名只是裸 `UIView`，认不了类，只能认 id）。
     private static let contentIdentifier = "SPTNowPlayingBar"

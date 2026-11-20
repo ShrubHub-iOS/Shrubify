@@ -3,42 +3,59 @@ import QuartzCore
 
 /// Liquid Glass for the surfaces Spotify still draws itself.
 ///
-/// Two failures this file exists to prevent:
-/// 1. the iPad player is deliberately left native, so custom-interface chrome
-///    never reached it; and
-/// 2. a single class-name hook silently dies when Spotify renames a class.
+/// Three failures this file exists to prevent:
+/// 1. the iPad player was deliberately left native, so custom-interface chrome
+///    never reached it;
+/// 2. a single class-name hook silently dies when Spotify renames a class; and
+/// 3. two owners drawing the same bar double the material, the rim and the
+///    specular sheen — which is what made the tab bar look like a plastic
+///    imitation instead of glass.
 ///
-/// So the pass anchors on the *controls* — the tab items and the transport
-/// buttons, which keep their accessibility identifiers across redesigns — and
-/// mounts one plate per surface inside their common superview, above whatever
-/// opaque backing Spotify draws there. Nothing Spotify owns is resized, cleared
-/// or given a different hit region.
+/// So: the bottom bars are owned by `NativeTabletGlass` (real `UIGlassEffect`
+/// at their own layout hooks) whenever it can mount; this pass only fills in
+/// for them. The player is owned here, anchored on the transport keys, because
+/// nothing else touches it on iPad.
 ///
-/// Bounded (fixed depth, node cap), idempotent, and it stops walking the tree
-/// as soon as every surface is mounted.
+/// Nothing Spotify owns is resized, cleared or given a different hit region:
+/// every plate is decorative, hidden from accessibility and inserted below the
+/// content it belongs to.
 @MainActor
 enum ShrubifyGlassChrome {
 
     enum Surface: CaseIterable {
+        /// Fallbacks only: `NativeTabletGlass` gets first refusal on both bars.
         case tabs
         case miniPlayer
-        case playerControls
+        /// One card behind the player's bottom block (title, progress, keys).
+        case playerCard
 
-        /// Also the plate's accessibility identifier, so the two glass owners
-        /// can recognise each other's work.
+        /// Also the plate's accessibility identifier, so the owners can
+        /// recognise each other's work.
         var identifier: String {
             switch self {
             case .tabs: return "shrubify.glass.chrome.tabs"
             case .miniPlayer: return "shrubify.glass.chrome.mini"
-            case .playerControls: return "shrubify.glass.chrome.controls"
+            case .playerCard: return "shrubify.glass.chrome.player"
             }
         }
 
-        var radius: CGFloat? {
+        var title: String {
             switch self {
-            case .tabs, .miniPlayer: return nil      // capsule
-            case .playerControls: return 26
+            case .tabs: return "Tab bar"
+            case .miniPlayer: return "Mini-player"
+            case .playerCard: return "Player"
             }
+        }
+
+        var radius: CGFloat {
+            switch self {
+            case .tabs, .miniPlayer: return 30   // capsule: half of 60
+            case .playerCard: return 34
+            }
+        }
+
+        var isBottomBar: Bool {
+            self == .tabs || self == .miniPlayer
         }
     }
 
@@ -59,37 +76,59 @@ enum ShrubifyGlassChrome {
         let restorations: [() -> Void]
     }
 
-    /// One decorative circle per transport button, so the player's own keys
-    /// carry glass too instead of one plate sitting behind the whole row.
-    private struct ButtonMount {
+    /// One decorative circle per player control, so the keys carry glass too
+    /// instead of one plate sitting behind the whole row.
+    private struct KeyMount {
         let plate: ShrubifyGlassPlate
         weak var host: UIView?
-        weak var button: UIView?
+        weak var control: UIView?
+        let outset: CGFloat
     }
-
-    /// How far a button's circle grows past the button frame.
-    private static let buttonPlateOutset: CGFloat = 7
 
     /// The dedicated bar backing names its plate with this prefix.
     private static let nativeBarPlate = "shrubify.native.glass"
     private static let chromePrefix = "shrubify.glass.chrome."
-    private static let buttonPlatePrefix = "shrubify.glass.chrome.button."
-    /// Spotify's chrome is near-black; the neutral material needs help there.
-    private static let chromeBoost: CGFloat = 1.85
+    private static let keyPlatePrefix = "shrubify.glass.chrome.key."
+    /// Spotify's chrome is near-black; the neutral material needs a nudge there.
+    /// It used to be 1.85, which turned the whole plate into a white wash.
+    private static let chromeBoost: CGFloat = 1.35
+    private static let playerBoost: CGFloat = 1.15
+    private static let keyBoost: CGFloat = 1.05
 
     private static let tabItemPrefix = "TabBar.Item."
 
+    /// The transport keys keep their identifiers across redesigns, which is why
+    /// they are the anchor for everything in the player.
+    private static let playButtonID = "SPTNowPlayingPlayButton"
+    private static let previousButtonID = "SPTNowPlayingPreviousTrackButton"
+    private static let nextButtonID = "SPTNowPlayingNextTrackButton"
+    private static let sliderID = "SPTNowPlayingSliderV2"
+    private static let lyricsButtonID = "lyrics-expand-button"
+    private static let minimizeButtonID = "now-playing-minimize-button"
+    private static let contextMenuID = "Context menu"
+
     private static var mounts: [Mount] = []
-    private static var buttonMounts: [ButtonMount] = []
+    private static var keyMounts: [KeyMount] = []
     private static var observers: [NSObjectProtocol] = []
     private static var timer: Timer?
     private static var lastPass: CFTimeInterval = 0
+    private static var lastPlayerPass: CFTimeInterval = 0
     private static var remainingScans = 12
     private static var didReport = false
+    /// How many window scans may still run this session. The player has its own
+    /// layout hook, so the scan is only a fallback and must not become a
+    /// permanent background walk.
+    private static var discoveryBudget = 40
+    private static var pageScanAllowance = 60
+    /// Card attempts are bounded too: a build whose control block never fits
+    /// the shape guard must not keep the page scan alive forever.
+    private static var cardAttempts = 80
 
     private static let maxNodes = 2600
-    private static let maxDepth = 18
+    private static let maxPlayerNodes = 1800
+    private static let maxDepth = 24
     private static let passInterval: CFTimeInterval = 0.5
+    private static let playerPassInterval: CFTimeInterval = 0.35
     private static let tickInterval: TimeInterval = 2.0
 
     static var isSupported: Bool { EvolvedInterfaceAvailability.usesNativeTabletInterface }
@@ -97,9 +136,9 @@ enum ShrubifyGlassChrome {
     static func start() {
         registerObserversIfNeeded()
         guard timer == nil else { return }
-        // The bars exist at launch; the transport row only after the player
-        // opens. A slow tick keeps looking while any surface is missing and
-        // stops walking the tree as soon as all of them are mounted.
+        // The bars exist at launch; the player only after it opens. A slow tick
+        // keeps the plates in step and stops walking the tree once the bars are
+        // settled (the player has its own layout hook).
         timer = Timer.scheduledTimer(withTimeInterval: tickInterval, repeats: true) { _ in
             onMainThreadSync { tick() }
         }
@@ -127,6 +166,8 @@ enum ShrubifyGlassChrome {
     static func rearm() {
         guard isSupported else { return }
         remainingScans = max(remainingScans, 6)
+        discoveryBudget = max(discoveryBudget, 20)
+        cardAttempts = max(cardAttempts, 20)
         refresh()
         start()
     }
@@ -138,14 +179,29 @@ enum ShrubifyGlassChrome {
             return
         }
         prune()
+        relayout()
         // Nothing missing: no tree walk, just keep the plates in step.
-        guard mounts.count < Surface.allCases.count else {
-            relayout()
-            return
-        }
+        guard needsDiscovery, discoveryBudget > 0 else { return }
         remainingScans = max(remainingScans, 1)
         guard let window = keyWindow() else { return }
         pass(in: window)
+    }
+
+    /// A surface that is neither mounted nor owned natively is still missing.
+    private static var needsDiscovery: Bool {
+        Surface.allCases.contains { surface in
+            guard !isOwned(surface) else { return false }
+            return !mounts.contains { $0.surface == surface && $0.host?.window != nil }
+        }
+    }
+
+    /// The native bottom bars have first refusal: one material per bar.
+    private static func isOwned(_ surface: Surface) -> Bool {
+        switch surface {
+        case .tabs: return NativeTabletGlass.owns(.tabs)
+        case .miniPlayer: return NativeTabletGlass.owns(.miniPlayer)
+        case .playerCard: return false
+        }
     }
 
     /// Called from the window's layout hook. Cheap unless the interval elapsed.
@@ -160,17 +216,35 @@ enum ShrubifyGlassChrome {
             return
         }
 
-        if remainingScans > 0 {
+        if remainingScans > 0, discoveryBudget > 0 {
             remainingScans -= 1
+            discoveryBudget -= 1
             var nodes: [UIView] = []
-            var visited = 0
-            collect(window, depth: 0, visited: &visited, into: &nodes)
-            for surface in Surface.allCases {
+            collect(window, limit: maxNodes, into: &nodes)
+            for surface in Surface.allCases where !isOwned(surface) && surface.isBottomBar {
                 guard !mounts.contains(where: { $0.surface == surface && $0.host?.window != nil })
                 else { continue }
                 mount(surface, with: candidate(surface, in: nodes))
             }
+            mountPlayer(from: nodes)
         }
+        relayout()
+    }
+
+    /// Called from the player's own layout hook — no window walk, so the player
+    /// is found even on a build whose tree is deeper than the window scan.
+    static func playerLayout(in unit: UIView) {
+        guard isSupported, unit.window != nil else { return }
+        guard ShrubifyLiquidGlass.isEnabled, !UIAccessibility.isReduceTransparencyEnabled else {
+            removeAll()
+            return
+        }
+        let now = CACurrentMediaTime()
+        guard now - lastPlayerPass >= playerPassInterval else { return }
+        lastPlayerPass = now
+
+        let page = pageRoot(from: unit)
+        mountPlayer(in: unit, page: page)
         relayout()
     }
 
@@ -193,16 +267,36 @@ enum ShrubifyGlassChrome {
 
     // MARK: - Discovery
 
-    private static func collect(
-        _ node: UIView,
-        depth: Int,
-        visited: inout Int,
-        into nodes: inout [UIView]
-    ) {
-        guard visited < maxNodes, depth <= maxDepth else { return }
-        visited += 1
-        nodes.append(node)
-        for sub in node.subviews { collect(sub, depth: depth + 1, visited: &visited, into: &nodes) }
+    /// Breadth-first on purpose: the full-screen player is a modal *sibling* of
+    /// the home page, so a depth-first walk spends the whole node budget inside
+    /// the feed and never reaches it.
+    private static func collect(_ root: UIView, limit: Int, into nodes: inout [UIView]) {
+        var queue: [(view: UIView, depth: Int)] = [(root, 0)]
+        var index = 0
+        while index < queue.count, nodes.count < limit {
+            let item = queue[index]
+            index += 1
+            nodes.append(item.view)
+            guard item.depth < maxDepth else { continue }
+            for sub in item.view.subviews {
+                queue.append((sub, item.depth + 1))
+            }
+        }
+    }
+
+    private static func first(withID identifier: String, in root: UIView) -> UIView? {
+        var queue: [(view: UIView, depth: Int)] = [(root, 0)]
+        var index = 0
+        var visited = 0
+        while index < queue.count, visited < maxPlayerNodes {
+            let item = queue[index]
+            index += 1
+            visited += 1
+            if item.view.accessibilityIdentifier == identifier { return item.view }
+            guard item.depth < maxDepth else { continue }
+            for sub in item.view.subviews { queue.append((sub, item.depth + 1)) }
+        }
+        return nil
     }
 
     private static func candidate(_ surface: Surface, in nodes: [UIView]) -> Candidate? {
@@ -213,15 +307,10 @@ enum ShrubifyGlassChrome {
                 inset: CGSize(width: -12, height: -10),
                 limit: 8
             ) ?? rowCandidate(nodes)
-        case .playerControls:
-            return transportCandidate(nodes)
-                ?? anchored(
-                    nodes.filter { className($0).contains("PlaybackControlsElementsUnit") },
-                    inset: CGSize(width: -14, height: -10),
-                    limit: 1
-                )
         case .miniPlayer:
             return miniPlayerCandidate(in: nodes)
+        case .playerCard:
+            return nil   // mounted by `mountPlayer`, never from the shape scan
         }
     }
 
@@ -268,16 +357,16 @@ enum ShrubifyGlassChrome {
         return nil
     }
 
-    // MARK: - Player transport
+    // MARK: - Player
 
     private enum TransportKey: Equatable { case previous, play, next }
 
-    /// Identity comes from the accessibility identifier, matched by containment
-    /// so a renamed prefix (`SPTNowPlaying…`, `Encore…`) still lands.
     private static func isTransport(_ view: UIView) -> Bool {
         category(of: view) != nil
     }
 
+    /// Identity comes from the accessibility identifier, matched by containment
+    /// so a renamed prefix (`SPTNowPlaying…`, `Encore…`) still lands.
     private static func category(of view: UIView) -> TransportKey? {
         guard let id = view.accessibilityIdentifier?.lowercased() else { return nil }
         if id.contains("playbutton") || id.contains("playpause") { return .play }
@@ -288,59 +377,216 @@ enum ShrubifyGlassChrome {
         return nil
     }
 
-    /// Find the three keys as a row. The iPad player nests each key in its own
-    /// wrapper, so the host is their **common ancestor**, not one shared
-    /// superview — requiring the latter is why the transport row never mounted.
-    private static func transportCandidate(_ nodes: [UIView]) -> Candidate? {
-        var previous: [UIView] = []
-        var play: [UIView] = []
-        var next: [UIView] = []
-        for view in nodes {
-            guard view.bounds.width >= 12, view.bounds.height >= 12,
-                  !view.isHidden, view.alpha > 0.01 else { continue }
-            guard let key = category(of: view) else { continue }
-            switch key {
-            case .previous: previous.append(view)
-            case .play: play.append(view)
-            case .next: next.append(view)
+    /// The player page: the largest non-window ancestor of the transport row.
+    private static func pageRoot(from view: UIView) -> UIView {
+        var node = view
+        var levels = 0
+        while let parent = node.superview, levels < 12, !(parent is UIWindow),
+              parent.window != nil, parent.bounds.height >= 480 {
+            node = parent
+            levels += 1
+        }
+        return node
+    }
+
+    /// Mount the card behind the player's bottom block and a circle on every
+    /// key. Idempotent; only new elements cost a tree walk.
+    private static func mountPlayer(from nodes: [UIView]) {
+        // The mini-player carries a play key too; the full player's is bigger.
+        let play = nodes
+            .filter { $0.accessibilityIdentifier == playButtonID && $0.window != nil }
+            .max { $0.bounds.width * $0.bounds.height < $1.bounds.width * $1.bounds.height }
+        guard let play, play.bounds.width >= 36 else { return }
+        let unit = playerUnit(from: play, in: nodes) ?? play
+        mountPlayer(in: unit, page: pageRoot(from: play))
+    }
+
+    /// The transport row's own container: the closest ancestor that still holds
+    /// two of the three keys.
+    private static func playerUnit(from play: UIView, in nodes: [UIView]) -> UIView? {
+        var node: UIView? = play.superview
+        var levels = 0
+        while let current = node, levels < 6 {
+            let keys = nodes.filter { $0.isDescendant(of: current) && isTransport($0) }
+            if keys.count >= 2 { return current }
+            node = current.superview
+            levels += 1
+        }
+        return play.superview
+    }
+
+    private static func mountPlayer(in unit: UIView, page: UIView) {
+        guard unit.window != nil else { return }
+
+        // The compact bar carries one play key and no previous/next pair, so
+        // this is also what stops the Home mini-player from getting key rings.
+        let trio = [previousButtonID, playButtonID, nextButtonID]
+            .compactMap { first(withID: $0, in: unit) }
+        guard trio.count >= 2 else { return }
+
+        if mounts.contains(where: { $0.surface == .playerCard && $0.host?.window != nil }) == false {
+            mountPlayerCard(page: page, unit: unit)
+        }
+
+        // Transport row: the three keys plus whatever sits beside them
+        // (shuffle and repeat) so the whole row carries glass.
+        let row = commonAncestor(of: trio) ?? unit.subviews.first
+        if let row { mountKeyPlates(in: row, outset: 6) }
+
+        // The footer (share / queue / lyrics) and the two top keys need one
+        // scan of the page; afterwards they are tracked by reference.
+        let haveLyrics = keyMounts.contains { $0.control?.accessibilityIdentifier == lyricsButtonID }
+        let haveMinimize = keyMounts.contains { $0.control?.accessibilityIdentifier == minimizeButtonID }
+        let haveMenu = keyMounts.contains { $0.control?.accessibilityIdentifier == contextMenuID }
+        guard !(haveLyrics && haveMinimize && haveMenu), pageScanAllowance > 0 else { return }
+        pageScanAllowance -= 1
+
+        if let lyrics = first(withID: lyricsButtonID, in: page) {
+            if let footer = keyRow(around: lyrics) {
+                mountKeyPlates(in: footer, outset: 7)
+            } else {
+                mountKeyPlate(for: lyrics, outset: 7)
             }
         }
 
-        var best: (candidate: Candidate, area: CGFloat)?
-        for previousView in previous.prefix(3) {
-            for playView in play.prefix(3) {
-                for nextView in next.prefix(3) {
-                    let trio = [previousView, playView, nextView]
-                    guard let host = commonAncestor(of: trio),
-                          host.bounds.height <= 260, host.bounds.width >= 120 else { continue }
-                    let area = host.bounds.width * host.bounds.height
-                    if let best, best.area <= area { continue }
-                    best = (
-                        Candidate(host: host, anchors: trio, inset: CGSize(width: -12, height: -14)),
-                        area
-                    )
-                }
+        for identifier in [minimizeButtonID, contextMenuID] {
+            if let control = first(withID: identifier, in: page) {
+                mountKeyPlate(for: control, outset: 6)
             }
         }
-        if let best { return best.candidate }
+    }
 
-        // Two keys are enough for the plate to read as the transport row.
-        for pair in [[previous.first, play.first], [play.first, next.first]] {
-            let anchors = pair.compactMap { $0 }
-            guard anchors.count == 2, let host = commonAncestor(of: anchors),
-                  host.bounds.height <= 260, host.bounds.width >= 120 else { continue }
-            return Candidate(host: host, anchors: anchors, inset: CGSize(width: -12, height: -14))
+    /// The card: one rounded plate behind the block that holds the title, the
+    /// progress bar and the transport row. Mounted in the block's *parent* so
+    /// the block's own clipping cannot cut the corners off.
+    private static func mountPlayerCard(page: UIView, unit: UIView) {
+        guard cardAttempts > 0 else { return }
+        cardAttempts -= 1
+        let play = first(withID: playButtonID, in: unit) ?? first(withID: playButtonID, in: page)
+        let slider = first(withID: sliderID, in: page)
+        let previous = first(withID: previousButtonID, in: unit)
+        let next = first(withID: nextButtonID, in: unit)
+
+        var block: UIView?
+        if let play, let slider {
+            block = commonAncestor(of: [play, slider])
         }
+        if block == nil {
+            let anchors = [previous, play, next].compactMap { $0 }
+            if anchors.count >= 2 { block = commonAncestor(of: anchors) }
+        }
+        guard let block, let container = block.superview, container.window != nil else { return }
+        guard block.bounds.width >= 240, (60...760).contains(block.bounds.height),
+              container.bounds.height >= block.bounds.height else { return }
+        // Never wrap the whole page in one plate.
+        guard container.bounds.height <= 1600 else { return }
 
-        // Last resort: a bar-shaped container that holds two controls.
-        if let row = nodes.first(where: { view in
-            let name = className(view)
-            guard name.contains("Playback") || name.contains("Transport")
-                    || name.contains("PlayerControls") else { return false }
-            guard (24...150).contains(view.bounds.height), view.bounds.width >= 150 else { return false }
-            return view.subviews.filter { $0 is UIControl }.count >= 2
-        }) {
-            return Candidate(host: row, anchors: [row], inset: CGSize(width: -8, height: -8))
+        var frame = block.convert(block.bounds, to: container)
+            .insetBy(dx: -10, dy: -12)
+        frame = frame.intersection(container.bounds)
+        guard frame.width >= 200, frame.height >= 80 else { return }
+
+        let plate = ShrubifyLiquidGlass.makePlate(
+            radius: Surface.playerCard.radius,
+            interactive: false,
+            boost: playerBoost
+        )
+        plate.accessibilityIdentifier = Surface.playerCard.identifier
+        plate.frame = frame
+        container.insertSubview(plate, belowSubview: block)
+
+        // The block is the anchor: when the player goes away its window does
+        // too, which is what prunes the card.
+        mounts.append(
+            Mount(
+                surface: .playerCard,
+                plate: plate,
+                host: container,
+                anchors: [block],
+                inset: CGSize(width: -10, height: -12),
+                restorations: clearCardBacking(block)
+            )
+        )
+        if !didReport {
+            didReport = true
+            writeDebugLog(
+                "[GlassChrome] player card on \(className(block))"
+                    + " (\(Int(block.bounds.width))x\(Int(block.bounds.height)))"
+            )
+        }
+    }
+
+    private static func mountKeyPlates(in container: UIView, outset: CGFloat) {
+        var nodes: [UIView] = []
+        collect(container, limit: 400, into: &nodes)
+        for view in nodes where isGlassKey(view) {
+            // A button often wraps another control; nesting two circles inside
+            // one key would draw a second rim. The outer view wins (BFS order).
+            let nested = keyMounts.contains { mount in
+                guard let existing = mount.control, existing !== view else { return false }
+                return view.isDescendant(of: existing)
+            }
+            guard !nested else { continue }
+            let size = max(view.bounds.width, view.bounds.height)
+            mountKeyPlate(for: view, outset: size >= 52 ? outset + 2 : outset)
+        }
+    }
+
+    /// A control that should carry its own circle: button-shaped, not a slider
+    /// and not one of our own plates.
+    private static func isGlassKey(_ view: UIView) -> Bool {
+        guard view.window != nil, !view.isHidden, view.alpha > 0.01 else { return false }
+        guard !(view is UISlider), !(view is UISwitch), !(view is UISegmentedControl) else {
+            return false
+        }
+        let name = className(view)
+        guard view is UIControl || name.contains("Button") else { return false }
+        guard !name.contains("ShrubifyGlassPlate") else { return false }
+        let size = view.bounds.size
+        guard size.width >= 24, size.height >= 24,
+              size.width <= 96, size.height <= 96,
+              abs(size.width - size.height) <= 14 else { return false }
+        return true
+    }
+
+    private static func mountKeyPlate(for control: UIView, outset: CGFloat) {
+        guard control.window != nil, !control.isHidden, control.alpha > 0.01,
+              control.bounds.width >= 20, control.bounds.height >= 20,
+              control.bounds.width <= 110, control.bounds.height <= 110,
+              let host = control.superview else { return }
+        if let existing = keyMounts.first(where: { $0.control === control }) {
+            if existing.plate.superview !== host {
+                existing.plate.removeFromSuperview()
+                host.insertSubview(existing.plate, belowSubview: control)
+            }
+            return
+        }
+        let plate = ShrubifyLiquidGlass.makePlate(
+            radius: nil,
+            interactive: false,
+            boost: keyBoost
+        )
+        plate.accessibilityIdentifier = keyPlatePrefix
+            + (control.accessibilityIdentifier ?? className(control))
+        plate.frame = control.frame.insetBy(dx: -outset, dy: -outset)
+        // Below the control: a glass ring around the key. Above it the
+        // material's blur would smear the glyph itself.
+        host.insertSubview(plate, belowSubview: control)
+        keyMounts.append(KeyMount(plate: plate, host: host, control: control, outset: outset))
+        writeDebugLog(
+            "[GlassChrome] key glass on \(control.accessibilityIdentifier ?? className(control))"
+        )
+    }
+
+    /// The row the footer keys live in: the first ancestor that holds two or
+    /// more button-shaped views.
+    private static func keyRow(around control: UIView) -> UIView? {
+        var node = control.superview
+        var levels = 0
+        while let current = node, levels < 3 {
+            if current.subviews.filter({ isGlassKey($0) }).count >= 2 { return current }
+            node = current.superview
+            levels += 1
         }
         return nil
     }
@@ -349,44 +595,12 @@ enum ShrubifyGlassChrome {
         guard let first = views.first else { return nil }
         var candidate: UIView? = first.superview
         var levels = 0
-        while let current = candidate, levels < 40 {
+        while let current = candidate, levels < 40, !(current is UIWindow) {
             if views.allSatisfy({ $0.isDescendant(of: current) }) { return current }
             candidate = current.superview
             levels += 1
         }
         return nil
-    }
-
-    /// One circle per transport key. Decorative only: no hit region, hidden
-    /// from accessibility, and it never resizes or re-parents the button.
-    private static func mountButtonPlates(on buttons: [UIView]) {
-        for button in buttons {
-            guard let host = button.superview, host.window != nil,
-                  !button.isHidden, button.alpha > 0.01,
-                  button.bounds.width >= 14, button.bounds.height >= 14 else { continue }
-            if let existing = buttonMounts.first(where: { $0.button === button }) {
-                if existing.plate.superview !== host {
-                    existing.plate.removeFromSuperview()
-                    host.insertSubview(existing.plate, belowSubview: button)
-                }
-                continue
-            }
-            let plate = ShrubifyLiquidGlass.makePlate(
-                radius: nil,
-                interactive: false,
-                boost: chromeBoost * 0.8
-            )
-            plate.accessibilityIdentifier = buttonPlatePrefix
-                + (button.accessibilityIdentifier ?? className(button))
-            plate.frame = button.frame.insetBy(dx: -buttonPlateOutset, dy: -buttonPlateOutset)
-            // Below the button: a glass ring around the key. Above it the
-            // material's blur would smear the glyph itself.
-            host.insertSubview(plate, belowSubview: button)
-            buttonMounts.append(ButtonMount(plate: plate, host: host, button: button))
-            writeDebugLog(
-                "[GlassChrome] button glass on \(button.accessibilityIdentifier ?? className(button))"
-            )
-        }
     }
 
     private static func isTabItem(_ view: UIView) -> Bool {
@@ -429,15 +643,16 @@ enum ShrubifyGlassChrome {
         guard let candidate else { return }
         let host = candidate.host
         guard host.window != nil, !host.isHidden, host.alpha > 0.01 else { return }
+        guard !isOwned(surface) else { return }
         guard !mounts.contains(where: { $0.host === host && $0.surface == surface }) else { return }
-        // One material per surface: yield to whichever owner got there first.
+        // Spotify's own build may already supply real glass here; a second
+        // material would double the rim exactly like the old duplicate owners.
+        guard !hasSystemGlass(in: host) else { return }
+        // One material per surface: yield to a native bar plate already there.
         if host.subviews.contains(where: { subview in
-            if subview is ShrubifyGlassPlate { return true }
             guard let id = subview.accessibilityIdentifier else { return false }
-            if id.hasPrefix(nativeBarPlate) { return true }
-            // Per-button circles live beside the buttons, sometimes in the very
-            // same host: they must not count as "this surface already has one".
-            return id.hasPrefix(chromePrefix) && !id.hasPrefix(buttonPlatePrefix)
+            return id.hasPrefix(nativeBarPlate)
+                || (id.hasPrefix(chromePrefix) && !id.hasPrefix(keyPlatePrefix))
         }) { return }
 
         let plate = ShrubifyLiquidGlass.makePlate(
@@ -446,7 +661,7 @@ enum ShrubifyGlassChrome {
             boost: chromeBoost
         )
         plate.accessibilityIdentifier = surface.identifier
-        var mount = Mount(
+        let mount = Mount(
             surface: surface,
             plate: plate,
             host: host,
@@ -459,8 +674,8 @@ enum ShrubifyGlassChrome {
         insert(plate, into: host)
         // The bars are the only surfaces Spotify paints opaque; clearing that
         // backing is what turns the plate into real glass over the page.
-        if surface != .playerControls {
-            mount = Mount(
+        mounts.append(
+            Mount(
                 surface: surface,
                 plate: plate,
                 host: host,
@@ -468,8 +683,7 @@ enum ShrubifyGlassChrome {
                 inset: candidate.inset,
                 restorations: clearBacking(around: host)
             )
-        }
-        mounts.append(mount)
+        )
 
         if !didReport {
             didReport = true
@@ -478,6 +692,19 @@ enum ShrubifyGlassChrome {
                     + " (\(candidate.anchors.count) anchor(s))"
             )
         }
+    }
+
+    /// Real `UIGlassEffect` already inside this host (Spotify's own chrome, or
+    /// another module). Ours never counts: those plates carry our identifier.
+    private static func hasSystemGlass(in view: UIView, depth: Int = 0) -> Bool {
+        if #available(iOS 26.0, *) {
+            if let material = view as? UIVisualEffectView, material.effect is UIGlassEffect {
+                let id = material.accessibilityIdentifier ?? ""
+                if !id.hasPrefix(chromePrefix) { return true }
+            }
+        }
+        guard depth < 3 else { return false }
+        return view.subviews.contains { hasSystemGlass(in: $0, depth: depth + 1) }
     }
 
     /// Never bury the plate under Spotify's own opaque backing.
@@ -497,6 +724,16 @@ enum ShrubifyGlassChrome {
         let name = className(view)
         let decorative = name.contains("Gradient") || name.contains("Backdrop") || name.contains("Background")
         return decorative && covers
+    }
+
+    /// The player block's own fill (album-art tint) would hide the card.
+    private static func clearCardBacking(_ block: UIView) -> [() -> Void] {
+        guard let colour = block.backgroundColor, colour.cgColor.alpha > 0.01 else { return [] }
+        block.backgroundColor = .clear
+        return [{ [weak block] in
+            guard let block, block.backgroundColor == .clear else { return }
+            block.backgroundColor = colour
+        }]
     }
 
     /// Capture-then-clear, exactly like `NativeTabletGlass`: every change gets a
@@ -540,20 +777,23 @@ enum ShrubifyGlassChrome {
     private static func relayout() {
         prune()
         for mount in mounts {
-            guard let frame = plateFrame(for: mount) else {
+            // The player card tracks the block it sits behind, not its own host.
+            let target: CGRect?
+            if mount.surface == .playerCard {
+                target = cardFrame(for: mount)
+            } else {
+                target = plateFrame(for: mount)
+            }
+            guard let target else {
                 mount.plate.isHidden = true
                 continue
             }
             mount.plate.isHidden = false
-            if mount.plate.frame != frame { mount.plate.frame = frame }
+            if mount.plate.frame != target { mount.plate.frame = target }
         }
-        if let controls = mounts.first(where: { $0.surface == .playerControls }) {
-            mountButtonPlates(on: controls.anchors.filter { isTransport($0) && $0.window != nil })
-        }
-        for mount in buttonMounts {
-            guard let host = mount.host, let button = mount.button,
-                  button.superview === host, button.window != nil else { continue }
-            let frame = button.frame.insetBy(dx: -buttonPlateOutset, dy: -buttonPlateOutset)
+        for mount in keyMounts {
+            guard let control = mount.control, control.window != nil else { continue }
+            let frame = control.frame.insetBy(dx: -mount.outset, dy: -mount.outset)
             if mount.plate.frame != frame { mount.plate.frame = frame }
         }
     }
@@ -567,16 +807,17 @@ enum ShrubifyGlassChrome {
                   mount.anchors.contains(where: { $0 === host || ($0.isDescendant(of: host) && $0.window != nil) })
             else {
                 mount.plate.removeFromSuperview()
-                mount.restorations.reversed().forEach { $0() }
+                if !isOwned(mount.surface) { mount.restorations.reversed().forEach { $0() } }
                 continue
             }
             survivors.append(mount)
         }
         mounts = survivors
 
-        buttonMounts = buttonMounts.filter { mount in
-            guard let host = mount.host, let button = mount.button,
-                  button.superview === host, button.window != nil else {
+        keyMounts = keyMounts.filter { mount in
+            guard let host = mount.host, let control = mount.control,
+                  mount.plate.superview === host,
+                  control.superview === host, control.window != nil else {
                 mount.plate.removeFromSuperview()
                 return false
             }
@@ -590,8 +831,8 @@ enum ShrubifyGlassChrome {
             mount.restorations.reversed().forEach { $0() }
         }
         mounts.removeAll()
-        for mount in buttonMounts { mount.plate.removeFromSuperview() }
-        buttonMounts.removeAll()
+        for mount in keyMounts { mount.plate.removeFromSuperview() }
+        keyMounts.removeAll()
     }
 
     /// What the settings page shows: which surfaces this Spotify build exposes.
@@ -603,21 +844,28 @@ enum ShrubifyGlassChrome {
         }
         let mounted = Set(mounts.map { $0.surface })
         var lines = Surface.allCases.map { surface -> String in
-            let name: String
-            switch surface {
-            case .tabs: name = "Tab bar"
-            case .miniPlayer: name = "Mini-player"
-            case .playerControls: name = "Player controls"
-            }
-            return "\(name): \(mounted.contains(surface) ? "glass on" : "not found yet — open the bar once")"
+            if isOwned(surface) { return "\(surface.title): native glass" }
+            return "\(surface.title): \(mounted.contains(surface) ? "glass on" : "not found yet — open it once")"
         }
-        lines.append(
-            "Player buttons: \(min(buttonMounts.count, 3)) of 3 glass"
-        )
+        lines.append("Player buttons: \(keyMounts.count) with glass")
         return lines
     }
 
     // MARK: - Geometry
+
+    /// The card's rectangle, recomputed from the block it covers.
+    private static func cardFrame(for mount: Mount) -> CGRect? {
+        guard let host = mount.host,
+              let block = mount.anchors.first(where: { $0.window != nil }),
+              block.isDescendant(of: host) else { return nil }
+        let blockFrame = block.superview === host
+            ? block.frame
+            : block.convert(block.bounds, to: host)
+        let frame = blockFrame.insetBy(dx: mount.inset.width, dy: mount.inset.height)
+            .intersection(host.bounds)
+        guard frame.width >= 160, frame.height >= 60 else { return nil }
+        return frame
+    }
 
     private static func plateFrame(for mount: Mount) -> CGRect? {
         guard let host = mount.host, host.bounds.width > 60, host.bounds.height > 18 else { return nil }
