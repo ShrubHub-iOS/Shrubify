@@ -1,4 +1,4 @@
-> **4.2.4 makes the glass look like glass everywhere:** the bottom bars now have exactly one owner each (the tab bar was drawing two or three overlapping capsules, which is why it looked like a plastic remake), the material no longer washes the page out white, and the player's own control block and every key finally carry glass — including on iPad, where the player had none.
+> **Current Master UI work:** selective system Liquid Glass, clean transport controls, and scoped tablet Home appearance. Runtime validation on Spotify is still required.
 
 # Shrubify 4.2.4 — Listening is easy with Shrubify!
 
@@ -18,7 +18,7 @@ Shrubify is an **unofficial, community-developed iOS/iPadOS tweak** based on an 
 | **Evolved UI** | Apple Music-style player, fading artwork backdrop, glass tabs and mini-player, and redesigned home/library/album/playlist/artist pages. | Custom tablet UI is paused; iPad keeps its native player and gains the shared Liquid Glass entry points. Private UI hooks on supported devices require version-specific checks. |
 | **Compatibility & Diagnostics** | Optional Stability Mode, version reporting, issue links and debug-log export. | Cannot guarantee compatibility with all Spotify builds or eliminate every crash. |
 
-Shrubify 4.2.4 keeps the original pre-Evolved fullscreen custom lyrics view and the working native iPad player, and gives every surface **one** glass owner. The tab bar and mini-player belong to the native iPad glass layer; the window pass only fills in when that layer cannot mount, and it drops its own plate (and its cleared backing) the moment the native one appears — previously two or three capsules were drawn on the same bar, which is exactly why it read as a fake Liquid Glass remake. The shared material lost the full-height white wash that turned glass grey, so plates now show the page through them. The player carries a rounded glass card behind its whole control block (title, progress, transport, tools) plus a circle behind every key, mounted from the player's own layout hook because the iPad build never activated the player chrome before. Lyrics lookup keeps the free-source safety net from 4.2.3. Studio shows which surfaces were found. Evolved tablet integration remains unfinished; real Spotify interactions require device validation.
+Master retains the original fullscreen lyrics and native iPad player. Known tablet bottom bars share one renderer and reversible ownership, including bounded fallback discovery; ordinary player controls are deliberately free of injected glass cards and rings. Clear and Regular use their respective UIKit effects with no hand-drawn rims or sheen. Scoped Home styling keeps the native iPad controls and layouts. Remaining tablet-specific layout work requires device validation.
 
 ## Install and build
 

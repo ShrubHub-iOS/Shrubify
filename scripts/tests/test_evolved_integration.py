@@ -25,6 +25,21 @@ class EvolvedIntegrationTests(unittest.TestCase):
         for global_trigger in ["connectedScenes", "UIWindow", "eeveeKaraokeLyricsChanged", "asyncAfter"]:
             self.assertNotIn(global_trigger, renderer)
 
+    def test_selective_native_glass(self):
+        appearance = ROOT / "Sources/EeveeSpotify/Appearance"
+        renderer = (appearance / "ShrubifyLiquidGlass.swift").read_text()
+        chrome = (appearance / "ShrubifyGlassChrome.swift").read_text()
+        self.assertIn("style == .clear ? .clear : .regular", renderer)
+        self.assertNotIn("CAGradientLayer", renderer)
+        self.assertNotIn("layer.borderWidth", renderer)
+        self.assertNotIn("mountPlayerCard", chrome)
+        self.assertNotIn("mountKeyPlate", chrome)
+        self.assertNotIn("Timer.scheduledTimer", chrome)
+        self.assertIn("NativeTabletGlass.layout", chrome)
+        tablet = (appearance / "NativeTabletGlass.swift").read_text()
+        self.assertIn("other.owner === owner", tablet)
+        self.assertIn("indicator.isUserInteractionEnabled = false", tablet)
+
     def test_every_selectable_source_has_a_repository(self):
         source = (ROOT / "Sources/EeveeSpotify/Lyrics/CustomLyrics.x.swift").read_text()
         for name in ["Netease", "AmllTtml", "AppleMusicOfficialTtml", "Bini", "Unison", "QQMusic", "KuGou"]:

@@ -1,6 +1,7 @@
 import Foundation
 import Orion
 import UIKit
+import ObjectiveC.runtime
 
 /// Home 顶部那排小卡片（Liked Songs / 最近播放那些小方框）：照 Apple Music 的列表行来做。
 ///
@@ -36,7 +37,7 @@ enum HomeTileTint {
     // 封面从上/下/左边缘让出这么多（pw 的 `kInset = 5`）。
     private static let coverInset: CGFloat = 5
     /// 让出之后封面的圆角（pw 的 `kCoverRadius = 4`）。
-    private static let coverRadius: CGFloat = 4
+    private static let coverRadius: CGFloat = 7
     /// 卡片的暗面：Spotify 自己的"抬起一层"的深灰。
     private static let base = UIColor(white: 0.11, alpha: 1)
     /// pw 的 `kTintLuminance = 0.05`：主色先压到这个亮度（线性光）。
@@ -49,6 +50,22 @@ enum HomeTileTint {
     // MARK: - 状态
 
     private static var surfaceKey: UInt8 = 0
+    private static var pendingKey: UInt8 = 0
+    private static var tabletShapeKey: UInt8 = 0
+    private final class TabletShape {
+        let radius: CGFloat
+        let curve: CALayerCornerCurve
+        let masks: Bool
+        init(_ view: UIView) { radius = view.layer.cornerRadius; curve = view.layer.cornerCurve; masks = view.layer.masksToBounds }
+        func restore(_ view: UIView) { view.layer.cornerRadius = radius; view.layer.cornerCurve = curve; view.layer.masksToBounds = masks }
+    }
+    private static func restoreTablet(_ tile: UIView) {
+        guard let original = objc_getAssociatedObject(tile, &tabletShapeKey) as? TabletShape else { return }
+        original.restore(tile)
+        (objc_getAssociatedObject(tile, &surfaceKey) as? UIView)?.removeFromSuperview()
+        objc_setAssociatedObject(tile, &tabletShapeKey, nil, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+        objc_setAssociatedObject(tile, &surfaceKey, nil, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+    }
     /// "图还没到、等它到了再补一次"的重试计数（见 `retryLater`）。
     private static var retryKey: UInt8 = 0
     /// 取过的色：**按图片对象**（图活着才留）—— pw 的 `NSMapTable weakToStrongObjectsMapTable`。
@@ -68,7 +85,7 @@ enum HomeTileTint {
     // MARK: - 卡片自己那一拍
 
     static func apply(to tile: UIView) {
-        guard isEnabled, isTile(tile) else { return }
+        guard isEnabled, isTile(tile) else { restoreTablet(tile); return }
         // **先把这一格认下来、把封面内缩与底色装上**，
         // "图有没有到"是后面的事。原来 `guard let cover …, let image = cover.image` 写在**同一句**里，
         // 而首页那一屏有 8 张⇒ 的就是"一个都没变"。
@@ -81,7 +98,15 @@ enum HomeTileTint {
         }
 
         // ① 封面内缩 + 圆角 + 标题跟移（pw 的 `inset`）—— 与底色无关，是这排卡片的"形"。
-        insetCover(in: tile)
+        if EvolvedInterfaceAvailability.usesNativeTabletInterface {
+            // Keep native iPad constraints, cover positions and hit regions.
+            if objc_getAssociatedObject(tile, &tabletShapeKey) == nil {
+                objc_setAssociatedObject(tile, &tabletShapeKey, TabletShape(tile), .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+            }
+            if tile.layer.cornerRadius != 14 { tile.layer.cornerRadius = 14 }
+            tile.layer.cornerCurve = .continuous
+            tile.layer.masksToBounds = true
+        } else { insetCover(in: tile) }
 
         let surface = surfaceIn(tile)
         if surface.superview !== tile { return }
@@ -100,12 +125,17 @@ enum HomeTileTint {
         }
 
         // ③ 没算过：**在后台算**，回来时这张卡可能已经换了封面/被复用 ⇒ 核一次再上色。
-        tintQueue.async {
+        if (objc_getAssociatedObject(tile, &pendingKey) as? UIImage) === image { return }
+        objc_setAssociatedObject(tile, &pendingKey, image, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+        surface.backgroundColor = base
+        tintQueue.async { [weak tile, weak cover] in
             let colour = tint(for: image) ?? base
             DispatchQueue.main.async {
                 tints.setObject(colour, forKey: image)
-                guard isTile(tile),
-                      let current = coverImageView(in: tile)?.image, current === image else { return }
+                guard let tile, (objc_getAssociatedObject(tile, &pendingKey) as? UIImage) === image else { return }
+                objc_setAssociatedObject(tile, &pendingKey, nil, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+                guard isEnabled, isTile(tile), tile.window != nil,
+                      let cover, let current = coverImageView(in: tile)?.image, current === image else { return }
                 let target = surfaceIn(tile)
                 if target.backgroundColor != colour { target.backgroundColor = colour }
                 report(tile: tile, cover: cover, colour: colour)
@@ -131,7 +161,7 @@ enum HomeTileTint {
     /// 卡片自己那一拍（挂 `InteractableLayoutBackingButton` 那条路）：**先只报一次结构**
     /// —— 盲写代码时这是唯一能拿到真机结构的途径（转储器到不了那一层）—— 再按形状决定要不要上色。
     static func applyToCard(_ view: UIView) {
-        guard isEnabled, isTile(view) else { return }
+        guard isEnabled, isTile(view) else { restoreTablet(view); return }
         logStructureOnce(view)
         apply(to: view)
     }
@@ -250,7 +280,7 @@ enum HomeTileTint {
         surface.isUserInteractionEnabled = false
         surface.accessibilityElementsHidden = true
         surface.backgroundColor = base
-        surface.layer.cornerRadius = 8
+        surface.layer.cornerRadius = EvolvedInterfaceAvailability.usesNativeTabletInterface ? 14 : 12
         surface.layer.cornerCurve = .continuous
         surface.layer.masksToBounds = true
         if let fill = tile.subviews.first(where: { $0.frame == tile.bounds }) {
@@ -496,7 +526,10 @@ func activateHomeShortcutTiles() {
         return
     }
 
-    HomeShortcutTilesGroup().activate()
+    if let cls = NSClassFromString(HomeShortcutBackingButtonHook.targetName),
+       class_getInstanceMethod(cls, #selector(UIView.layoutSubviews)) != nil {
+        HomeShortcutTilesGroup().activate()
+    }
     // ⚠️ 两个"9.1.88 上不存在"的类**分开装**（见 `HomeShortcutSpeculativeHookGroup`）：
     // 两个都在才装 —— 否则每条 `[ORION ERROR]` 都会混进真问题的排障视野里。
     if NSClassFromString(HomeShortcutCardHook.targetName) != nil,

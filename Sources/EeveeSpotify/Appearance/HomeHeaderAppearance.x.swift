@@ -53,12 +53,45 @@ enum HomeHeaderAppearance {
     private static var didLogMissing = false
     /// 首页标签的名字（从标签栏那一颗读一次，跟随 App 语言）。
     private static var tabName: String?
+    private static var chipShapeKey: UInt8 = 0
+    private final class ChipShape {
+        let radius: CGFloat; let curve: CALayerCornerCurve; let border: CGFloat
+        init(_ view: UIView) { radius = view.layer.cornerRadius; curve = view.layer.cornerCurve; border = view.layer.borderWidth }
+        func restore(_ view: UIView) { view.layer.cornerRadius = radius; view.layer.cornerCurve = curve; view.layer.borderWidth = border }
+    }
+
+    /// Keep the native iPad filter row and all its interactions.
+    @MainActor private static func tabletHeader(in page: UIView) {
+        guard let header = findView(in: page, where: { className($0).contains("HomeHeaderView") }) else { return }
+        var queue = [header]; var index = 0
+        while index < queue.count, index < 160 {
+            let chip = queue[index]; index += 1
+            if let id = chip.accessibilityIdentifier, id.hasPrefix("home-feed-"), id.hasSuffix("-chip") {
+                if isEnabled, !UserDefaults.hideHomeHeader, (22...64).contains(chip.bounds.height) {
+                    if objc_getAssociatedObject(chip, &chipShapeKey) == nil {
+                        objc_setAssociatedObject(chip, &chipShapeKey, ChipShape(chip), .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+                    }
+                    chip.layer.cornerCurve = .continuous
+                    let radius = min(chip.bounds.width, chip.bounds.height) / 2
+                    if chip.layer.cornerRadius != radius { chip.layer.cornerRadius = radius }
+                    if chip.layer.borderWidth != 0 { chip.layer.borderWidth = 0 }
+                } else if let old = objc_getAssociatedObject(chip, &chipShapeKey) as? ChipShape {
+                    old.restore(chip)
+                    objc_setAssociatedObject(chip, &chipShapeKey, nil, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+                }
+            } else if queue.count < 160 { queue.append(contentsOf: chip.subviews.prefix(160 - queue.count)) }
+        }
+    }
 
     // MARK: - 施加
     //
     // 由页面 VC 的 `viewDidLayoutSubviews` 调用（**滑动每一步都会来**）。幂等。
     @MainActor
     static func apply(to page: UIView) {
+        if EvolvedInterfaceAvailability.usesNativeTabletInterface {
+            tabletHeader(in: page)
+            return
+        }
         // 隐藏态**单独一条**、排在 `isEnabled` 前面（理由见文件头那段 ⚠️）：
         // 「隐藏」= `hideHomeHeader == true`，`homeLargeTitle` 的值**被忽略**。
         // ⚠️ 这里读的是同一个键、而且是一个纯读（`UserDefaults+Extension.swift:532-539`）⇒

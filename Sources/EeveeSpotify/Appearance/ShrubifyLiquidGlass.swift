@@ -53,9 +53,7 @@ extension Notification.Name {
 /// Every surface — tab bar, mini-player, player footer, lyrics button, iPad
 /// bottom bars — uses the same material so the look stays consistent. iOS 26
 /// gets the real `UIGlassEffect` (interactive only where a surface asks for it);
-/// older supported versions get a tuned blur with the same rim and specular
-/// sheen. Reduce Transparency still swaps in an opaque fill, and the rim gets
-/// stronger with Increase Contrast.
+/// older systems get a simple system blur. Reduce Transparency uses a solid fill.
 enum ShrubifyLiquidGlass {
     static let enabledKey = "ShrubifyLiquidGlass"
     static let styleKey = "ShrubifyLiquidGlassStyle"
@@ -100,8 +98,7 @@ enum ShrubifyLiquidGlass {
 
     /// A fresh plate. `radius == nil` means a capsule.
     ///
-    /// `boost` scales tint, sheen and rim for plates that sit on Spotify's own
-    /// dark chrome, where the neutral material at 7% white is invisible.
+    /// `boost` remains accepted for source compatibility; UIKit controls optical strength.
     @MainActor
     static func makePlate(
         radius: CGFloat? = nil,

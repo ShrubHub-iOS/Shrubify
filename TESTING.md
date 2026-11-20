@@ -1,10 +1,16 @@
 # Shrubify 4.2.4 testing checklist
 
-## 4.2.4 one owner per bar and glass in the player
+## Selective native glass acceptance
+
+- Clear and Regular use distinct UIKit glass styles; Tinted alone uses accent tint. No synthetic rim or specular layer.
+- Open two iPad windows if supported: each recognized bar receives its own single plate. Select tabs, rotate, resize, and toggle glass repeatedly. Unknown hosts stay native.
+- Check the Home shortcut tint, rounded corners and filters on iPad. Every filter and shortcut remains tappable. Resize and scroll through recycled tiles; no stale artwork tint or glass over artwork.
+- The selected-tab highlight tracks an unambiguous native selected state and never intercepts touches. When no selection signal exists, no highlight is shown.
+- Device layout and scroll-inset acceptance remain required; simulator fixtures do not run Spotify itself.
 
 - The tab bar must read as **one** capsule over the page: no doubled rim, no second capsule edge inside the first, and the page shows through it. On iPad the mini-player is owned by the native glass layer too (the iPhone mini-bar capsule is switched off there), so the two bars no longer overlap.
-- Open the full-screen player. One rounded glass card sits behind the title, progress bar, transport row and tool row, and each key (shuffle, previous, play, next, repeat, share, queue, lyrics, plus the top-left and top-right keys) has a faint glass circle behind it. Glyphs stay sharp because every plate is behind the button.
-- Studio -> Liquid Glass -> **Glass status** should read **Tab bar: native glass**, **Mini-player: native glass** and **Player: glass on** once the player has been opened, with **Player buttons: N with glass** above zero.
+- Open the full-screen and sidebar player. No permanent glass card or per-key glass wells surround transport. Verify all native actions and sharp, legible artwork.
+- Studio -> Liquid Glass -> **Glass status** reports detected native tab and mini-player glass and clean native player controls.
 - Turn Liquid Glass off and back on: the bars return to Spotify's own look byte for byte (backgrounds, materials and hidden gradients restored), then the glass returns without a restart.
 - 4.2.3 lyrics acceptance still applies: a source that cannot answer is rescued by LRCLIB (then Genius when its switch is on) before "no lyrics found", and a title with a suffix still resolves.
 - Play a popular song with a source that cannot answer (for example select Musixmatch with an invalid token). The lyrics must still appear: the log shows `safety net: trying LRCLIB` and the provider line names the source that actually answered.
@@ -13,7 +19,7 @@
 
 ## 4.2.2 bulletproof chrome acceptance
 
-- Studio -> Liquid Glass -> **Glass status** must list the tab bar and mini-player as **glass on** immediately, and player controls after opening the player once.
+- Studio -> Liquid Glass reports actual tab and mini-player discovery; the transport row intentionally has no glass plate.
 - The tab bar must now be see-through glass over the page, not a lighter capsule on a black pill: the cleared backing is what shows the content beneath.
 - Turn the master switch off and confirm the tab bar's original black backing and gradient return exactly, with no leftover clear backgrounds.
 - Rotate, resize Split View, open and close the player and a sheet, then confirm the plates follow or disappear and never sit above a modal.
@@ -21,16 +27,16 @@
 
 ## 4.2.1 visible chrome acceptance
 
-- On iPadOS 26 with default settings, a light glass capsule must sit behind the tab items (not under the pill) and a glass card behind the three transport buttons in the expanded player.
+- On iPadOS 26 the native bottom bar must show content through it; the expanded player must have no injected transport card.
 - The material must be clearly visible on Spotify's near-black chrome; it is deliberately boosted above the shared default used by custom screens.
 - Open a track list, scroll it under the tab bar and confirm the capsule stays above Spotify's opaque backing and never intercepts a tap.
 - Turn the master switch off: all three plates go and Spotify's own chrome is untouched. Reduce Transparency removes them too.
 
 ## 4.2.0 iPad chrome acceptance
 
-- On iPadOS 26 open the app with the default settings: the tab bar, the mini-player and the player's transport controls must each show the glass material without visiting a settings page.
+- On iPadOS 26 default settings: only the bottom bars show glass, with native controls and artwork unobstructed.
 - Open the expanded player and drag the **Intensity** slider in Studio; all three surfaces and the two bottom bars must update live.
-- Turn the master **Liquid Glass** switch off: every plate must disappear and Spotify's original backings must return. Turn **Glass on bottom bars** off on its own: the bars stay native while the player's control card keeps its glass.
+- Turn Glass on bottom bars off: both bars restore their original appearance and player controls remain unchanged.
 - With Reduce Transparency on, no plate may remain. Check the debug log for `[GlassChrome] mounted` lines to confirm which surfaces were found on this Spotify build.
 - Confirm taps still work on every tab, the mini-player and all three transport buttons, and that the plate never receives touches.
 

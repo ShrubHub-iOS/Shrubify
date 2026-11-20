@@ -18,11 +18,12 @@ func activateEvolvedInterface() {
     _ = UserDefaults.normalizeNowPlayingLayoutKeys()
     activateSpotifyURIOpener()
     activateNativeTabletGlass()
-    // Works with the native iPad interface too, so the player itself carries
-    // glass instead of only the two bottom bars.
     activateShrubifyGlassChrome()
     guard EvolvedInterfaceAvailability.supportsCustomInterface else {
-        writeDebugLog("[Shrubify] iPad UI recovery: native player, navigation and page layouts; custom interface hooks skipped")
+        // Enable scoped cosmetic Home features, not the recovered controller replacements.
+        activateHomeHeaderAppearance()
+        activateHomeShortcutTiles()
+        writeDebugLog("[Shrubify] iPad: native player and navigation; scoped Home appearance enabled")
         return
     }
     if let controller = NSClassFromString("NowPlaying_ScrollImpl.NPVScrollViewController"),

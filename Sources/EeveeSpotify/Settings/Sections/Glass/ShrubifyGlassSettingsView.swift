@@ -42,13 +42,14 @@ struct ShrubifyGlassSettingsView: View {
 
                 VStack(alignment: .leading, spacing: 4) {
                     HStack {
-                        Text("Intensity")
+                        Text("Accent tint strength")
                         Spacer()
                         Text("\(Int((intensity * 100).rounded()))%")
                             .font(.footnote.monospacedDigit())
                             .foregroundColor(.secondary)
                     }
                     Slider(value: $intensity, in: 0...1)
+                        .disabled(style != .tinted)
                     .onChange(of: intensity) { value in
                         UserDefaults.container.set(value, forKey: ShrubifyLiquidGlass.intensityKey)
                         ShrubifyLiquidGlass.notifyChange()
@@ -59,7 +60,7 @@ struct ShrubifyGlassSettingsView: View {
             if #available(iOS 26.0, *), UIDevice.current.userInterfaceIdiom == .pad {
                 Section(
                     header: Text("iPad bottom bars"),
-                    footer: Text("Adds the same glass behind Spotify's native tab bar and mini-player. Home, lists and the expanded player stay native.")
+                    footer: Text("Adds native glass behind the tab bar and mini-player. Expanded playback controls stay clean.")
                 ) {
                     Toggle("Glass on bottom bars", isOn: $nativeBars)
                         .onChange(of: nativeBars) { value in
@@ -72,7 +73,7 @@ struct ShrubifyGlassSettingsView: View {
             if #available(iOS 26.0, *), UIDevice.current.userInterfaceIdiom == .pad {
                 Section(
                     header: Text("Glass status"),
-                    footer: Text("What Shrubify actually found on this Spotify build. A surface that still says \"not found yet\" appears there after you open it once.")
+                    footer: Text("What Shrubify actually found on this Spotify build. An unrecognized host retains the native interface.")
                 ) {
                     ForEach(ShrubifyGlassChrome.statusLines, id: \.self) { line in
                         Text(line)
