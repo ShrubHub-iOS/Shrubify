@@ -1,3 +1,14 @@
+# 4.2.3
+
+- Put glass on the player's transport keys: each of the previous, play and next buttons now carries its own decorative glass circle, inserted behind the button so the glyph is never blurred and the button keeps its hit region.
+- Mount the transport row again: the iPad player wraps each key in its own view, so the pass now takes their **common ancestor** (tightest match wins) instead of requiring one shared superview — that requirement is why the row never mounted on a real device.
+- Recognise the mini-player by shape as well as name: Spotify's bar identifier, any bar-shaped `NowPlayingBar` / `MiniPlayer` / `MiniBar`, then the compact bar around the play key, all height-bounded so a page-sized view cannot win.
+- Rescue a failed lyrics source instead of reporting "no lyrics found": every single-source failure now tries LRCLIB (free, token-less, time-synced) and then Genius when its switch is on, and the provider line names the source that actually answered. The Apple Music TTML experiment still asks nothing else.
+- Start the auto-select chain with LRCLIB. The chain has a fixed budget and the key-gated providers used to spend all of it before LRCLIB (ninth) was reached; word-level sources are still consulted inside the upgrade window.
+- Resolve LRCLIB titles that carry suffixes: try the title, the suffix-stripped title and the bracketed-base title, then fall back to a scored search gated on title and duration with artist as a tie-break.
+- Stop the Musixmatch path from crashing on an empty subtitle list (`subtitles.last!`) and treat an all-interlude result as "no lyrics" so the safety net can continue.
+- Report `Player buttons: N of 3 glass` in Studio's Glass status.
+
 # 4.2.2
 
 - Clear Spotify's own opaque bar backing (background colour, bar material, `TabBarGradientView` / `TabBarBackgroundView`) with a captured undo for every change, so the plate is real see-through Liquid Glass over the page instead of a lighter capsule painted on a black pill.

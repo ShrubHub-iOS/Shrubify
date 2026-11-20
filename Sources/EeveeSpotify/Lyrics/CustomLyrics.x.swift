@@ -205,7 +205,8 @@ private func loadCustomLyricsForCurrentTrack(_ track: SafeTrackMetadata) throws 
             searchQuery: searchQuery,
             options: options,
             recordFallbackError: true,
-            allowGeniusFallback: false
+            allowGeniusFallback: false,
+            allowSafetyNet: false
         )
 
         return try makeLyrics(from: result.dto, source: result.source, trackId: searchQuery.spotifyTrackId)
@@ -293,7 +294,8 @@ private func loadCustomLyricsForCurrentTrack(_ track: SafeTrackMetadata) throws 
                 searchQuery: searchQuery,
                 options: options,
                 recordFallbackError: true,
-                allowGeniusFallback: false
+                allowGeniusFallback: false,
+                allowSafetyNet: false
             )
 
             // ⚠️ 判据是**逐词可用**，不是「有行」。
@@ -537,7 +539,8 @@ private func loadCustomLyricsForCurrentTrack(_ track: SafeTrackMetadata) throws 
         searchQuery: LyricsSearchQuery,
         options: LyricsOptions,
         recordFallbackError: Bool,
-        allowGeniusFallback: Bool = true
+        allowGeniusFallback: Bool = true,
+        allowSafetyNet: Bool = true
     ) throws -> SourceLyricsResult {
         let repository = source == .genius
             ? geniusLyricsRepository
@@ -575,65 +578,89 @@ private func loadCustomLyricsForCurrentTrack(_ track: SafeTrackMetadata) throws 
                 }
             }
 
-                // 注意顺序：Genius 失败不再兜底为空歌词（与既有行为一致）——
-                // allowGeniusFallback 在用户设置本身就是 Genius 时为 false。
-                //
-                // ── Genius 兜底的三道门
-                // 每一道没过都**必须留一行日志**：静默 rethrow 会让"开关关着"和"真的没词"
-                // 看起来一模一样，事后无法区分。
-                //
-                // 门 1：来源本来就是 Genius —— 回退到自己没有意义（设置页对 Genius / 自动优选
-                // 来源也不显示那个开关）。
-            if source == .genius {
-                writeDebugLog("[Lyrics] Genius failed — source is already Genius, no fallback")
-                throw error
-            }
-
-            // 门 2：调用方显式要求这条链不做兜底。「AMLL 优先」的 AMLL 那一跳
-            // 与"用户源就是 Genius"那一跳都会传 false（见调用点），所以这门是**常走**的。
-            if !allowGeniusFallback {
-                writeDebugLog(
-                    "[Lyrics] \(source.description) failed — Genius fallback suppressed by caller, no retry"
-                )
-                throw error
-            }
-
-            // 门 3：用户开关。默认 false —— 这个值一旦被重置，表现是"整整一场都不回退"，
-            // 而不是"偶尔失败"。读日志时先看这里，再看 Genius 那边 0 命中。
-            if !options.geniusFallback {
-                writeDebugLog(
-                    "[Lyrics] \(source.description) failed — Genius fallback is OFF, no retry"
-                )
-                throw error
-            }
-
-            writeDebugLog("[Lyrics] \(source.description) failed — falling back to Genius")
-
-            // 兜底一跑，「这次问的是谁」就变成 Genius 了 —— 必须在这里把那个署名全局改掉。
+            // 安全网：任何一个源失败之后，先去问**不需要任何配置**的 LRCLIB，
+            // 再按用户开关问 Genius。
             //
-            // 为什么：它只在 `requestSingleSource` **入口**写过一次（= 用户设的源），成功路径
-            // 靠下面 `source: .genius` 纠正署名，**失败路径没人纠正** —— 于是"兜底也失败"时
-            // 占位 payload 写回用户设的那个源（网易云没词 → Genius 搜到 1 条但没可用行 →
-            // 卡面却写着 `歌词提供者：NetEase`），看起来像"根本没回退"。
+            // 为什么 LRCLIB 打头：它不要令牌、不要账号、不要区域设置，而且给的是
+            // **带时间轴**的歌词。一首热门歌不该因为某个源的令牌过期 / 端点改形就
+            // 显示「没有歌词」—— 那正是"歌词检测变差了"的实际来源。
             //
-            // 口径与成功路径一致：**最后被问的那个源**。
-            lastRequestedLyricsSourceDescription = LyricsSource.genius.description
+            // 三道门，每一道没过都留一行日志（静默 rethrow 会让"开关关着"和
+            // "真的没词"看起来一模一样）：
+            // · 门 1 `allowSafetyNet == false`：Apple Music 官方 TTML 那个总覆盖实验的
+            //   字面语义就是"别的源一个都不问"；
+            // · 门 2 `allowGeniusFallback == false`：调用方显式关掉这条链的兜底
+            //   （「AMLL 优先」的 AMLL 那一跳 —— 用户设的源紧接着就会被问到）；
+            // · 门 3 Genius 自己还要 `options.geniusFallback`，LRCLIB 不受它限制。
+            if allowSafetyNet, allowGeniusFallback {
+                if let rescued = try? safetyNet(
+                    after: source,
+                    searchQuery: searchQuery,
+                    options: options,
+                    allowGenius: options.geniusFallback && source != .genius,
+                    allowLrclib: source != .lrclib
+                ) {
+                    return rescued
+                }
+            } else {
+                writeDebugLog(
+                    "[Lyrics] \(source.description) failed — safety net suppressed by the caller"
+                )
+            }
 
+            throw error
+        }
+    }
+
+    /// 主源失败之后的最后一道网。
+    ///
+    /// 两个**免费**源，按顺序：LRCLIB（带时间轴、无令牌）与 Genius（纯文本、
+    /// 受它自己的开关约束）。成功时回传**实际给词的那个源**，署名行据此写。
+    ///
+    /// 刻意直接调仓库、不走 `requestSingleSource` —— 否则兜底失败时会再进一次
+    /// 兜底，成了递归。
+    private func safetyNet(
+        after source: LyricsSource,
+        searchQuery: LyricsSearchQuery,
+        options: LyricsOptions,
+        allowGenius: Bool,
+        allowLrclib: Bool
+    ) throws -> SourceLyricsResult? {
+        var chain: [LyricsSource] = []
+        if allowLrclib { chain.append(.lrclib) }
+        if allowGenius, source != .genius { chain.append(.genius) }
+        guard !chain.isEmpty else {
+            writeDebugLog("[Lyrics] \(source.description) failed — no safety-net source left")
+            return nil
+        }
+
+        for fallback in chain {
+            writeDebugLog(
+                "[Lyrics] \(source.description) failed — safety net: trying \(fallback.description)"
+            )
+            // 兜底一跑，「这次问的是谁」就变成它了：失败时占位 payload 的署名
+            // 必须写**最后被问的那个源**。
+            lastRequestedLyricsSourceDescription = fallback.description
             do {
-                // ⚠️ 回传的 `source` 必须是 `.genius`：这份 dto 是 Genius 给的，
-                // 来源标签也得写 Genius（写用户设的那个源就是"注解显示 PetitLyrics"）。
-                return SourceLyricsResult(
-                    dto: try geniusLyricsRepository.getLyrics(searchQuery, options: options),
-                    source: .genius
+                let dto = try lyricsRepository(for: fallback)
+                    .getLyrics(searchQuery, options: options)
+                guard dto.isInstrumental || !dto.lines.isEmpty else {
+                    writeDebugLog(
+                        "[Lyrics] safety net: \(fallback.description) returned no line"
+                    )
+                    continue
+                }
+                writeDebugLog(
+                    "[Lyrics] safety net: \(fallback.description) returned \(dto.lines.count) line(s)"
                 )
-            } catch let geniusError {
-                // ⚠️ 兜底失败必须**显式**抛出去并打一行：源内日志只有 `[Genius] No usable
-                // lyrics` 这类，`[Lyrics]` 这一级不打的话，读日志时分不清"最后是 Genius
-                // 没找到"还是"这次压根没回退"。与第一个源的 `failed: <error>` 对称。
-                writeDebugLog("[Lyrics] Genius failed: \(geniusError)")
-                throw geniusError
+                return SourceLyricsResult(dto: dto, source: fallback)
+            } catch let fallbackError {
+                writeDebugLog(
+                    "[Lyrics] safety net: \(fallback.description) failed: \(fallbackError)"
+                )
             }
         }
+        return nil
     }
 
     // MARK: - DTO → Lyrics

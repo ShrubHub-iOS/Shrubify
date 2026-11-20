@@ -432,10 +432,15 @@ class MusixmatchLyricsRepository: LyricsRepository {
             let subtitle = try? getFirstSubtitle(subtitlesMessage),
             let subtitleLanguage = subtitle["subtitle_language"] as? String,
             let subtitleBody = subtitle["subtitle_body"] as? String,
-            let subtitles = try? JSONDecoder().decode(
-                [MusixmatchSubtitle].self, from: subtitleBody.data(using: .utf8)!
-            )
+            let subtitleData = subtitleBody.data(using: .utf8),
+            let decodedSubtitles = try? JSONDecoder().decode(
+                [MusixmatchSubtitle].self, from: subtitleData
+            ),
+            !decodedSubtitles.isEmpty
         {
+            // 空数组以前会一路走到下面的 `subtitles.last!` 而**崩溃**；现在直接
+            // 当作"这个条目没词"，交给安全网去问别的源。
+            let subtitles = decodedSubtitles
 
             let romanizationLanguage = "r\(subtitleLanguage.prefix(1))"
 
@@ -496,12 +501,14 @@ class MusixmatchLyricsRepository: LyricsRepository {
                 )
             }
 
-            lyricsLines.append(
-                LyricsLineDto(
-                    content: "",
-                    offsetMs: Int(subtitles.last!.time.total * 1000)
+            if let lastSubtitle = subtitles.last {
+                lyricsLines.append(
+                    LyricsLineDto(
+                        content: "",
+                        offsetMs: Int(lastSubtitle.time.total * 1000)
+                    )
                 )
-            )
+            }
 
             // 对齐校验：richsync 词只贴到极少行（如 Die For You 只 1/60），
             // 说明 richsync 与 subtitle 时间轴整体偏移（matcher 解析到错误版本等），
@@ -625,6 +632,11 @@ class MusixmatchLyricsRepository: LyricsRepository {
                     "[Musixmatch] dropped \(droppedRows) interlude row(s) — \(lyricsLines.count) line(s)"
                         + " left; romanization and translation dropped in step"
                 )
+            }
+
+            guard !lyricsLines.isEmpty else {
+                writeDebugLog("[Musixmatch] every line was an interlude — no usable lyrics")
+                throw LyricsError.noSuchSong
             }
 
             if didReplaceAnyLine {

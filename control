@@ -1,8 +1,8 @@
 Package: com.shrubify.spotify
 Name: Shrubify
-Version: 4.2.2
+Version: 4.2.3
 Architecture: iphoneos-arm
-Description: Shrubify by shrubbery and ShrubHub team; unified Liquid Glass on iPhone and iPad, custom lyrics entry in the native player, expanded ad blocking, Evolved player and page UI, Replay, ShrubPanel and ShrubQueue; GPL attribution included
+Description: Shrubify by shrubbery and ShrubHub team; unified Liquid Glass on iPhone and iPad including the player's transport keys, resilient lyrics lookup with a free-source safety net, custom lyrics entry in the native player, expanded ad blocking, Evolved player and page UI, Replay, ShrubPanel and ShrubQueue; GPL attribution included
 Maintainer: shrubbery / ShrubHub team
 Author: shrubbery and ShrubHub team; upstream authors credited in accompanying license and documentation
 Section: Tweaks

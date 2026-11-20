@@ -1,4 +1,12 @@
-# Shrubify 4.2.2 testing checklist
+# Shrubify 4.2.3 testing checklist
+
+## 4.2.3 player glass and lyric-rescue acceptance
+
+- Studio -> Liquid Glass -> **Glass status** must add a **Player buttons: 3 of 3 glass** line once the player has been opened. Each of the three transport keys shows a glass ring; the glyphs stay sharp because the ring sits *behind* the button.
+- The player's transport row also carries one plate across the three keys, and the mini-player reads as glass in the bottom bar even when Spotify has renamed its container (the pass falls back to shape, then to the compact bar around the play key).
+- Play a popular song with a source that cannot answer (for example select Musixmatch with an invalid token). The lyrics must still appear: the log shows `safety net: trying LRCLIB` and the provider line names the source that actually answered.
+- A Spotify title with a suffix (`(feat. …)`, `- Remastered …`) must still resolve on LRCLIB: the log shows either an exact match for a stripped variant or `search matched "…"`.
+- Open lyrics for a track whose Musixmatch subtitle list is empty; the app must show "no lyrics found" at worst — never crash.
 
 ## 4.2.2 bulletproof chrome acceptance
 
