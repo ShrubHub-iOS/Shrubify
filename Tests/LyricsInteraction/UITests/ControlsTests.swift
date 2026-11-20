@@ -50,8 +50,38 @@ final class ControlsTests: XCTestCase {
         XCTAssertTrue(resume.waitForExistence(timeout: 5))
         resume.tap()
         XCTAssertFalse(resume.exists)
-        XCTAssertTrue(lines.staticTexts["Lyric line 20"].isHittable)
+        // `resume-follow` animates the list back to the playing line. Asking for
+        // hittability while that line is still off-screen is not a `false`:
+        // XCUITest records "Failed to determine hittability … activation point
+        // invalid" as a hard failure, so the assertion used to race the
+        // animation and fail the whole run. Wait (bounded) for the line to land
+        // inside the scroll view, then assert the same thing as before.
+        let playingLine = lines.staticTexts["Lyric line 20"]
+        XCTAssertTrue(
+            waitUntilInside(playingLine, in: lines),
+            "the lyrics did not scroll back to the playing line"
+        )
         XCTAssertTrue(app.buttons["Play"].isHittable)
+    }
+
+    /// Bounded wait until `element` sits fully inside `container`. Frames are
+    /// safe to read at any time, while `isHittable` on a line that is still
+    /// off-screen raises a hard XCUITest issue ("activation point invalid")
+    /// instead of returning false — which is what failed this test.
+    @MainActor
+    private func waitUntilInside(
+        _ element: XCUIElement,
+        in container: XCUIElement,
+        timeout: TimeInterval = 5
+    ) -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if element.exists, element.frame.height > 1, container.frame.contains(element.frame) {
+                return true
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+        }
+        return false
     }
 
     @MainActor
