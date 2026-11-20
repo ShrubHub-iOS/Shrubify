@@ -16,6 +16,7 @@ enum NativeTabletGlass {
         let bar: Bar
         weak var owner: UIView?
         var plate: UIVisualEffectView?
+        weak var glassContainer: UIView?
         var fallback = false
         var compactRow: CompactRow?
         var restoreBacking: [() -> Void] = []
@@ -61,6 +62,7 @@ enum NativeTabletGlass {
         func remove() {
             compactRow?.restore(); compactRow = nil
             plate?.removeFromSuperview(); plate = nil
+            glassContainer = nil
             restoreBacking.reversed().forEach { $0() }; restoreBacking.removeAll()
             owner = nil
         }
@@ -110,14 +112,13 @@ enum NativeTabletGlass {
         for case let host as UIView in bars.keyEnumerator().allObjects {
             guard let state = bars.object(forKey: host), state.bar == bar else { continue }
             if let plate = state.plate, let attached = plate.window,
-               plate.superview === state.owner, !host.isHidden, !plate.isHidden,
+               plate.superview === state.glassContainer, !host.isHidden, !plate.isHidden,
                window == nil || attached === window { return true }
         }
         return false
     }
 
-    /// A renamed host found through window discovery does not have its own
-    /// layout hook. Reconcile only those fallback hosts when the window lays out.
+    /// Legacy fallback support remains bounded to explicit hosts; no window-scanning hooks are installed.
     static func reconcileFallback(in window: UIView) {
         guard #available(iOS 26.0, *), enabled else { return }
         for case let host as UIView in bars.keyEnumerator().allObjects {
@@ -182,8 +183,21 @@ enum NativeTabletGlass {
             guard (2...6).contains(items.count) else { state.remove(); return }
             content = items.reduce(CGRect.null) { $0.union($1.convert($1.bounds, to: owner)) }
         } else { content = owner.bounds }
-        guard let frame = NativeGlassGeometry.frame(bounds: owner.bounds, content: content, miniPlayer: state.bar == .miniPlayer)
-        else { state.remove(); return }
+        let tabCount = state.bar == .tabs ? (owner as? UIStackView)?.arrangedSubviews.filter { !$0.isHidden }.count : nil
+        guard let frame = NativeGlassGeometry.frame(
+            bounds: owner.bounds, content: content, miniPlayer: state.bar == .miniPlayer,
+            tabCount: tabCount
+        ) else {
+            // A just-compacted stack can report its pre-layout 825pt frames
+            // for one pass. Do not tear down the margins before UIKit lays out.
+            if state.bar == .tabs, state.compactRow != nil {
+                state.plate?.removeFromSuperview()
+                state.plate = nil
+                return
+            }
+            state.remove()
+            return
+        }
         // A fallback and direct hook may discover the same owner. Restore the
         // outgoing backing before transfer, and never share ownership across windows.
         for case let otherHost as UIView in bars.keyEnumerator().allObjects {
@@ -206,20 +220,32 @@ enum NativeTabletGlass {
             if view === host { break }
             ancestor = view.superview
         }
+        // Render below Spotify's entire native bar host, not inside its
+        // internal UIStackView. This lets Liquid Glass sample the real page
+        // rather than the host's opaque, prefrosted backdrop.
+        let container = host.superview ?? owner
+        let converted = owner.convert(frame, to: container)
+        guard converted.minX.isFinite, converted.minY.isFinite,
+              converted.width.isFinite, converted.height.isFinite,
+              converted.width >= 40, converted.height >= 20 else { state.remove(); return }
+        let insertionSibling = host.superview === container ? host : nil
         if let plate = state.plate {
-            if plate.superview === owner {
-                if plate.frame != frame { plate.frame = frame }
+            if plate.superview === container {
+                if plate.frame != converted { plate.frame = converted }
                 return
             }
-            state.remove() // Spotify replaced the backing; release our old edits.
+            // A replaced bar must not retain the old glass or opaque backings.
+            state.remove()
             state.owner = owner
         }
         let plate = ShrubifyLiquidGlass.makePlate(radius: nil, interactive: false)
         plate.accessibilityIdentifier = "shrubify.native.glass.material"
         plate.isUserInteractionEnabled = false
         plate.accessibilityElementsHidden = true
-        plate.frame = frame
-        owner.insertSubview(plate, at: 0)
+        plate.frame = converted
+        if let sibling = insertionSibling { container.insertSubview(plate, belowSubview: sibling) }
+        else { container.insertSubview(plate, at: 0) }
+        state.glassContainer = container
         state.plate = plate
         // Backing restoration is exact and reversible. Avoid painting a blur
         // underneath our single glass effect; that is the grey-slab failure.
@@ -313,6 +339,18 @@ enum NativeTabletGlass {
             }
             if root === host { break }
             ancestor = root.superview
+        }
+        // The immediate wrapper can be the remaining rectangular backing.
+        // Clear it only when it is another compact bar-sized surface.
+        if let wrapper = host.superview,
+           wrapper.bounds.height <= 130, wrapper.bounds.height >= 30,
+           wrapper.bounds.width <= host.bounds.width + 80 {
+            state.clearColor(wrapper)
+            state.clearOpacity(wrapper)
+            if let effect = wrapper as? UIVisualEffectView {
+                state.clearBlur(effect)
+                state.clearColor(effect.contentView)
+            }
         }
     }
     /// A private Spotify background wrapper can contain decorative subviews;

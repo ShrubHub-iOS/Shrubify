@@ -67,5 +67,9 @@ let dock = NativeGlassGeometry.frame(bounds: CGRect(x: 0, y: 0, width: 720, heig
 check(dock != nil && dock!.width <= 720, "The native five-tab tablet dock must receive glass")
 
 let wideDockBounds = CGRect(x: 0, y: 0, width: 825, height: 84)
-check(NativeGlassGeometry.frame(bounds: wideDockBounds, content: wideDockBounds, miniPlayer: false) == wideDockBounds,
-      "Do not silently skip the actual wide native dock")
+check(NativeGlassGeometry.frame(bounds: wideDockBounds, content: wideDockBounds, miniPlayer: false, tabCount: 5) == nil,
+      "Never cover an uncompacted 825pt native dock with a grey glass slab")
+let compactDock = CGRect(x: 192, y: 4, width: 441, height: 72)
+let compactGlass = NativeGlassGeometry.frame(bounds: wideDockBounds, content: compactDock, miniPlayer: false, tabCount: 5)
+check(compactGlass != nil && compactGlass!.width < 460 && wideDockBounds.contains(compactGlass!),
+      "After native tab margins settle, one compact capsule must include all five tabs")

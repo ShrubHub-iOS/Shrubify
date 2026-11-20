@@ -13,7 +13,7 @@ enum NativeGlassGeometry {
         return max(0, floor((width - preferred) / 2))
     }
 
-    static func frame(bounds: CGRect, content: CGRect, miniPlayer: Bool) -> CGRect? {
+    static func frame(bounds: CGRect, content: CGRect, miniPlayer: Bool, tabCount: Int? = nil) -> CGRect? {
         let limit = bounds.width
         guard bounds.minX.isFinite, bounds.minY.isFinite,
               bounds.width.isFinite, bounds.height.isFinite,
@@ -25,6 +25,12 @@ enum NativeGlassGeometry {
         // Inset vertically so the glass capsule never touches or leaks
         // through the rectangular bar host. Allow a small horizontal lip
         // around tab content without using the full host as the shape.
+        if !miniPlayer, let tabCount {
+            // Do not draw a full-width slab while UIKit is still recomputing
+            // the compact row's arranged-subview frames.
+            guard (2...6).contains(tabCount),
+                  content.width <= CGFloat(tabCount) * 82 + 40 else { return nil }
+        }
         let proposed = miniPlayer
             ? content.insetBy(dx: 3, dy: 3)
             : content.insetBy(dx: -6, dy: 5)

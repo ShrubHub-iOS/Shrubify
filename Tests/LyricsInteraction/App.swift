@@ -144,9 +144,16 @@ final class RootController: UIViewController {
         if let selected = row.arrangedSubviews.firstIndex(where: { ($0 as? UIControl)?.isSelected == true }) {
             selectionStatus.text = "Tab \(selected) native-selected · \(extra.count) overlays"
         } else { selectionStatus.text = "No selected tab · \(extra.count) overlays" }
-        let tabs = row.subviews.compactMap { $0 as? UIVisualEffectView }.filter { $0.effect is UIGlassEffect }
-        let minis = mini.subviews.compactMap { $0 as? UIVisualEffectView }.filter { $0.effect is UIGlassEffect }
-        let safe = (tabs + minis).allSatisfy { !$0.isUserInteractionEnabled && $0.accessibilityElementsHidden && $0.superview?.subviews.first === $0 }
+        let glasses = view.subviews.compactMap { $0 as? UIVisualEffectView }
+            .filter { $0.accessibilityIdentifier == "shrubify.native.glass.material" && $0.effect is UIGlassEffect }
+        let tabs = glasses.filter { abs($0.frame.midY - barSurface.frame.midY) < 30 }
+        let minis = glasses.filter { abs($0.frame.midY - miniHost.frame.midY) < 30 }
+        let safe = (tabs + minis).allSatisfy { plate in
+            guard let parent = plate.superview, let plateIndex = parent.subviews.firstIndex(of: plate) else { return false }
+            let host: UIView = tabs.contains(where: { $0 === plate }) ? barSurface : miniHost
+            guard let hostIndex = parent.subviews.firstIndex(of: host) else { return false }
+            return !plate.isUserInteractionEnabled && plate.accessibilityElementsHidden && plateIndex < hostIndex
+        }
         let wells = (row.arrangedSubviews + [miniPlay]).reduce(0) { $0 + $1.fixtureGlassCount }
         let cleared = legacy.alpha == 0 && barSurface.effect == nil && barHost.backgroundColor == .clear && mini.backgroundColor == .clear
         let restored = legacy.alpha == 1 && barSurface.effect is UIBlurEffect && barHost.backgroundColor == .darkGray && mini.backgroundColor == .darkGray
