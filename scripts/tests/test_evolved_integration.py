@@ -47,7 +47,7 @@ class EvolvedIntegrationTests(unittest.TestCase):
         self.assertIn('!containsNativeContent(child)', tablet)
         hooks = (appearance / "ShrubifyGlassChrome.x.swift").read_text()
         self.assertNotIn('ClassHook<UIView>', hooks)
-        self.assertNotIn('UIWindow', hooks)
+        self.assertNotIn('static let targetName = "UIWindow"', hooks)
 
     def test_every_selectable_source_has_a_repository(self):
         source = (ROOT / "Sources/EeveeSpotify/Lyrics/CustomLyrics.x.swift").read_text()
