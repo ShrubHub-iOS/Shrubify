@@ -38,6 +38,14 @@ enum NativeTabletCanvasReadability {
            overlay.superview === cell, video.superview === cell,
            cell.window === page.window, !cell.isHidden,
            cell.alpha > 0.01 {
+            let now = ProcessInfo.processInfo.systemUptime
+            if now - state.lastLookup >= 1 {
+                state.lastLookup = now
+                guard videoRoot(in: cell) === video else {
+                    remove(state)
+                    return
+                }
+            }
             resize(overlay, in: cell)
             return
         }
@@ -122,7 +130,8 @@ enum NativeTabletCanvasReadability {
     private static func videoRoot(in cell: UIView) -> UIView? {
         for child in cell.subviews {
             guard child.bounds.width >= cell.bounds.width * 0.7,
-                  child.bounds.height >= cell.bounds.height * 0.7 else { continue }
+                  child.bounds.height >= cell.bounds.height * 0.7,
+                  !containsControls(in: child) else { continue }
             var nodes = [child]
             var index = 0
             while index < nodes.count, index < 90 {
@@ -135,6 +144,22 @@ enum NativeTabletCanvasReadability {
             }
         }
         return nil
+    }
+
+    /// A video root containing text or buttons must not be shaded, because
+    /// we cannot prove the overlay would sit below those native controls.
+    private static func containsControls(in root: UIView) -> Bool {
+        var nodes = [root]
+        var index = 0
+        while index < nodes.count, index < 100 {
+            let view = nodes[index]
+            index += 1
+            if view is UILabel || view is UIControl { return true }
+            if nodes.count < 100 {
+                nodes.append(contentsOf: view.subviews.prefix(100 - nodes.count))
+            }
+        }
+        return false
     }
 
     private static func hasPlaybackLayer(_ layer: CALayer, depth: Int) -> Bool {
