@@ -3,9 +3,9 @@
 ## Selective native glass acceptance
 
 - Clear and Regular use distinct UIKit glass styles; Tinted alone uses accent tint. No synthetic rim or specular layer.
-- Open two iPad windows if supported: each recognized bar receives its own single plate. Select tabs, rotate, resize, and toggle glass repeatedly. Unknown hosts stay native.
+- Open two iPad windows if supported: each recognized bar gets one plate from its dedicated host hook. No broad window scans, no stale Home oval, and no visible rectangular backgrounds outside the capsule.
 - Check the Home shortcut tint, rounded corners and filters on iPad. Every filter and shortcut remains tappable. Resize and scroll through recycled tiles; no stale artwork tint or glass over artwork.
-- The selected-tab highlight tracks an unambiguous native selected state and never intercepts touches. When no selection signal exists, no highlight is shown.
+- The older oversized selection oval is gone. Spotify's native selected state remains visible and follows real navigation; no injected selection background survives on another page.
 - Device layout and scroll-inset acceptance remain required; simulator fixtures do not run Spotify itself.
 
 - The tab bar must read as **one** capsule over the page: no doubled rim, no second capsule edge inside the first, and the page shows through it. On iPad the mini-player is owned by the native glass layer too (the iPhone mini-bar capsule is switched off there), so the two bars no longer overlap.

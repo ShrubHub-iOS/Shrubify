@@ -140,10 +140,10 @@ final class RootController: UIViewController {
     private var controlFrames: [CGRect] { row.arrangedSubviews.map(\.frame) + [miniPlay.frame] }
     private func reportMaterial() {
         content.report()
-        if let indicator = row.subviews.first(where: { $0.accessibilityIdentifier == "shrubify.native.selection" }),
-           let selected = row.arrangedSubviews.firstIndex(where: { indicator.frame.intersects($0.frame) && abs(indicator.frame.midX - $0.frame.midX) < 0.5 }) {
-            selectionStatus.text = "Tab \(selected) highlighted"
-        } else { selectionStatus.text = "No highlight" }
+        let extra = row.subviews.filter { $0.accessibilityIdentifier == "shrubify.native.selection" }
+        if let selected = row.arrangedSubviews.firstIndex(where: { ($0 as? UIControl)?.isSelected == true }) {
+            selectionStatus.text = "Tab \(selected) native-selected · \(extra.count) overlays"
+        } else { selectionStatus.text = "No selected tab · \(extra.count) overlays" }
         let tabs = row.subviews.compactMap { $0 as? UIVisualEffectView }.filter { $0.effect is UIGlassEffect }
         let minis = mini.subviews.compactMap { $0 as? UIVisualEffectView }.filter { $0.effect is UIGlassEffect }
         let safe = (tabs + minis).allSatisfy { !$0.isUserInteractionEnabled && $0.accessibilityElementsHidden && $0.superview?.subviews.first === $0 }
