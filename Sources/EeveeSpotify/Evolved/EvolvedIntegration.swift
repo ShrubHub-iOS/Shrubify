@@ -19,6 +19,7 @@ func activateEvolvedInterface() {
     activateSpotifyURIOpener()
     activateNativeTabletGlass()
     activateShrubifyGlassChrome()
+    activateNativeTabletCanvasReadability()
     guard EvolvedInterfaceAvailability.supportsCustomInterface else {
         // Enable scoped cosmetic Home features, not the recovered controller replacements.
         activateHomeHeaderAppearance()

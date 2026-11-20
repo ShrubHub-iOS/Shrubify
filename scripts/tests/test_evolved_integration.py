@@ -53,6 +53,19 @@ class EvolvedIntegrationTests(unittest.TestCase):
         self.assertNotIn('ClassHook<UIView>', hooks)
         self.assertNotIn('static let targetName = "UIWindow"', hooks)
 
+    def test_native_canvas_preserves_video_and_controls(self):
+        appearance = ROOT / "Sources/EeveeSpotify/Appearance"
+        canvas = (appearance / "NativeTabletCanvasReadability.x.swift").read_text()
+        self.assertIn("AVPlayerLayer", canvas)
+        self.assertIn("AVSampleBufferDisplayLayer", canvas)
+        self.assertIn("cell.insertSubview(overlay, aboveSubview: video)", canvas)
+        self.assertIn("overlay.isUserInteractionEnabled = false", canvas)
+        self.assertIn('identifier.contains("nowplaying-contentlayer-cell-5")', canvas)
+        self.assertIn("NativeTabletCanvasReadabilityGroup", canvas)
+        self.assertNotIn("UIWindow", canvas)
+        integration = (ROOT / "Sources/EeveeSpotify/Evolved/EvolvedIntegration.swift").read_text()
+        self.assertIn("activateNativeTabletCanvasReadability()", integration)
+
     def test_every_selectable_source_has_a_repository(self):
         source = (ROOT / "Sources/EeveeSpotify/Lyrics/CustomLyrics.x.swift").read_text()
         for name in ["Netease", "AmllTtml", "AppleMusicOfficialTtml", "Bini", "Unison", "QQMusic", "KuGou"]:
