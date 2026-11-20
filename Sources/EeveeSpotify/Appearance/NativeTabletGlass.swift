@@ -37,8 +37,9 @@ enum NativeTabletGlass {
             }
             let originalColor = view.backgroundColor
             let originalLayer = view.layer.backgroundColor
-            guard let color = originalColor, color.cgColor.alpha > 0.001
-                    || originalLayer?.alpha ?? 0 > 0.001 else { return }
+            let fillAlpha = originalColor?.cgColor.alpha ?? 0
+            let layerAlpha = originalLayer?.alpha ?? 0
+            guard fillAlpha > 0.001 || layerAlpha > 0.001 else { return }
             colors.add(view)
             restoreBacking.append { [weak view] in
                 guard let view, view.backgroundColor == .clear else { return }
