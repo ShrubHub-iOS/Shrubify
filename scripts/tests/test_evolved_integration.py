@@ -46,6 +46,8 @@ class EvolvedIntegrationTests(unittest.TestCase):
         self.assertIn('state.clearOpacity(root)', tablet)
         self.assertIn('container.insertSubview(plate, belowSubview: sibling)', tablet)
         self.assertIn('tabCount: tabCount', tablet)
+        self.assertIn('colors.removeAllObjects()', tablet)
+        self.assertIn('clearBarBacking(around: owner, within: host, state: state)', tablet)
         self.assertIn('!containsNativeContent(child)', tablet)
         hooks = (appearance / "ShrubifyGlassChrome.x.swift").read_text()
         self.assertNotIn('ClassHook<UIView>', hooks)

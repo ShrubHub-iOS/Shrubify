@@ -2,6 +2,9 @@
 
 ## Selective native glass acceptance
 
+- Switching among Home, Premium, Library and Search repeatedly must not reintroduce old bar backings. Native background, opacity and blur snapshots are captured once per view and restored in reverse order when glass is disabled.
+- Native glass is inserted as a sibling below the known Spotify bar host, never as an arranged tab item. The material frame must remain within the compact tab-content geometry.
+
 - Clear and Regular use distinct UIKit glass styles; unconfigured appearance defaults to Clear. Tinted alone uses accent tint. No synthetic rim or specular layer.
 - Enabling glass clears only known native bar backings, including layer-level colors and opaque drawing flags, and fully restores them on disabling; decorative views containing real controls/artwork must never be hidden.
 - Open two iPad windows if supported: each recognized bar gets one plate from its dedicated host hook. No broad window scans, no stale Home oval, and no visible rectangular backgrounds outside the capsule.

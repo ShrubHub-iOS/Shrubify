@@ -20,27 +20,41 @@ enum NativeTabletGlass {
         var fallback = false
         var compactRow: CompactRow?
         var restoreBacking: [() -> Void] = []
+        // Repaint protection: Spotify sometimes redraws an already-cleared
+        // background when switching tabs. The original state is captured once.
+        private let colors = NSHashTable<UIView>.weakObjects()
+        private let opacity = NSHashTable<UIView>.weakObjects()
+        private let blurs = NSHashTable<UIVisualEffectView>.weakObjects()
+        private let hidden = NSHashTable<UIView>.weakObjects()
         init(_ bar: Bar) { self.bar = bar }
 
         func clearColor(_ view: UIView) {
-            if let color = view.backgroundColor, color.cgColor.alpha > 0.001 {
-                restoreBacking.append { [weak view] in
-                    guard let view, view.backgroundColor == .clear else { return }
-                    view.backgroundColor = color
-                }
-                view.backgroundColor = .clear
-            } else if view.backgroundColor == nil,
-                      let old = view.layer.backgroundColor, old.alpha > 0.001 {
-                restoreBacking.append { [weak view] in
-                    guard let view, view.backgroundColor == nil,
-                          view.layer.backgroundColor == nil || view.layer.backgroundColor?.alpha == 0 else { return }
-                    view.layer.backgroundColor = old
-                }
-                view.layer.backgroundColor = nil
+            if colors.contains(view) {
+                // Preserve the first snapshot, not a later Spotify repaint.
+                if view.backgroundColor != .clear { view.backgroundColor = .clear }
+                if view.layer.backgroundColor != nil { view.layer.backgroundColor = nil }
+                return
             }
+            let originalColor = view.backgroundColor
+            let originalLayer = view.layer.backgroundColor
+            guard let color = originalColor, color.cgColor.alpha > 0.001
+                    || originalLayer?.alpha ?? 0 > 0.001 else { return }
+            colors.add(view)
+            restoreBacking.append { [weak view] in
+                guard let view, view.backgroundColor == .clear else { return }
+                view.backgroundColor = originalColor
+                view.layer.backgroundColor = originalLayer
+            }
+            view.backgroundColor = .clear
+            view.layer.backgroundColor = nil
         }
         func clearOpacity(_ view: UIView) {
+            if opacity.contains(view) {
+                if view.isOpaque { view.isOpaque = false }
+                return
+            }
             guard view.isOpaque else { return }
+            opacity.add(view)
             restoreBacking.append { [weak view] in
                 guard let view, !view.isOpaque else { return }
                 view.isOpaque = true
@@ -49,13 +63,23 @@ enum NativeTabletGlass {
         }
 
         func clearBlur(_ view: UIVisualEffectView) {
+            if blurs.contains(view) {
+                if view.effect is UIBlurEffect { view.effect = nil }
+                return
+            }
             guard let blur = view.effect as? UIBlurEffect else { return }
+            blurs.add(view)
             restoreBacking.append { [weak view] in if view?.effect == nil { view?.effect = blur } }
             view.effect = nil
         }
         func hide(_ view: UIView) {
+            if hidden.contains(view) {
+                if view.alpha != 0 { view.alpha = 0 }
+                return
+            }
             let alpha = view.alpha
             guard alpha > 0 else { return }
+            hidden.add(view)
             restoreBacking.append { [weak view] in if view?.alpha == 0 { view?.alpha = alpha } }
             view.alpha = 0
         }
@@ -64,6 +88,8 @@ enum NativeTabletGlass {
             plate?.removeFromSuperview(); plate = nil
             glassContainer = nil
             restoreBacking.reversed().forEach { $0() }; restoreBacking.removeAll()
+            colors.removeAllObjects(); opacity.removeAllObjects()
+            blurs.removeAllObjects(); hidden.removeAllObjects()
             owner = nil
         }
     }
@@ -232,6 +258,10 @@ enum NativeTabletGlass {
         if let plate = state.plate {
             if plate.superview === container {
                 if plate.frame != converted { plate.frame = converted }
+                // Native Spotify backings may be repainted after navigation.
+                // Clearing these views is idempotent and does not append
+                // duplicate restoration closures across layout passes.
+                clearBarBacking(around: owner, within: host, state: state)
                 return
             }
             // A replaced bar must not retain the old glass or opaque backings.
