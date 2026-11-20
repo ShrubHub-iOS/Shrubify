@@ -1,3 +1,8 @@
+# 4.2.1
+
+- Make the chrome glass visible instead of theoretical: plates were mounted at subview index 0, i.e. *under* Spotify's opaque pill, and the shared material's neutral tint (about 7% white) disappears on near-black chrome. Plates now insert above a detected opaque backing and carry a boosted tint, sheen and rim that still scale with the Studio intensity setting.
+- Anchor on the real controls rather than on classes: the union of the `TabBar.Item.*` views (falling back to `tabs-container-view-identifier` / `TabBarView`) shapes the tab capsule, and the union of the previous/play/next buttons shapes the transport row. Those accessibility identifiers survive Spotify redesigns, so the material no longer depends on one renamed class.
+
 # 4.2.0
 
 - Put Liquid Glass on the surfaces that were still flat on iPad: the tab bar, the mini-player and the player's transport controls each get one decorative plate from a single shared material, so the expanded player itself now carries glass instead of only the two bottom bars.

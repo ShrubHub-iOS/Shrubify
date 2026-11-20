@@ -1,6 +1,6 @@
-> **4.2.0 takes Liquid Glass into the iPad player itself:** the tab bar, the mini-player and the transport controls now carry the same material, found by identifier so a renamed Spotify class cannot leave them flat again.
+> **4.2.1 makes the glass actually visible:** it anchors on the real tab items and transport buttons, sits above Spotify's opaque pill, and uses a stronger material tuned for near-black chrome.
 
-# Shrubify 4.2.0 — Listening is easy with Shrubify!
+# Shrubify 4.2.1 — Listening is easy with Shrubify!
 
 **Created and maintained by shrubbery and the ShrubHub team.**
 
@@ -11,18 +11,18 @@ Shrubify is an **unofficial, community-developed iOS/iPadOS tweak** based on an 
 | Feature | What it does | Limitations |
 | --- | --- | --- |
 | **Original custom lyrics** | Fullscreen Shrubify karaoke with word/syllable animations, follow/seek, credits and an animated album-art background. Open from ShrubPanel or lyrics settings. | Requires a timed lyrics source. Saved typography/alignment preferences are retained. Native playback commands depend on Spotify compatibility. |
-| **Shrubify Studio** | Player and app appearance in one place. **Glass on bottom bars** is on by default on iPadOS 26 and now also carries a glass card behind the player's transport controls; a window-level pass finds those surfaces by identifier as well as class name. Lyrics appearance lives under Lyrics. | iPad still uses the native player; Shrubify decorates it instead of replacing it. Old layout archives are retained but no longer applied. iOS 17.4+; system glass requires iOS 26+. Spotify version compatibility needs device testing. |
+| **Shrubify Studio** | Player and app appearance in one place. **Glass on bottom bars** is on by default on iPadOS 26, and the tab bar, mini-player and transport row each carry one boosted plate of the same material, anchored on their real controls and drawn above Spotify's opaque backing. Lyrics appearance lives under Lyrics. | iPad still uses the native player; Shrubify decorates it instead of replacing it. Old layout archives are retained but no longer applied. iOS 17.4+; system glass requires iOS 26+. Spotify version compatibility needs device testing. |
 | **ShrubPanel** | Live lyrics, queue and sleep timer first; Studio and Replay are shortcuts. Reach it from Shrubify settings or (where the player observer attaches) a long press on the mini-player. | The mini-player gesture is version-dependent; the settings entry is the reliable fallback. |
 | **Shrubify Replay** | Private, opt-in local listening records: listening duration, track counts, top artists, seven-day trends and approximate plays. Includes privacy controls and a reset button. | Counts only *observed* playback while Shrubify is active, not your full Spotify history. Accuracy depends on now-playing metadata being present. No network sync. |
 | **ShrubQueue** | Shortcut to Spotify's native queue, bookmark the current song, and save a snapshot of the last 20 locally recorded tracks. | Snapshots are **not** a capture or restoration of Spotify's real queue. Opening tracks requires a captured Spotify track URI and in-app navigation support. |
 | **Evolved UI** | Apple Music-style player, fading artwork backdrop, glass tabs and mini-player, and redesigned home/library/album/playlist/artist pages. | Custom tablet UI is paused; iPad keeps its native player and gains the shared Liquid Glass entry points. Private UI hooks on supported devices require version-specific checks. |
 | **Compatibility & Diagnostics** | Optional Stability Mode, version reporting, issue links and debug-log export. | Cannot guarantee compatibility with all Spotify builds or eliminate every crash. |
 
-Shrubify 4.2.0 keeps the original pre-Evolved fullscreen custom lyrics view and the working native iPad player, and puts the shared Liquid Glass material on the surfaces that were still flat: the tab bar, the mini-player and the player's transport controls. Those hosts are discovered from the window by accessibility identifier and class name, so a Spotify rename can no longer drop the material silently. A single Studio page still controls the material, style and intensity on iPhone and iPad. Evolved tablet integration remains unfinished; real Spotify interactions require device validation.
+Shrubify 4.2.1 keeps the original pre-Evolved fullscreen custom lyrics view and the working native iPad player, and puts a visible Liquid Glass plate on the tab bar, the mini-player and the player's transport row. The plates anchor on the tab items and transport buttons themselves (their accessibility identifiers survive redesigns), sit above Spotify's opaque pill instead of beneath it, and use a boosted material because a 7% neutral tint disappears on near-black chrome. A single Studio page still controls the material, style and intensity on iPhone and iPad. Evolved tablet integration remains unfinished; real Spotify interactions require device validation.
 
 ## Install and build
 
-- **Shrubify 4.2.0 release notes:** [RELEASE-4.2.0.md](RELEASE-4.2.0.md)
+- **Shrubify 4.2.1 release notes:** [RELEASE-4.2.1.md](RELEASE-4.2.1.md)
 
 - **Source and full setup:** [SHRUBIFY-SETUP.md](SHRUBIFY-SETUP.md)
 - **Changes in this release:** [CHANGELOG.md](CHANGELOG.md)

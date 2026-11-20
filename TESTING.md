@@ -1,4 +1,11 @@
-# Shrubify 4.2.0 testing checklist
+# Shrubify 4.2.1 testing checklist
+
+## 4.2.1 visible chrome acceptance
+
+- On iPadOS 26 with default settings, a light glass capsule must sit behind the tab items (not under the pill) and a glass card behind the three transport buttons in the expanded player.
+- The material must be clearly visible on Spotify's near-black chrome; it is deliberately boosted above the shared default used by custom screens.
+- Open a track list, scroll it under the tab bar and confirm the capsule stays above Spotify's opaque backing and never intercepts a tap.
+- Turn the master switch off: all three plates go and Spotify's own chrome is untouched. Reduce Transparency removes them too.
 
 ## 4.2.0 iPad chrome acceptance
 

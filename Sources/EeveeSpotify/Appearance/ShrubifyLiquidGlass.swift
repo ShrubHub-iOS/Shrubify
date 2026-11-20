@@ -99,9 +99,16 @@ enum ShrubifyLiquidGlass {
     }
 
     /// A fresh plate. `radius == nil` means a capsule.
+    ///
+    /// `boost` scales tint, sheen and rim for plates that sit on Spotify's own
+    /// dark chrome, where the neutral material at 7% white is invisible.
     @MainActor
-    static func makePlate(radius: CGFloat? = nil, interactive: Bool = false) -> ShrubifyGlassPlate {
-        ShrubifyGlassPlate(radius: radius, interactive: interactive)
+    static func makePlate(
+        radius: CGFloat? = nil,
+        interactive: Bool = false,
+        boost: CGFloat = 1
+    ) -> ShrubifyGlassPlate {
+        ShrubifyGlassPlate(radius: radius, interactive: interactive, boost: boost)
     }
 
     /// Call after changing any key above so mounted surfaces update immediately.
@@ -120,12 +127,15 @@ enum ShrubifyLiquidGlass {
 final class ShrubifyGlassPlate: UIVisualEffectView {
     private let radius: CGFloat?
     private let interactive: Bool
+    /// 1 keeps the shared material exactly as the rest of the app uses it.
+    private let boost: CGFloat
     private let sheen = CAGradientLayer()
     private var observers: [NSObjectProtocol] = []
 
-    init(radius: CGFloat?, interactive: Bool) {
+    init(radius: CGFloat?, interactive: Bool, boost: CGFloat = 1) {
         self.radius = radius
         self.interactive = interactive
+        self.boost = max(1, boost)
         super.init(effect: nil)
         isUserInteractionEnabled = false
         clipsToBounds = true
@@ -182,7 +192,7 @@ final class ShrubifyGlassPlate: UIVisualEffectView {
     /// Rebuilds the material from the current settings. Idempotent and cheap.
     func refresh() {
         let style = ShrubifyLiquidGlass.style
-        let intensity = ShrubifyLiquidGlass.intensity
+        let intensity = min(1, ShrubifyLiquidGlass.intensity * boost)
         // Increase Contrast is exposed as "Darker System Colors" in UIKit.
         let contrast = UIAccessibility.isDarkerSystemColorsEnabled
 
@@ -206,16 +216,20 @@ final class ShrubifyGlassPlate: UIVisualEffectView {
         }
 
         backgroundColor = .clear
+        // A boosted plate needs enough fill to read as glass on Spotify's
+        // near-black chrome; the shared material stays exactly as it was.
         let tint: UIColor
         switch style {
         case .tinted:
             tint = ShrubifyLiquidGlass.accent.withAlphaComponent(
-                style.baseTintAlpha * (0.4 + intensity)
+                min(0.42, style.baseTintAlpha * (0.4 + intensity) * boost)
             )
         case .clear, .regular:
-            tint = UIColor.white.withAlphaComponent(
-                style.baseTintAlpha * (0.35 + intensity * 0.9)
+            let alpha = min(
+                0.30,
+                style.baseTintAlpha * (0.35 + intensity * 0.9) * boost + 0.06 * (boost - 1)
             )
+            tint = UIColor(red: 0.96, green: 0.99, blue: 1, alpha: alpha)
         }
 
         if #available(iOS 26.0, *) {
@@ -232,7 +246,7 @@ final class ShrubifyGlassPlate: UIVisualEffectView {
             )
         }
 
-        let sheenAlpha = min(0.42, 0.10 + intensity * 0.32)
+        let sheenAlpha = min(0.62, (0.10 + intensity * 0.32) * boost)
         sheen.isHidden = false
         sheen.colors = [
             UIColor.white.withAlphaComponent(sheenAlpha).cgColor,
@@ -241,7 +255,7 @@ final class ShrubifyGlassPlate: UIVisualEffectView {
         ]
         layer.borderWidth = contrast ? 1.2 : 0.75
         layer.borderColor = UIColor.white
-            .withAlphaComponent(contrast ? 0.42 : 0.16 + intensity * 0.12)
+            .withAlphaComponent(min(0.62, (contrast ? 0.42 : 0.16 + intensity * 0.12) * boost))
             .cgColor
     }
 
