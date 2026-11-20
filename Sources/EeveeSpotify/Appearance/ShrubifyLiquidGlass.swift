@@ -74,7 +74,7 @@ enum ShrubifyLiquidGlass {
         return style
     }
 
-    /// 0…1. Drives tint, sheen and rim strength together.
+    /// 0…1. Controls the optional accent tint.
     static var intensity: CGFloat {
         let stored = UserDefaults.standard.object(forKey: intensityKey) as? Double ?? 0.55
         return CGFloat(min(max(stored, 0), 1))
@@ -119,57 +119,50 @@ enum ShrubifyLiquidGlass {
     }
 }
 
-/// The material itself.
-///
-/// - Note: The specular sheen and rim are drawn in the layer, not as subviews,
-///   so content added by callers keeps its order and hit testing.
+/// System-owned optical material; no synthetic borders or sheen.
 @MainActor
 final class ShrubifyGlassPlate: UIVisualEffectView {
     private let radius: CGFloat?
     private let interactive: Bool
-    /// 1 keeps the shared material exactly as the rest of the app uses it.
-    private let boost: CGFloat
-    private let sheen = CAGradientLayer()
     private var observers: [NSObjectProtocol] = []
+    private var lastMaterial: Material?
+    private struct Material: Equatable {
+        let enabled: Bool
+        let opaque: Bool
+        let style: ShrubifyGlassStyle
+        let tint: UIColor?
+    }
 
     init(radius: CGFloat?, interactive: Bool, boost: CGFloat = 1) {
         self.radius = radius
         self.interactive = interactive
-        self.boost = max(1, boost)
         super.init(effect: nil)
         isUserInteractionEnabled = false
-        clipsToBounds = true
+        accessibilityElementsHidden = true
         layer.cornerCurve = .continuous
-        layer.masksToBounds = true
-        sheen.startPoint = CGPoint(x: 0.5, y: 0)
-        sheen.endPoint = CGPoint(x: 0.5, y: 1)
-        sheen.locations = [0, 0.42, 1]
-        layer.addSublayer(sheen)
         if #available(iOS 26.0, *) {
-            if let radius {
-                cornerConfiguration = .corners(radius: .fixed(Double(radius)))
-            } else {
-                cornerConfiguration = .capsule()
-            }
+            if let radius { cornerConfiguration = .corners(radius: .fixed(Double(radius))) }
+            else { cornerConfiguration = .capsule() }
+        } else {
+            clipsToBounds = true
         }
-        observe()
+        for name in [UIAccessibility.reduceTransparencyStatusDidChangeNotification,
+                     UIAccessibility.darkerSystemColorsStatusDidChangeNotification,
+                     .shrubifyLiquidGlassDidChange] {
+            observers.append(NotificationCenter.default.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
+                onMainThreadSync { self?.refresh() }
+            })
+        }
         refresh()
     }
 
     required init?(coder: NSCoder) { return nil }
 
-    private func observe() {
-        let center = NotificationCenter.default
-        for name in [
-            UIAccessibility.reduceTransparencyStatusDidChangeNotification,
-            UIAccessibility.darkerSystemColorsStatusDidChangeNotification,
-            Notification.Name.shrubifyLiquidGlassDidChange,
-        ] {
-            observers.append(
-                center.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
-                    onMainThreadSync { self?.refresh() }
-                }
-            )
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        if #unavailable(iOS 26.0) {
+            let half = min(bounds.width, bounds.height) / 2
+            layer.cornerRadius = min(radius ?? half, half)
         }
     }
 
@@ -178,93 +171,32 @@ final class ShrubifyGlassPlate: UIVisualEffectView {
         refresh()
     }
 
-    override func layoutSubviews() {
-        super.layoutSubviews()
-        CATransaction.begin()
-        CATransaction.setDisableActions(true)
-        sheen.frame = bounds
-        if #unavailable(iOS 26.0) {
-            layer.cornerRadius = radius ?? min(bounds.width, bounds.height) / 2
-        }
-        CATransaction.commit()
-    }
-
-    /// Rebuilds the material from the current settings. Idempotent and cheap.
     func refresh() {
         let style = ShrubifyLiquidGlass.style
-        let intensity = min(1, ShrubifyLiquidGlass.intensity * boost)
-        // Increase Contrast is exposed as "Darker System Colors" in UIKit.
-        let contrast = UIAccessibility.isDarkerSystemColorsEnabled
-
-        guard ShrubifyLiquidGlass.isEnabled else {
-            effect = nil
-            backgroundColor = UIColor.white.withAlphaComponent(0.12)
-            contentView.backgroundColor = .clear
-            sheen.isHidden = true
-            layer.borderWidth = 0
-            return
-        }
-
-        guard !UIAccessibility.isReduceTransparencyEnabled else {
+        let tint: UIColor? = style == .tinted
+            ? ShrubifyLiquidGlass.accent.withAlphaComponent(0.04 + ShrubifyLiquidGlass.intensity * 0.16)
+            : nil
+        let material = Material(enabled: ShrubifyLiquidGlass.isEnabled,
+                                opaque: UIAccessibility.isReduceTransparencyEnabled,
+                                style: style, tint: tint)
+        guard lastMaterial != material else { return }
+        lastMaterial = material
+        contentView.backgroundColor = .clear
+        if !material.enabled || material.opaque {
             effect = nil
             backgroundColor = .secondarySystemBackground
-            contentView.backgroundColor = .clear
-            sheen.isHidden = true
-            layer.borderWidth = contrast ? 1 : 0
-            layer.borderColor = UIColor.label.withAlphaComponent(0.2).cgColor
             return
         }
-
         backgroundColor = .clear
-        // A boosted plate needs enough fill to read as glass on Spotify's
-        // near-black chrome; the shared material stays exactly as it was.
-        let tint: UIColor
-        switch style {
-        case .tinted:
-            tint = ShrubifyLiquidGlass.accent.withAlphaComponent(
-                min(0.42, style.baseTintAlpha * (0.4 + intensity) * boost)
-            )
-        case .clear, .regular:
-            // The tint only nudges the material; anything heavier turns the
-            // system glass into the flat grey slab it replaced.
-            let alpha = min(
-                0.13,
-                style.baseTintAlpha * (0.30 + intensity * 0.8) * boost + 0.015 * (boost - 1)
-            )
-            tint = UIColor(red: 0.96, green: 0.99, blue: 1, alpha: alpha)
-        }
-
         if #available(iOS 26.0, *) {
-            let glass = UIGlassEffect(style: .regular)
+            let glass = UIGlassEffect(style: style == .clear ? .clear : .regular)
             glass.isInteractive = interactive
             glass.tintColor = tint
             effect = glass
-            contentView.backgroundColor = .clear
         } else {
             effect = UIBlurEffect(style: style.blurStyle)
-            // A blur cannot carry a tint; a translucent fill over it can.
-            contentView.backgroundColor = tint.withAlphaComponent(
-                min(0.16, tint.cgColor.alpha * 0.6)
-            )
+            if let tint { contentView.backgroundColor = tint.withAlphaComponent(0.08) }
         }
-
-        // A white wash over the whole plate is what made the bars read as grey
-        // plastic instead of glass. Glass is mostly the backdrop itself plus a
-        // narrow specular band at the top edge, so the sheen now fades out by
-        // the upper third and its alpha is capped no matter how much `boost`
-        // asks for.
-        let sheenAlpha = min(0.19, (0.035 + intensity * 0.08) * min(boost, 1.25))
-        sheen.isHidden = false
-        sheen.locations = [0, 0.16, 0.46]
-        sheen.colors = [
-            UIColor.white.withAlphaComponent(sheenAlpha).cgColor,
-            UIColor.white.withAlphaComponent(sheenAlpha * 0.30).cgColor,
-            UIColor.clear.cgColor,
-        ]
-        layer.borderWidth = contrast ? 1.2 : 0.75
-        layer.borderColor = UIColor.white
-            .withAlphaComponent(min(0.42, (contrast ? 0.34 : 0.14 + intensity * 0.09) * min(boost, 1.3)))
-            .cgColor
     }
 
     deinit {

@@ -16,6 +16,8 @@ enum NativeTabletGlass {
         let bar: Bar
         weak var owner: UIView?
         var plate: UIVisualEffectView?
+        var selection: UIView?
+        var fallback = false
         var restoreBacking: [() -> Void] = []
         init(_ bar: Bar) { self.bar = bar }
 
@@ -38,6 +40,7 @@ enum NativeTabletGlass {
             view.alpha = 0
         }
         func remove() {
+            selection?.removeFromSuperview(); selection = nil
             plate?.removeFromSuperview(); plate = nil
             restoreBacking.reversed().forEach { $0() }; restoreBacking.removeAll()
             owner = nil
@@ -66,11 +69,12 @@ enum NativeTabletGlass {
     /// True when this bar already carries a live native plate. The window-pass
     /// chrome asks this before mounting its fallback, because two owners on one
     /// bar double the material, the rim and the sheen — the "fake glass" look.
-    static func owns(_ bar: Bar) -> Bool {
+    static func owns(_ bar: Bar, in window: UIView? = nil) -> Bool {
         guard enabled, accessibilityObserver != nil else { return false }
         for case let host as UIView in bars.keyEnumerator().allObjects {
             guard let state = bars.object(forKey: host), state.bar == bar else { continue }
-            if let plate = state.plate, plate.window != nil { return true }
+            if let plate = state.plate, let attached = plate.window,
+               window == nil || attached === window { return true }
         }
         return false
     }
@@ -81,6 +85,7 @@ enum NativeTabletGlass {
         // still works, but even explicit ON means bars only.
         enabled = ShrubifyLiquidGlass.isEnabled
             && isOnForCurrentDevice
+            && !UserDefaults.standard.bool(forKey: "ShrubifyStabilityMode")
             && !UIAccessibility.isReduceTransparencyEnabled
         for case let host as UIView in bars.keyEnumerator().allObjects {
             guard let state = bars.object(forKey: host) else { continue }
@@ -88,7 +93,7 @@ enum NativeTabletGlass {
         }
     }
 
-    static func layout(_ bar: Bar, in host: UIView) {
+    static func layout(_ bar: Bar, in host: UIView, fallback: Bool = false) {
         guard #available(iOS 26.0, *), accessibilityObserver != nil else { return }
         guard host.window != nil else {
             bars.object(forKey: host)?.remove()
@@ -97,7 +102,8 @@ enum NativeTabletGlass {
         }
         let state: State
         if let existing = bars.object(forKey: host) { state = existing }
-        else { state = State(bar); bars.setObject(state, forKey: host) }
+        else { state = State(bar); state.fallback = fallback; bars.setObject(state, forKey: host) }
+        if !fallback { state.fallback = false }
         // Remember the bar so Studio can apply a change immediately. When off,
         // don't inspect a single subview, allocate a material or mutate UIKit.
         if enabled { update(host, state) }
@@ -108,7 +114,7 @@ enum NativeTabletGlass {
         // Never search a page-sized host, even if a future class name matches.
         guard (1...110).contains(host.bounds.height) else { state.remove(); return }
         let owner: UIView
-        if let cached = state.owner, cached.isDescendant(of: host), matches(cached, state.bar) { owner = cached }
+        if let cached = state.owner, (cached === host || cached.isDescendant(of: host)), matches(cached, state.bar) { owner = cached }
         else {
             state.remove()
             guard let found = findOwner(in: host, bar: state.bar) else { return }
@@ -123,16 +129,17 @@ enum NativeTabletGlass {
         } else { content = owner.bounds }
         guard let frame = NativeGlassGeometry.frame(bounds: owner.bounds, content: content, miniPlayer: state.bar == .miniPlayer)
         else { state.remove(); return }
-        // The window-pass fallback may already own this bar. The native bars
-        // always win, and this has to run **before** the "Spotify already has
-        // glass" checks below: our own fallback is a `UIGlassEffect` view, so
-        // those checks would read it as Spotify's material and yield to it.
-        // The fallback notices on its next pass and leaves the backing alone
-        // (it must not undo a clear that this plate needs).
-        for subview in owner.subviews {
-            guard let id = subview.accessibilityIdentifier,
-                  id.hasPrefix("shrubify.glass.chrome.") else { continue }
-            subview.removeFromSuperview()
+        // A fallback and direct hook may discover the same owner. Restore the
+        // outgoing backing before transfer, and never share ownership across windows.
+        for case let otherHost as UIView in bars.keyEnumerator().allObjects {
+            guard otherHost !== host, let other = bars.object(forKey: otherHost),
+                  other.bar == state.bar, other.owner === owner else { continue }
+            if state.fallback && !other.fallback {
+                state.remove()
+                return
+            }
+            other.remove()
+            bars.removeObject(forKey: otherHost)
         }
         // Yield if Spotify supplies its own bar material, even after install.
         if owner.subviews.contains(where: { $0 !== state.plate && ($0 as? UIVisualEffectView)?.effect is UIGlassEffect }) {
@@ -147,6 +154,7 @@ enum NativeTabletGlass {
         if let plate = state.plate {
             if plate.superview === owner {
                 if plate.frame != frame { plate.frame = frame }
+                updateSelection(in: owner, state: state)
                 return
             }
             state.remove() // Spotify replaced the backing; release our old edits.
@@ -166,6 +174,38 @@ enum NativeTabletGlass {
             state.clearBlur(effect)
         }
         clearBarBacking(around: owner, within: host, state: state)
+        updateSelection(in: owner, state: state)
+    }
+
+    /// Track the real selected item without intercepting actions or adding
+    /// another optical layer. When a build has no unique signal, remain neutral.
+    private static func updateSelection(in owner: UIView, state: State) {
+        guard state.bar == .tabs, let row = owner as? UIStackView else { return }
+        let items = row.arrangedSubviews.filter { !$0.isHidden && $0.alpha > 0.01 }
+        let selected = items.filter {
+            $0.accessibilityTraits.contains(.selected) || ($0 as? UIControl)?.isSelected == true
+        }
+        guard selected.count == 1, let item = selected.first else {
+            state.selection?.removeFromSuperview(); state.selection = nil; return
+        }
+        let target = item.convert(item.bounds, to: row).insetBy(dx: 4, dy: 3)
+        guard target.width > 0, target.height > 0 else { return }
+        if let indicator = state.selection, indicator.superview === row {
+            guard indicator.frame != target else { return }
+            let update = { indicator.frame = target; indicator.layer.cornerRadius = min(target.height, target.width) / 2 }
+            if UIAccessibility.isReduceMotionEnabled { update() }
+            else { UIView.animate(withDuration: 0.23, delay: 0, options: [.beginFromCurrentState, .allowUserInteraction, .curveEaseInOut], animations: update) }
+        } else {
+            let indicator = UIView(frame: target)
+            indicator.accessibilityIdentifier = "shrubify.native.selection"
+            indicator.isUserInteractionEnabled = false
+            indicator.accessibilityElementsHidden = true
+            indicator.backgroundColor = UIColor.label.withAlphaComponent(0.12)
+            indicator.layer.cornerCurve = .continuous
+            indicator.layer.cornerRadius = min(target.height, target.width) / 2
+            row.insertSubview(indicator, at: min(1, row.subviews.count))
+            state.selection = indicator
+        }
     }
 
     private static func matches(_ view: UIView, _ bar: Bar) -> Bool {

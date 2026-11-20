@@ -134,6 +134,8 @@ final class ResponsivePlayerView: UIView {
         artist.addAction(UIAction { [weak self] _ in self?.openMetadata("artist_uri") }, for: .touchUpInside)
         scroll.addSubview(title); scroll.addSubview(artist)
         progress.minimumValue = 0; progress.maximumValue = 1
+        progress.minimumTrackTintColor = .white
+        progress.maximumTrackTintColor = UIColor.white.withAlphaComponent(0.24)
         progress.accessibilityLabel = "Playback position"
         progress.addAction(UIAction { [weak self] _ in self?.seekingTrackID = self?.trackID }, for: .touchDown)
         progress.addAction(UIAction { [weak self] _ in self?.seek() }, for: [.touchUpInside, .touchUpOutside])
@@ -148,12 +150,12 @@ final class ResponsivePlayerView: UIView {
             scroll.addSubview(label)
         }
         remaining.textAlignment = .right
-        controls.axis = .horizontal; controls.distribution = .equalSpacing; controls.alignment = .center
+        controls.axis = .horizontal; controls.distribution = .fillEqually; controls.alignment = .center
         for (id, symbol, label) in [
             ("Components.UI.ShuffleButton", "shuffle", "Shuffle"),
-            ("SPTNowPlayingPreviousTrackButton", "backward.end.fill", "Previous track"),
+            ("SPTNowPlayingPreviousTrackButton", "backward.fill", "Previous track"),
             ("SPTNowPlayingPlayButton", "play.fill", "Play"),
-            ("SPTNowPlayingNextTrackButton", "forward.end.fill", "Next track"),
+            ("SPTNowPlayingNextTrackButton", "forward.fill", "Next track"),
             ("Nowplaying-RepeatButton", "repeat", "Repeat")
         ] {
             let button = UIButton(type: .system)
@@ -164,7 +166,7 @@ final class ResponsivePlayerView: UIView {
         volume.showsRouteButton = false
         volume.accessibilityLabel = "Volume"
         scroll.addSubview(volume)
-        footer.axis = .horizontal; footer.distribution = .equalSpacing; footer.alignment = .center
+        footer.axis = .horizontal; footer.distribution = .fillEqually; footer.alignment = .center
         configure(lyricsButton, symbol: "quote.bubble", label: "Lyrics") { [weak self] in self?.toggleLyrics() }
         footer.addArrangedSubview(lyricsButton)
         for (id, symbol, label) in [
@@ -204,16 +206,7 @@ final class ResponsivePlayerView: UIView {
     required init?(coder: NSCoder) { return nil }
 
     private func configure(_ button: UIButton, symbol: String, label: String, action: @escaping () -> Void) {
-        // Shrubify owns these buttons in the optional phone player. Keep their
-        // symbols, accessibility and native actions above the material.
-        if #available(iOS 26.0, *) {
-            let plate = GlassCapsule.makeGlassView(wantsInteractive: false).view
-            plate.frame = button.bounds
-            plate.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-            plate.isUserInteractionEnabled = false
-            plate.accessibilityElementsHidden = true
-            button.insertSubview(plate, at: 0)
-        }
+        // Playback glyphs are content, not permanent floating glass controls.
         button.tintColor = .white
         button.setImage(UIImage(systemName: symbol, withConfiguration: UIImage.SymbolConfiguration(pointSize: 23, weight: .medium)), for: .normal)
         button.accessibilityLabel = label
