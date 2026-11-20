@@ -68,7 +68,7 @@ enum ShrubifyLiquidGlass {
 
     static var style: ShrubifyGlassStyle {
         guard let raw = UserDefaults.standard.string(forKey: styleKey),
-              let style = ShrubifyGlassStyle(rawValue: raw) else { return .regular }
+              let style = ShrubifyGlassStyle(rawValue: raw) else { return .clear }
         return style
     }
 

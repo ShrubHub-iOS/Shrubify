@@ -1,7 +1,7 @@
 import UIKit
 
-/// Opt-in material behind the two native bottom bars. Only their layout hooks
-/// supply hosts: no window discovery, cell lifecycle work or playback updates.
+/// One native glass owner per recognized tablet bar. Only dedicated layout
+/// hooks mount material; no window scanning or playback-control decoration.
 @MainActor
 enum NativeTabletGlass {
     nonisolated static let preferenceKey = "ShrubifyNativeTabletGlass"
@@ -16,18 +16,27 @@ enum NativeTabletGlass {
         let bar: Bar
         weak var owner: UIView?
         var plate: UIVisualEffectView?
-        var selection: UIView?
         var fallback = false
         var compactRow: CompactRow?
         var restoreBacking: [() -> Void] = []
         init(_ bar: Bar) { self.bar = bar }
 
         func clearColor(_ view: UIView) {
-            guard let color = view.backgroundColor, color.cgColor.alpha > 0 else { return }
-            restoreBacking.append { [weak view] in
-                if view?.backgroundColor == .clear { view?.backgroundColor = color }
+            if let color = view.backgroundColor, color.cgColor.alpha > 0.001 {
+                restoreBacking.append { [weak view] in
+                    guard let view, view.backgroundColor == .clear else { return }
+                    view.backgroundColor = color
+                }
+                view.backgroundColor = .clear
+            } else if view.backgroundColor == nil,
+                      let old = view.layer.backgroundColor, old.alpha > 0.001 {
+                restoreBacking.append { [weak view] in
+                    guard let view, view.backgroundColor == nil,
+                          view.layer.backgroundColor == nil || view.layer.backgroundColor?.alpha == 0 else { return }
+                    view.layer.backgroundColor = old
+                }
+                view.layer.backgroundColor = nil
             }
-            view.backgroundColor = .clear
         }
         func clearBlur(_ view: UIVisualEffectView) {
             guard let blur = view.effect as? UIBlurEffect else { return }
@@ -42,7 +51,6 @@ enum NativeTabletGlass {
         }
         func remove() {
             compactRow?.restore(); compactRow = nil
-            selection?.removeFromSuperview(); selection = nil
             plate?.removeFromSuperview(); plate = nil
             restoreBacking.reversed().forEach { $0() }; restoreBacking.removeAll()
             owner = nil
@@ -87,9 +95,7 @@ enum NativeTabletGlass {
         UserDefaults.standard.object(forKey: preferenceKey) as? Bool ?? true
     }
 
-    /// True when this bar already carries a live native plate. The window-pass
-    /// chrome asks this before mounting its fallback, because two owners on one
-    /// bar double the material, the rim and the sheen — the "fake glass" look.
+    /// True when a recognized bottom bar has our sole live optical plate.
     static func owns(_ bar: Bar, in window: UIView? = nil) -> Bool {
         guard enabled, accessibilityObserver != nil else { return false }
         for case let host as UIView in bars.keyEnumerator().allObjects {
@@ -156,6 +162,11 @@ enum NativeTabletGlass {
             owner = found
             state.owner = found
         }
+        // Set layout margins before measuring the rendered capsule. UIKit
+        // performs the actual row layout on its next normal layout pass.
+        if state.bar == .tabs, let row = owner as? UIStackView {
+            compactIfSupported(row, host: host, state: state)
+        }
         let content: CGRect
         if state.bar == .tabs, let row = owner as? UIStackView {
             let items = row.arrangedSubviews.filter { !$0.isHidden && $0.alpha > 0.01 && $0.bounds.width > 1 }
@@ -186,13 +197,9 @@ enum NativeTabletGlass {
             if view === host { break }
             ancestor = view.superview
         }
-        if state.bar == .tabs, let row = owner as? UIStackView {
-            compactIfSupported(row, host: host, state: state)
-        }
         if let plate = state.plate {
             if plate.superview === owner {
                 if plate.frame != frame { plate.frame = frame }
-                updateSelection(in: owner, state: state)
                 return
             }
             state.remove() // Spotify replaced the backing; release our old edits.
@@ -205,22 +212,24 @@ enum NativeTabletGlass {
         plate.frame = frame
         owner.insertSubview(plate, at: 0)
         state.plate = plate
-        // One-time installation, not per-layout repainting. Leave content and
-        // hit testing alone, including if a future build has unfamiliar chrome.
+        // Backing restoration is exact and reversible. Avoid painting a blur
+        // underneath our single glass effect; that is the grey-slab failure.
+        // Leave native hit regions and unrecognized content unchanged.
         for case let effect as UIVisualEffectView in owner.subviews
         where effect !== plate && effect.frame == owner.bounds && effect.contentView.subviews.isEmpty {
             state.clearBlur(effect)
         }
         clearBarBacking(around: owner, within: host, state: state)
-        updateSelection(in: owner, state: state)
     }
 
     /// Only the known native Spotify dock is eligible, and only when UIKit
     /// already owns equal-width arranged items. Unknown layouts stay untouched.
     private static func compactIfSupported(_ row: UIStackView, host: UIView, state: State) {
         let visible = row.arrangedSubviews.filter { !$0.isHidden && $0.alpha > 0.01 }
-        guard NSStringFromClass(type(of: host)) == "NavigationUI_TabBarImpl.TabBarView",
+        let hostName = NSStringFromClass(type(of: host))
+        guard hostName.contains("TabBarView"), !hostName.contains("TabBarItem"),
               row.accessibilityIdentifier == "tabs-container-view-identifier",
+              row.axis == .horizontal,
               row.distribution == .fillEqually,
               !row.traitCollection.preferredContentSizeCategory.isAccessibilityCategory,
               (2...6).contains(visible.count) else {
@@ -246,53 +255,10 @@ enum NativeTabletGlass {
         // Do not call layoutIfNeeded from a layout hook; next layout updates glass.
     }
 
-    /// Track the real selected item without intercepting actions or adding
-    /// another optical layer. When a build has no unique signal, remain neutral.
-    private static func updateSelection(in owner: UIView, state: State) {
-        guard state.bar == .tabs, let row = owner as? UIStackView else { return }
-        let items = row.arrangedSubviews.filter { !$0.isHidden && $0.alpha > 0.01 }
-        let selected = items.filter {
-            $0.accessibilityTraits.contains(.selected) || ($0 as? UIControl)?.isSelected == true
-        }
-        // Some Encore tabs signal selection only through a bright label.
-        // Accept that signal only if exactly one item matches.
-        let bright = selected.isEmpty ? items.filter { item in
-            var nodes = [item]; var i = 0
-            while i < nodes.count, i < 24 {
-                let view = nodes[i]; i += 1
-                if let label = view as? UILabel, let text = label.text, !text.isEmpty,
-                   let color = label.textColor {
-                    var white: CGFloat = 0; var alpha: CGFloat = 0
-                    return color.resolvedColor(with: row.traitCollection).getWhite(&white, alpha: &alpha)
-                        && white > 0.85 && alpha > 0.8
-                }
-                if nodes.count < 24 { nodes.append(contentsOf: view.subviews.prefix(24 - nodes.count)) }
-            }
-            return false
-        } : []
-        let picked = selected.count == 1 ? selected.first : (bright.count == 1 ? bright.first : nil)
-        guard let item = picked else {
-            state.selection?.removeFromSuperview(); state.selection = nil; return
-        }
-        let target = item.convert(item.bounds, to: row).insetBy(dx: 4, dy: 3)
-        guard target.width > 0, target.height > 0 else { return }
-        if let indicator = state.selection, indicator.superview === row {
-            guard indicator.frame != target else { return }
-            let update = { indicator.frame = target; indicator.layer.cornerRadius = min(target.height, target.width) / 2 }
-            if UIAccessibility.isReduceMotionEnabled { update() }
-            else { UIView.animate(withDuration: 0.23, delay: 0, options: [.beginFromCurrentState, .allowUserInteraction, .curveEaseInOut], animations: update) }
-        } else {
-            let indicator = UIView(frame: target)
-            indicator.accessibilityIdentifier = "shrubify.native.selection"
-            indicator.isUserInteractionEnabled = false
-            indicator.accessibilityElementsHidden = true
-            indicator.backgroundColor = UIColor.label.withAlphaComponent(0.12)
-            indicator.layer.cornerCurve = .continuous
-            indicator.layer.cornerRadius = min(target.height, target.width) / 2
-            row.insertSubview(indicator, at: min(1, row.subviews.count))
-            state.selection = indicator
-        }
-    }
+    // A separate selected-item view was causing the huge grey oval, often
+    // left at Home even when another page was active. The real Spotify
+    // controls already have selected icon/label states. Don't draw an extra
+    // backing until the tab-bar presenter can own selection atomically.
 
     private static func matches(_ view: UIView, _ bar: Bar) -> Bool {
         if bar == .miniPlayer { return view.accessibilityIdentifier == "SPTNowPlayingBar" }
@@ -317,13 +283,20 @@ enum NativeTabletGlass {
     private static func clearBarBacking(around owner: UIView, within host: UIView, state: State) {
         var ancestor: UIView? = owner
         while let root = ancestor, root.bounds.height <= 110 {
-            if let material = root as? UIVisualEffectView { state.clearBlur(material) }
+            if let material = root as? UIVisualEffectView {
+                state.clearBlur(material)
+                state.clearColor(material.contentView)
+            }
             state.clearColor(root)
-            for child in root.subviews {
+            for child in root.subviews where child !== state.plate && child !== owner {
                 let name = NSStringFromClass(type(of: child))
-                // Only empty decorative backings. Never hide an unfamiliar
-                // container to force the glass to show through it.
-                if child.subviews.isEmpty, name.hasSuffix(".TabBarGradientView") || name.hasSuffix(".TabBarBackgroundView") {
+                // Hide known tab-background elements even if their gradient
+                // layers are wider than the bar. Do not suppress controls,
+                // artwork, unknown SwiftUI containers, or unrelated content.
+                let namedBackground = name.contains("TabBarGradientView")
+                    || name.contains("TabBarBackgroundView")
+                    || child.accessibilityIdentifier == "tabs-background-view-identifier"
+                if namedBackground, !(child is UIControl), !(child is UIImageView) {
                     state.hide(child)
                 }
             }

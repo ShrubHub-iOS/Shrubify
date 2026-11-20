@@ -21,11 +21,16 @@ enum NativeGlassGeometry {
               content.width.isFinite, content.height.isFinite,
               bounds.width > 0, bounds.height > 0,
               content.width >= 40, content.width <= limit,
-              content.height >= 20, content.height <= 88 else { return nil }
-        let proposed = miniPlayer ? content : content.insetBy(dx: -10, dy: -4)
+              content.height >= 30, content.height <= 110 else { return nil }
+        // Inset vertically so the glass capsule never touches or leaks
+        // through the rectangular bar host. Allow a small horizontal lip
+        // around tab content without using the full host as the shape.
+        let proposed = miniPlayer
+            ? content.insetBy(dx: 3, dy: 3)
+            : content.insetBy(dx: -6, dy: 5)
         let clipped = proposed.intersection(bounds)
         guard !clipped.isNull, clipped.width >= 40, clipped.height >= 20,
-              clipped.width <= limit + 20, clipped.height <= 96 else { return nil }
+              clipped.width <= limit, clipped.height <= 88 else { return nil }
         return clipped
     }
 }
