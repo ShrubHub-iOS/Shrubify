@@ -1,4 +1,12 @@
-# Shrubify 4.1.9 testing checklist
+# Shrubify 4.2.0 testing checklist
+
+## 4.2.0 iPad chrome acceptance
+
+- On iPadOS 26 open the app with the default settings: the tab bar, the mini-player and the player's transport controls must each show the glass material without visiting a settings page.
+- Open the expanded player and drag the **Intensity** slider in Studio; all three surfaces and the two bottom bars must update live.
+- Turn the master **Liquid Glass** switch off: every plate must disappear and Spotify's original backings must return. Turn **Glass on bottom bars** off on its own: the bars stay native while the player's control card keeps its glass.
+- With Reduce Transparency on, no plate may remain. Check the debug log for `[GlassChrome] mounted` lines to confirm which surfaces were found on this Spotify build.
+- Confirm taps still work on every tab, the mini-player and all three transport buttons, and that the plate never receives touches.
 
 ## 4.1.9 glass, player and ad acceptance
 

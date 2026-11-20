@@ -18,6 +18,9 @@ func activateEvolvedInterface() {
     _ = UserDefaults.normalizeNowPlayingLayoutKeys()
     activateSpotifyURIOpener()
     activateNativeTabletGlass()
+    // Works with the native iPad interface too, so the player itself carries
+    // glass instead of only the two bottom bars.
+    activateShrubifyGlassChrome()
     guard EvolvedInterfaceAvailability.supportsCustomInterface else {
         writeDebugLog("[Shrubify] iPad UI recovery: native player, navigation and page layouts; custom interface hooks skipped")
         return

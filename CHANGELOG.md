@@ -1,3 +1,9 @@
+# 4.2.0
+
+- Put Liquid Glass on the surfaces that were still flat on iPad: the tab bar, the mini-player and the player's transport controls each get one decorative plate from a single shared material, so the expanded player itself now carries glass instead of only the two bottom bars.
+- Find those hosts from the window that is already laying out, by accessibility identifier (`tabs-container-view-identifier`, `SPTNowPlayingBar`) and class name (`TabBarView`, `PlaybackControlsElementsUnit`), so a renamed Spotify class cannot silently drop the material again. The pass is bounded (fixed depth, node cap, one scan per 0.5s) and idempotent.
+- Ship the iPad bottom-bar glass on by default, keep one material per surface (the bar backing and the chrome pass recognise each other's plates), and honour the master switch, the iPad bar switch, Increase Contrast and Reduce Transparency.
+
 # 4.1.9
 
 - Rebuild Liquid Glass as one shared material for the player, tab bar, mini-player, lyrics key and the native iPad bottom bars. iOS 26 uses `UIGlassEffect`; older supported versions use a tuned blur with the same rim and specular sheen, and Reduce Transparency still yields an opaque fill.

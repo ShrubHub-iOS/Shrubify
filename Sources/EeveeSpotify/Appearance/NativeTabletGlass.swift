@@ -121,6 +121,14 @@ enum NativeTabletGlass {
             if view === host { break }
             ancestor = view.superview
         }
+        // The window chrome pass may already own this host. Two plates in one
+        // row would double the material and the rim.
+        if owner.subviews.contains(where: {
+            $0.accessibilityIdentifier?.hasPrefix("shrubify.glass.chrome.") ?? false
+        }) {
+            state.remove()
+            return
+        }
         if let plate = state.plate {
             if plate.superview === owner {
                 if plate.frame != frame { plate.frame = frame }

@@ -1,6 +1,6 @@
-# Shrubify 4.1.9 setup and releases
+# Shrubify 4.2.0 setup and releases
 
-Shrubify 4.1.9 uses native Spotify player/navigation/page layouts on iPad and adds one shared Liquid Glass material to the player, tab bar, mini-player and lyrics controls on both iPhone and iPad. Material, style and intensity live on a single Studio page. The original Shrubify fullscreen custom lyrics view is available from the native player footer as well as ShrubPanel and lyrics settings. Requires iOS 17.4+; the real system glass effect requires iOS 26+. Read [RELEASE-4.1.9.md](RELEASE-4.1.9.md), [TESTING.md](TESTING.md) and [integration notes](docs/EVOLVED-INTEGRATION.md).
+Shrubify 4.2.0 uses native Spotify player/navigation/page layouts on iPad and adds one shared Liquid Glass material to the tab bar, mini-player, the player's transport controls and the lyrics controls on both iPhone and iPad. A window-level pass finds those surfaces by accessibility identifier and class name, so a renamed Spotify class cannot drop the material. Material, style and intensity live on a single Studio page. The original Shrubify fullscreen custom lyrics view is available from the native player footer as well as ShrubPanel and lyrics settings. Requires iOS 17.4+; the real system glass effect requires iOS 26+. Read [RELEASE-4.2.0.md](RELEASE-4.2.0.md), [TESTING.md](TESTING.md) and [integration notes](docs/EVOLVED-INTEGRATION.md).
 
 The tweak keeps the internal `EeveeSpotify.dylib` and `EeveeSpotify.bundle` identifiers for compatibility. The package is `com.shrubify.spotify`; branded IPAs use `com.shrubify.client`. The Shrubify version comes from `control`, which generates the in-app version at build time. Spotify’s app version is a separate value.
 
