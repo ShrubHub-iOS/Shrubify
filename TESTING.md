@@ -1,4 +1,12 @@
-# Shrubify 4.2.1 testing checklist
+# Shrubify 4.2.2 testing checklist
+
+## 4.2.2 bulletproof chrome acceptance
+
+- Studio -> Liquid Glass -> **Glass status** must list the tab bar and mini-player as **glass on** immediately, and player controls after opening the player once.
+- The tab bar must now be see-through glass over the page, not a lighter capsule on a black pill: the cleared backing is what shows the content beneath.
+- Turn the master switch off and confirm the tab bar's original black backing and gradient return exactly, with no leftover clear backgrounds.
+- Rotate, resize Split View, open and close the player and a sheet, then confirm the plates follow or disappear and never sit above a modal.
+- Taps must still reach every tab, the mini-player and all transport buttons; the plates never accept a touch.
 
 ## 4.2.1 visible chrome acceptance
 

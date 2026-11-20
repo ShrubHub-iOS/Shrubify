@@ -55,6 +55,8 @@ enum ShrubifyGlassChrome {
         weak var host: UIView?
         let anchors: [UIView]
         let inset: CGSize
+        /// Spotify views this plate had to clear, with an exact undo for each.
+        let restorations: [() -> Void]
     }
 
     /// The dedicated bar backing names its plate with this prefix.
@@ -265,7 +267,6 @@ enum ShrubifyGlassChrome {
         let host = candidate.host
         guard host.window != nil, !host.isHidden, host.alpha > 0.01 else { return }
         guard !mounts.contains(where: { $0.host === host && $0.surface == surface }) else { return }
-        if surface != .playerControls, !NativeTabletGlass.isOnForCurrentDevice { return }
         // One material per surface: yield to whichever owner got there first.
         if host.subviews.contains(where: {
             $0 is ShrubifyGlassPlate
@@ -279,16 +280,29 @@ enum ShrubifyGlassChrome {
             boost: chromeBoost
         )
         plate.accessibilityIdentifier = surface.identifier
-        let mount = Mount(
+        var mount = Mount(
             surface: surface,
             plate: plate,
             host: host,
             anchors: candidate.anchors,
-            inset: candidate.inset
+            inset: candidate.inset,
+            restorations: []
         )
         guard let frame = plateFrame(for: mount) else { return }
         plate.frame = frame
         insert(plate, into: host)
+        // The bars are the only surfaces Spotify paints opaque; clearing that
+        // backing is what turns the plate into real glass over the page.
+        if surface != .playerControls {
+            mount = Mount(
+                surface: surface,
+                plate: plate,
+                host: host,
+                anchors: candidate.anchors,
+                inset: candidate.inset,
+                restorations: clearBacking(around: host)
+            )
+        }
         mounts.append(mount)
 
         if !didReport {
@@ -319,6 +333,44 @@ enum ShrubifyGlassChrome {
         return decorative && covers
     }
 
+    /// Capture-then-clear, exactly like `NativeTabletGlass`: every change gets a
+    /// matching undo so turning the switch off restores Spotify byte for byte.
+    private static func clearBacking(around host: UIView) -> [() -> Void] {
+        var restorations: [() -> Void] = []
+        var node: UIView? = host
+        var levels = 0
+        while let current = node, levels < 4, current.bounds.height <= 150 {
+            if let colour = current.backgroundColor, colour.cgColor.alpha > 0.01 {
+                restorations.append { [weak current] in
+                    guard let current, current.backgroundColor == .clear else { return }
+                    current.backgroundColor = colour
+                }
+                current.backgroundColor = .clear
+            }
+            if let material = current as? UIVisualEffectView, let effect = material.effect {
+                restorations.append { [weak material] in
+                    guard let material, material.effect == nil else { return }
+                    material.effect = effect
+                }
+                material.effect = nil
+            }
+            for child in current.subviews where child.subviews.isEmpty {
+                let name = className(child)
+                guard name.hasSuffix("TabBarGradientView") || name.hasSuffix("TabBarBackgroundView"),
+                      child.alpha > 0 else { continue }
+                let alpha = child.alpha
+                restorations.append { [weak child] in
+                    guard let child, child.alpha == 0 else { return }
+                    child.alpha = alpha
+                }
+                child.alpha = 0
+            }
+            node = current.superview
+            levels += 1
+        }
+        return restorations
+    }
+
     private static func relayout() {
         prune()
         for mount in mounts {
@@ -332,16 +384,47 @@ enum ShrubifyGlassChrome {
     }
 
     private static func prune() {
-        mounts.removeAll { mount in
-            guard let host = mount.host else { return true }
-            guard host.window != nil, mount.plate.superview === host else { return true }
-            return !mount.anchors.contains { $0 === host || ($0.isDescendant(of: host) && $0.window != nil) }
+        var survivors: [Mount] = []
+        for mount in mounts {
+            guard let host = mount.host,
+                  host.window != nil,
+                  mount.plate.superview === host,
+                  mount.anchors.contains(where: { $0 === host || ($0.isDescendant(of: host) && $0.window != nil) })
+            else {
+                mount.plate.removeFromSuperview()
+                mount.restorations.reversed().forEach { $0() }
+                continue
+            }
+            survivors.append(mount)
         }
+        mounts = survivors
     }
 
     private static func removeAll() {
-        for mount in mounts { mount.plate.removeFromSuperview() }
+        for mount in mounts {
+            mount.plate.removeFromSuperview()
+            mount.restorations.reversed().forEach { $0() }
+        }
         mounts.removeAll()
+    }
+
+    /// What the settings page shows: which surfaces this Spotify build exposes.
+    static var statusLines: [String] {
+        guard isSupported else { return ["Liquid Glass chrome: iPhone uses its own custom chrome."] }
+        guard ShrubifyLiquidGlass.isEnabled else { return ["Liquid Glass chrome: switched off."] }
+        if UIAccessibility.isReduceTransparencyEnabled {
+            return ["Liquid Glass chrome: paused by Reduce Transparency."]
+        }
+        let mounted = Set(mounts.map { $0.surface })
+        return Surface.allCases.map { surface in
+            let name: String
+            switch surface {
+            case .tabs: name = "Tab bar"
+            case .miniPlayer: name = "Mini-player"
+            case .playerControls: name = "Player controls"
+            }
+            return "\(name): \(mounted.contains(surface) ? "glass on" : "not found yet — open the bar once")"
+        }
     }
 
     // MARK: - Geometry

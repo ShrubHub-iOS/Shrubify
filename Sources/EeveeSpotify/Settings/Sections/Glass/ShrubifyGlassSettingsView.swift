@@ -69,6 +69,19 @@ struct ShrubifyGlassSettingsView: View {
                 }
             }
 
+            if #available(iOS 26.0, *), UIDevice.current.userInterfaceIdiom == .pad {
+                Section(
+                    header: Text("Glass status"),
+                    footer: Text("What Shrubify actually found on this Spotify build. A surface that still says \"not found yet\" appears there after you open it once.")
+                ) {
+                    ForEach(ShrubifyGlassChrome.statusLines, id: \.self) { line in
+                        Text(line)
+                            .font(.footnote)
+                            .foregroundColor(.secondary)
+                    }
+                }
+            }
+
             SettingsResetSection(
                 keys: ShrubifyLiquidGlass.allKeys + [NativeTabletGlass.preferenceKey],
                 afterReset: {

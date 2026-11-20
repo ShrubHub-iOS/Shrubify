@@ -1,3 +1,10 @@
+# 4.2.2
+
+- Clear Spotify's own opaque bar backing (background colour, bar material, `TabBarGradientView` / `TabBarBackgroundView`) with a captured undo for every change, so the plate is real see-through Liquid Glass over the page instead of a lighter capsule painted on a black pill.
+- Stop honouring the stale `ShrubifyNativeTabletGlass` key inside the chrome pass: a value written while the feature did nothing could silence the whole surface. Only the master switch and Reduce Transparency decide now; Increase Contrast still strengthens the rim.
+- Report on the Studio page which surfaces the current Spotify build exposes (`Glass status`), so a missing surface is visible instead of guessed at.
+- Anchor on the real tab items and transport buttons, never on a single container class name.
+
 # 4.2.1
 
 - Make the chrome glass visible instead of theoretical: plates were mounted at subview index 0, i.e. *under* Spotify's opaque pill, and the shared material's neutral tint (about 7% white) disappears on near-black chrome. Plates now insert above a detected opaque backing and carry a boosted tint, sheen and rim that still scale with the Studio intensity setting.
