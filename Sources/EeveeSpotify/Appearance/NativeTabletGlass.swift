@@ -18,6 +18,7 @@ enum NativeTabletGlass {
         var plate: UIVisualEffectView?
         var selection: UIView?
         var fallback = false
+        var compactRow: CompactRow?
         var restoreBacking: [() -> Void] = []
         init(_ bar: Bar) { self.bar = bar }
 
@@ -40,10 +41,30 @@ enum NativeTabletGlass {
             view.alpha = 0
         }
         func remove() {
+            compactRow?.restore(); compactRow = nil
             selection?.removeFromSuperview(); selection = nil
             plate?.removeFromSuperview(); plate = nil
             restoreBacking.reversed().forEach { $0() }; restoreBacking.removeAll()
             owner = nil
+        }
+    }
+
+    @MainActor private final class CompactRow {
+        weak var row: UIStackView?
+        let originalMargins: NSDirectionalEdgeInsets
+        let originalRelative: Bool
+        var appliedMargins: NSDirectionalEdgeInsets?
+        init(_ row: UIStackView) {
+            self.row = row
+            originalMargins = row.directionalLayoutMargins
+            originalRelative = row.isLayoutMarginsRelativeArrangement
+        }
+        func restore() {
+            guard let row, let appliedMargins else { return }
+            if row.directionalLayoutMargins == appliedMargins {
+                row.directionalLayoutMargins = originalMargins
+                row.isLayoutMarginsRelativeArrangement = originalRelative
+            }
         }
     }
 
@@ -74,9 +95,23 @@ enum NativeTabletGlass {
         for case let host as UIView in bars.keyEnumerator().allObjects {
             guard let state = bars.object(forKey: host), state.bar == bar else { continue }
             if let plate = state.plate, let attached = plate.window,
+               plate.superview === state.owner, !host.isHidden, !plate.isHidden,
                window == nil || attached === window { return true }
         }
         return false
+    }
+
+    /// A renamed host found through window discovery does not have its own
+    /// layout hook. Reconcile only those fallback hosts when the window lays out.
+    static func reconcileFallback(in window: UIView) {
+        guard #available(iOS 26.0, *), enabled else { return }
+        for case let host as UIView in bars.keyEnumerator().allObjects {
+            guard let state = bars.object(forKey: host), state.fallback else { continue }
+            guard let attached = host.window else {
+                state.remove(); bars.removeObject(forKey: host); continue
+            }
+            if attached === window { update(host, state) }
+        }
     }
 
     static func reapply() {
@@ -151,6 +186,9 @@ enum NativeTabletGlass {
             if view === host { break }
             ancestor = view.superview
         }
+        if state.bar == .tabs, let row = owner as? UIStackView {
+            compactIfSupported(row, host: host, state: state)
+        }
         if let plate = state.plate {
             if plate.superview === owner {
                 if plate.frame != frame { plate.frame = frame }
@@ -177,6 +215,37 @@ enum NativeTabletGlass {
         updateSelection(in: owner, state: state)
     }
 
+    /// Only the known native Spotify dock is eligible, and only when UIKit
+    /// already owns equal-width arranged items. Unknown layouts stay untouched.
+    private static func compactIfSupported(_ row: UIStackView, host: UIView, state: State) {
+        let visible = row.arrangedSubviews.filter { !$0.isHidden && $0.alpha > 0.01 }
+        guard NSStringFromClass(type(of: host)) == "NavigationUI_TabBarImpl.TabBarView",
+              row.accessibilityIdentifier == "tabs-container-view-identifier",
+              row.distribution == .fillEqually,
+              !row.traitCollection.preferredContentSizeCategory.isAccessibilityCategory,
+              (2...6).contains(visible.count) else {
+            state.compactRow?.restore(); state.compactRow = nil; return
+        }
+        let inset = NativeGlassGeometry.compactHorizontalInset(width: row.bounds.width, count: visible.count)
+        guard inset > 12 else { state.compactRow?.restore(); state.compactRow = nil; return }
+        if state.compactRow?.row !== row {
+            state.compactRow?.restore()
+            state.compactRow = CompactRow(row)
+        }
+        guard let geometry = state.compactRow else { return }
+        var margins = geometry.originalMargins
+        margins.leading = max(margins.leading, inset)
+        margins.trailing = max(margins.trailing, inset)
+        // Do not compress hit targets in unusual layouts with large margins.
+        guard row.bounds.width - margins.leading - margins.trailing >= CGFloat(visible.count) * 44 else {
+            geometry.restore(); state.compactRow = nil; return
+        }
+        geometry.appliedMargins = margins
+        if row.directionalLayoutMargins != margins { row.directionalLayoutMargins = margins }
+        if !row.isLayoutMarginsRelativeArrangement { row.isLayoutMarginsRelativeArrangement = true }
+        // Do not call layoutIfNeeded from a layout hook; next layout updates glass.
+    }
+
     /// Track the real selected item without intercepting actions or adding
     /// another optical layer. When a build has no unique signal, remain neutral.
     private static func updateSelection(in owner: UIView, state: State) {
@@ -185,7 +254,24 @@ enum NativeTabletGlass {
         let selected = items.filter {
             $0.accessibilityTraits.contains(.selected) || ($0 as? UIControl)?.isSelected == true
         }
-        guard selected.count == 1, let item = selected.first else {
+        // Some Encore tabs signal selection only through a bright label.
+        // Accept that signal only if exactly one item matches.
+        let bright = selected.isEmpty ? items.filter { item in
+            var nodes = [item]; var i = 0
+            while i < nodes.count, i < 24 {
+                let view = nodes[i]; i += 1
+                if let label = view as? UILabel, let text = label.text, !text.isEmpty,
+                   let color = label.textColor {
+                    var white: CGFloat = 0; var alpha: CGFloat = 0
+                    return color.resolvedColor(with: row.traitCollection).getWhite(&white, alpha: &alpha)
+                        && white > 0.85 && alpha > 0.8
+                }
+                if nodes.count < 24 { nodes.append(contentsOf: view.subviews.prefix(24 - nodes.count)) }
+            }
+            return false
+        } : []
+        let picked = selected.count == 1 ? selected.first : (bright.count == 1 ? bright.first : nil)
+        guard let item = picked else {
             state.selection?.removeFromSuperview(); state.selection = nil; return
         }
         let target = item.convert(item.bounds, to: row).insetBy(dx: 4, dy: 3)

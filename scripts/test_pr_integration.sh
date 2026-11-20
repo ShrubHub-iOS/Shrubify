@@ -15,5 +15,6 @@ swiftc Sources/EeveeSpotify/Shared/Helpers/DebugLogSanitizer.swift \
 
 swiftc Sources/EeveeSpotify/Appearance/PlayerLayout.swift \
   Sources/EeveeSpotify/Appearance/NavigationCapsuleLayout.swift \
+  Sources/EeveeSpotify/Appearance/NativeGlassGeometry.swift \
   Tests/PlayerLayout/main.swift -o "$TEST_BUILD/player-layout-tests"
 "$TEST_BUILD/player-layout-tests"

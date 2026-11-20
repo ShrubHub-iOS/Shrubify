@@ -49,6 +49,7 @@ final class RootController: UIViewController {
     private let closeCount = UILabel()
     private let materialState = UILabel()
     private let tabCount = UILabel()
+    private let selectionStatus = UILabel()
     private var selections = 0
     private let barSurface = UIVisualEffectView(effect: UIBlurEffect(style: .systemMaterialDark))
     private var barHost: UIView { barSurface.contentView }
@@ -74,6 +75,8 @@ final class RootController: UIViewController {
         materialState.accessibilityIdentifier = "material-state"; view.addSubview(materialState)
         tabCount.frame = CGRect(x: 32, y: 190, width: 240, height: 40)
         tabCount.accessibilityIdentifier = "tab-count"; tabCount.text = "0"; view.addSubview(tabCount)
+        selectionStatus.frame = CGRect(x: 550, y: 190, width: 250, height: 40)
+        selectionStatus.accessibilityIdentifier = "selection-state"; view.addSubview(selectionStatus)
         let toggle = UIButton(type: .system); toggle.setTitle("Toggle native glass", for: .normal)
         toggle.frame = CGRect(x: 300, y: 190, width: 240, height: 48); toggle.accessibilityIdentifier = "toggle-glass"
         toggle.addAction(UIAction { [weak self] _ in
@@ -103,8 +106,12 @@ final class RootController: UIViewController {
             let button = TabBarItemElementView(frame: .zero); button.setTitle("Tab \(index)", for: .normal)
             button.setImage(UIImage(systemName: "square.grid.2x2.fill", withConfiguration: UIImage.SymbolConfiguration(pointSize: 24)), for: .normal)
             button.accessibilityIdentifier = "TabBar.Item.fixture-\(index)"
+            button.isSelected = index == 0
             button.addAction(UIAction { [weak self] _ in
                 guard let self else { return }; selections += 1; tabCount.text = "\(selections)"
+                for (i, item) in row.arrangedSubviews.enumerated() { (item as? UIControl)?.isSelected = i == index }
+                NativeTabletGlass.layout(.tabs, in: barSurface)
+                reportMaterial()
             }, for: .touchUpInside)
             row.addArrangedSubview(button)
         }
@@ -133,6 +140,10 @@ final class RootController: UIViewController {
     private var controlFrames: [CGRect] { row.arrangedSubviews.map(\.frame) + [miniPlay.frame] }
     private func reportMaterial() {
         content.report()
+        if let indicator = row.subviews.first(where: { $0.accessibilityIdentifier == "shrubify.native.selection" }),
+           let selected = row.arrangedSubviews.firstIndex(where: { indicator.frame.intersects($0.frame) && abs(indicator.frame.midX - $0.frame.midX) < 0.5 }) {
+            selectionStatus.text = "Tab \(selected) highlighted"
+        } else { selectionStatus.text = "No highlight" }
         let tabs = row.subviews.compactMap { $0 as? UIVisualEffectView }.filter { $0.effect is UIGlassEffect }
         let minis = mini.subviews.compactMap { $0 as? UIVisualEffectView }.filter { $0.effect is UIGlassEffect }
         let safe = (tabs + minis).allSatisfy { !$0.isUserInteractionEnabled && $0.accessibilityElementsHidden && $0.superview?.subviews.first === $0 }

@@ -40,3 +40,15 @@ for width in [CGFloat(320), 414, 847, 1008, 1280] {
     }
 }
 print("Bounded navigation surface checks passed")
+
+for width in [CGFloat(320), 414, 847, 1008, 1280] {
+    for count in 2...6 {
+        let inset = NativeGlassGeometry.compactHorizontalInset(width: width, count: count)
+        check(inset >= 0 && inset * 2 < width, "Dock margins must fit the container")
+        if inset > 0 {
+            check(width - inset * 2 >= CGFloat(count) * 44, "Every compact tab retains its tap target")
+            check(width - inset * 2 <= CGFloat(count) * 82 + 26, "Wide tabs are content-sized")
+        }
+    }
+}
+print("Adaptive native dock geometry checks passed")

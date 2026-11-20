@@ -267,7 +267,7 @@ enum HomeTileTint {
     private static func surfaceIn(_ tile: UIView) -> UIView {
         if let existing = objc_getAssociatedObject(tile, &surfaceKey) as? UIView {
             if existing.superview !== tile {
-                if let fill = tile.subviews.first(where: { $0.frame == tile.bounds }) {
+                if let fill = tile.subviews.first(where: { $0.frame == tile.bounds && $0.subviews.isEmpty && !($0 is UIControl) && !($0 is UIImageView) && !($0 is UILabel) }) {
                     tile.insertSubview(existing, aboveSubview: fill)
                 } else {
                     tile.insertSubview(existing, at: 0)
@@ -283,7 +283,7 @@ enum HomeTileTint {
         surface.layer.cornerRadius = EvolvedInterfaceAvailability.usesNativeTabletInterface ? 14 : 12
         surface.layer.cornerCurve = .continuous
         surface.layer.masksToBounds = true
-        if let fill = tile.subviews.first(where: { $0.frame == tile.bounds }) {
+        if let fill = tile.subviews.first(where: { $0.frame == tile.bounds && $0.subviews.isEmpty && !($0 is UIControl) && !($0 is UIImageView) && !($0 is UILabel) }) {
             tile.insertSubview(surface, aboveSubview: fill)
         } else {
             tile.insertSubview(surface, at: 0)

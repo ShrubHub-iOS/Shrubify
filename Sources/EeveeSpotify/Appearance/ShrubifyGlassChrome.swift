@@ -8,6 +8,7 @@ enum ShrubifyGlassChrome {
     private final class ScanState {
         var remaining = 20
         var lastPass: CFTimeInterval = 0
+        var lastFallbackPass: CFTimeInterval = 0
     }
     private static let windows = NSMapTable<UIView, ScanState>.weakToStrongObjects()
     private static var observers: [NSObjectProtocol] = []
@@ -29,6 +30,7 @@ enum ShrubifyGlassChrome {
             if let state = windows.object(forKey: window) {
                 state.remaining = 20
                 state.lastPass = 0
+                state.lastFallbackPass = 0
             }
             pass(in: window)
         }
@@ -48,10 +50,14 @@ enum ShrubifyGlassChrome {
         let state: ScanState
         if let existing = windows.object(forKey: window) { state = existing }
         else { state = ScanState(); windows.setObject(state, forKey: window) }
+        let now = CACurrentMediaTime()
+        if now - state.lastFallbackPass >= 0.35 {
+            state.lastFallbackPass = now
+            NativeTabletGlass.reconcileFallback(in: window)
+        }
         let missingTabs = !NativeTabletGlass.owns(.tabs, in: window)
         let missingMini = !NativeTabletGlass.owns(.miniPlayer, in: window)
         guard missingTabs || missingMini else { return }
-        let now = CACurrentMediaTime()
         guard state.remaining > 0, now - state.lastPass >= 0.5 else { return }
         state.remaining -= 1
         state.lastPass = now

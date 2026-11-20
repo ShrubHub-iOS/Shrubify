@@ -62,7 +62,16 @@ enum HomeHeaderAppearance {
 
     /// Keep the native iPad filter row and all its interactions.
     @MainActor private static func tabletHeader(in page: UIView) {
-        guard let header = findView(in: page, where: { className($0).contains("HomeHeaderView") }) else { return }
+        var candidates = [page]; var cursor = 0
+        var matched: UIView?
+        while cursor < candidates.count, cursor < 256 {
+            let view = candidates[cursor]; cursor += 1
+            if className(view).contains("HomeHeaderView") { matched = view; break }
+            if !(view is UICollectionView || view is UITableView || view is UIImageView), candidates.count < 256 {
+                candidates.append(contentsOf: view.subviews.prefix(256 - candidates.count))
+            }
+        }
+        guard let header = matched else { return }
         var queue = [header]; var index = 0
         while index < queue.count, index < 160 {
             let chip = queue[index]; index += 1

@@ -140,10 +140,13 @@ final class ControlsTests: XCTestCase {
         let state = app.staticTexts["material-state"]
         XCTAssertTrue(state.waitForExistence(timeout: 10))
         XCTAssertEqual(state.label, "1/1 bars · 0 wells · intact · cleared") // glass ships on
-        app.buttons["TabBar.Item.fixture-0"].tap()
+        XCTAssertEqual(app.staticTexts["selection-state"].label, "Tab 0 highlighted")
+        app.buttons["TabBar.Item.fixture-2"].tap()
+        XCTAssertEqual(app.staticTexts["selection-state"].label, "Tab 2 highlighted")
         XCTAssertEqual(app.staticTexts["tab-count"].label, "1")
         app.buttons["toggle-glass"].tap()
         XCTAssertEqual(state.label, "0/0 bars · 0 wells · intact · native")
+        XCTAssertEqual(app.staticTexts["selection-state"].label, "No highlight")
         for index in 0..<5 { app.buttons["TabBar.Item.fixture-\(index)"].tap() }
         XCTAssertEqual(app.staticTexts["tab-count"].label, "6")
         app.buttons["mini-play"].tap(); XCTAssertEqual(app.buttons["mini-play"].label, "Pause")
@@ -151,5 +154,6 @@ final class ControlsTests: XCTestCase {
         XCTAssertEqual(state.label, "1/1 bars · 0 wells · intact · cleared")
         app.buttons["TabBar.Item.fixture-4"].tap()
         XCTAssertEqual(app.staticTexts["tab-count"].label, "7")
+        XCTAssertEqual(app.staticTexts["selection-state"].label, "Tab 4 highlighted")
     }
 }

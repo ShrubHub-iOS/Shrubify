@@ -5,6 +5,14 @@ import CoreGraphics
 
 /// Decorative geometry only: never changes Spotify's own frames or hit regions.
 enum NativeGlassGeometry {
+    /// A compact dock may change only the margins of a verified fill-equally
+    /// tab row. Reserve at least 44pt per item and keep all content reachable.
+    static func compactHorizontalInset(width: CGFloat, count: Int) -> CGFloat {
+        guard width.isFinite, width > 0, (2...6).contains(count) else { return 0 }
+        let preferred = CGFloat(count) * 82 + 24
+        return max(0, floor((width - preferred) / 2))
+    }
+
     static func frame(bounds: CGRect, content: CGRect, miniPlayer: Bool) -> CGRect? {
         let limit = bounds.width
         guard bounds.minX.isFinite, bounds.minY.isFinite,
