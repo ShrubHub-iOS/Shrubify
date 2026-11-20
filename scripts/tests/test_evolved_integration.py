@@ -43,6 +43,8 @@ class EvolvedIntegrationTests(unittest.TestCase):
         self.assertNotIn('shrubify.native.selection', tablet)
         self.assertNotIn('func updateSelection(', tablet)
         self.assertIn('state.clearColor(material.contentView)', tablet)
+        self.assertIn('state.clearOpacity(root)', tablet)
+        self.assertIn('!containsNativeContent(child)', tablet)
         hooks = (appearance / "ShrubifyGlassChrome.x.swift").read_text()
         self.assertNotIn('ClassHook<UIView>', hooks)
         self.assertNotIn('UIWindow', hooks)

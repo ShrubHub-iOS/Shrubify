@@ -38,6 +38,15 @@ enum NativeTabletGlass {
                 view.layer.backgroundColor = nil
             }
         }
+        func clearOpacity(_ view: UIView) {
+            guard view.isOpaque else { return }
+            restoreBacking.append { [weak view] in
+                guard let view, !view.isOpaque else { return }
+                view.isOpaque = true
+            }
+            view.isOpaque = false
+        }
+
         func clearBlur(_ view: UIVisualEffectView) {
             guard let blur = view.effect as? UIBlurEffect else { return }
             restoreBacking.append { [weak view] in if view?.effect == nil { view?.effect = blur } }
@@ -286,8 +295,10 @@ enum NativeTabletGlass {
             if let material = root as? UIVisualEffectView {
                 state.clearBlur(material)
                 state.clearColor(material.contentView)
+                state.clearOpacity(material.contentView)
             }
             state.clearColor(root)
+            state.clearOpacity(root)
             for child in root.subviews where child !== state.plate && child !== owner {
                 let name = NSStringFromClass(type(of: child))
                 // Hide known tab-background elements even if their gradient
@@ -296,7 +307,7 @@ enum NativeTabletGlass {
                 let namedBackground = name.contains("TabBarGradientView")
                     || name.contains("TabBarBackgroundView")
                     || child.accessibilityIdentifier == "tabs-background-view-identifier"
-                if namedBackground, !(child is UIControl), !(child is UIImageView) {
+                if namedBackground, !containsNativeContent(child) {
                     state.hide(child)
                 }
             }
@@ -304,4 +315,18 @@ enum NativeTabletGlass {
             ancestor = root.superview
         }
     }
+    /// A private Spotify background wrapper can contain decorative subviews;
+    /// never hide it if there is a real control or artwork inside.
+    private static func containsNativeContent(_ view: UIView) -> Bool {
+        var nodes = [view]
+        var index = 0
+        while index < nodes.count, index < 80 {
+            let item = nodes[index]
+            index += 1
+            if item is UIControl || item is UIImageView { return true }
+            if nodes.count < 80 { nodes.append(contentsOf: item.subviews.prefix(80 - nodes.count)) }
+        }
+        return false
+    }
+
 }

@@ -2,7 +2,8 @@
 
 ## Selective native glass acceptance
 
-- Clear and Regular use distinct UIKit glass styles; Tinted alone uses accent tint. No synthetic rim or specular layer.
+- Clear and Regular use distinct UIKit glass styles; unconfigured appearance defaults to Clear. Tinted alone uses accent tint. No synthetic rim or specular layer.
+- Enabling glass clears only known native bar backings, including layer-level colors and opaque drawing flags, and fully restores them on disabling; decorative views containing real controls/artwork must never be hidden.
 - Open two iPad windows if supported: each recognized bar gets one plate from its dedicated host hook. No broad window scans, no stale Home oval, and no visible rectangular backgrounds outside the capsule.
 - Check the Home shortcut tint, rounded corners and filters on iPad. Every filter and shortcut remains tappable. Resize and scroll through recycled tiles; no stale artwork tint or glass over artwork.
 - The older oversized selection oval is gone. Spotify's native selected state remains visible and follows real navigation; no injected selection background survives on another page.

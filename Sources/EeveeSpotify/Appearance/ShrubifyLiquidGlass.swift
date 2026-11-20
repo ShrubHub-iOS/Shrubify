@@ -179,7 +179,13 @@ final class ShrubifyGlassPlate: UIVisualEffectView {
         guard lastMaterial != material else { return }
         lastMaterial = material
         contentView.backgroundColor = .clear
-        if !material.enabled || material.opaque {
+        if !material.enabled {
+            // Disabling Liquid Glass must never leave a grey replacement fill.
+            effect = nil
+            backgroundColor = .clear
+            return
+        }
+        if material.opaque {
             effect = nil
             backgroundColor = .secondarySystemBackground
             return
