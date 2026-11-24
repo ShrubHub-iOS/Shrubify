@@ -188,7 +188,10 @@ final class RootController: UIViewController {
                     return abs(actual.minX - original.minX) < 0.5 && abs(actual.maxX - original.maxX) < 0.5
                         && abs(actual.minY - original.minY) < 0.5 && abs(actual.maxY - original.maxY) < 0.5
                 }
-                && row.directionalLayoutMargins == nativeMargins
+                // The safe area can change the effective vertical margins
+                // after presentation. Compaction owns only horizontal margins.
+                && row.directionalLayoutMargins.leading == nativeMargins.leading
+                && row.directionalLayoutMargins.trailing == nativeMargins.trailing
                 && row.isLayoutMarginsRelativeArrangement == nativeMarginsRelative
         materialState.text = "\(tabs.count)/\(minis.count) bars · \(wells) wells · \(controlsIntact && safe ? "intact" : "changed") · \(backing)"
         materialState.accessibilityValue = controlsIntact ? nil

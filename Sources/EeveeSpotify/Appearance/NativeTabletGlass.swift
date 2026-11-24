@@ -325,8 +325,8 @@ enum NativeTabletGlass {
             state.compactRow = CompactRow(row)
         }
         guard let geometry = state.compactRow else { return }
-        var margins = geometry.originalMargins
-        let symmetricInset = max(inset, max(margins.leading, margins.trailing))
+        var margins = row.directionalLayoutMargins
+        let symmetricInset = max(inset, max(geometry.originalMargins.leading, geometry.originalMargins.trailing))
         margins.leading = symmetricInset
         margins.trailing = symmetricInset
         // Do not compress hit targets in unusual layouts with large margins.
