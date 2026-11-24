@@ -17,6 +17,12 @@ enum NativeTabletCanvasReadability {
     private static let pages = NSMapTable<UIView, PageState>.weakToStrongObjects()
     private static let overlayID = "shrubify.canvas.readability"
 
+    static func clear(in page: UIView) {
+        guard let state = pages.object(forKey: page) else { return }
+        remove(state)
+        pages.removeObject(forKey: page)
+    }
+
     static func layout(in page: UIView) {
         let state: PageState
         if let existing = pages.object(forKey: page) { state = existing }
@@ -202,7 +208,30 @@ class NativeTabletCanvasReadabilityHook: ClassHook<UIViewController> {
         let controller = target
         onMainThreadSync {
             guard let page = controller.viewIfLoaded else { return }
-            NativeTabletCanvasReadability.layout(in: page)
+            if ResponsivePlayer.applyTablet(in: page) {
+                NativeTabletCanvasReadability.clear(in: page)
+            } else {
+                NativeTabletCanvasReadability.layout(in: page)
+            }
+        }
+    }
+
+    func viewDidAppear(_ animated: Bool) {
+        orig.viewDidAppear(animated)
+        let controller = target
+        onMainThreadSync {
+            guard let page = controller.viewIfLoaded else { return }
+            ResponsivePlayer.applyTablet(in: page)
+        }
+    }
+
+    func viewDidDisappear(_ animated: Bool) {
+        orig.viewDidDisappear(animated)
+        let controller = target
+        onMainThreadSync {
+            guard let page = controller.viewIfLoaded else { return }
+            ResponsivePlayer.remove(from: page)
+            NativeTabletCanvasReadability.clear(in: page)
         }
     }
 }
@@ -211,7 +240,10 @@ func activateNativeTabletCanvasReadability() {
     guard EvolvedInterfaceAvailability.usesNativeTabletInterface else { return }
     let name = NativeTabletCanvasReadabilityHook.targetName
     guard let cls = NSClassFromString(name) as? UIViewController.Type,
-          class_getInstanceMethod(cls, #selector(UIViewController.viewDidLayoutSubviews)) != nil
+          [#selector(UIViewController.viewDidLayoutSubviews),
+           #selector(UIViewController.viewDidAppear(_:)),
+           #selector(UIViewController.viewDidDisappear(_:))]
+            .allSatisfy({ class_getInstanceMethod(cls, $0) != nil })
     else { return }
     NativeTabletCanvasReadabilityGroup().activate()
 }

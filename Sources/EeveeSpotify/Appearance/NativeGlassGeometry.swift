@@ -31,9 +31,10 @@ enum NativeGlassGeometry {
             guard (2...6).contains(tabCount),
                   content.width <= CGFloat(tabCount) * 82 + 40 else { return nil }
         }
+        let verticalInset = max(5, (content.height - 60) / 2)
         let proposed = miniPlayer
             ? content.insetBy(dx: 3, dy: 3)
-            : content.insetBy(dx: -6, dy: 5)
+            : content.insetBy(dx: -6, dy: verticalInset)
         let clipped = proposed.intersection(bounds)
         guard !clipped.isNull, clipped.width >= 40, clipped.height >= 20,
               clipped.width <= limit, clipped.height <= 88 else { return nil }

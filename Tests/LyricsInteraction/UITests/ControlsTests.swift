@@ -145,12 +145,25 @@ final class ControlsTests: XCTestCase {
         XCTAssertTrue(state.waitForExistence(timeout: 10))
         XCTAssertEqual(state.label, "1/1 bars · 0 wells · intact · cleared") // glass ships on
         XCTAssertEqual(app.staticTexts["selection-state"].label, "Tab 0 native-selected · 0 overlays")
+        XCTAssertEqual(app.staticTexts["optical-selection"].label, "Lens under tab 0")
+        let tile = app.buttons["TabBar.Item.fixture-2"].frame
+        let sample = CGPoint(x: tile.minX + 14, y: tile.midY - 18)
+        guard let red = redMinusBlue(at: sample, in: app) else {
+            return XCTFail("Could not sample the glass over the red backdrop")
+        }
+        app.buttons["swap-dock-backdrop"].tap()
+        guard let blue = redMinusBlue(at: sample, in: app) else {
+            return XCTFail("Could not sample the glass over the blue backdrop")
+        }
+        XCTAssertGreaterThan(red - blue, 16, "Dock still samples a fixed backing")
         app.buttons["TabBar.Item.fixture-2"].tap()
         XCTAssertEqual(app.staticTexts["selection-state"].label, "Tab 2 native-selected · 0 overlays")
+        XCTAssertEqual(app.staticTexts["optical-selection"].label, "Lens under tab 2")
         XCTAssertEqual(app.staticTexts["tab-count"].label, "1")
         app.buttons["toggle-glass"].tap()
         XCTAssertEqual(state.label, "0/0 bars · 0 wells · intact · native", state.value as? String ?? "")
         XCTAssertEqual(app.staticTexts["selection-state"].label, "Tab 2 native-selected · 0 overlays")
+        XCTAssertEqual(app.staticTexts["optical-selection"].label, "No selection lens")
         for index in 0..<5 { app.buttons["TabBar.Item.fixture-\(index)"].tap() }
         XCTAssertEqual(app.staticTexts["tab-count"].label, "6")
         app.buttons["mini-play"].tap(); XCTAssertEqual(app.buttons["mini-play"].label, "Pause")
@@ -159,5 +172,23 @@ final class ControlsTests: XCTestCase {
         app.buttons["TabBar.Item.fixture-4"].tap()
         XCTAssertEqual(app.staticTexts["tab-count"].label, "7")
         XCTAssertEqual(app.staticTexts["selection-state"].label, "Tab 4 native-selected · 0 overlays")
+        XCTAssertEqual(app.staticTexts["optical-selection"].label, "Lens under tab 4")
+    }
+
+    @MainActor
+    private func redMinusBlue(at point: CGPoint, in app: XCUIApplication) -> Int? {
+        let bounds = app.frame
+        guard bounds.width > 0, bounds.height > 0, bounds.contains(point),
+              let image = app.screenshot().image.cgImage else { return nil }
+        let x = (point.x - bounds.minX) * CGFloat(image.width) / bounds.width
+        let y = (point.y - bounds.minY) * CGFloat(image.height) / bounds.height
+        guard let area = image.cropping(to: CGRect(x: x - 3, y: y - 3, width: 6, height: 6)),
+              let context = CGContext(data: nil, width: 1, height: 1, bitsPerComponent: 8, bytesPerRow: 4,
+                                      space: CGColorSpaceCreateDeviceRGB(),
+                                      bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue),
+              let pixels = context.data?.assumingMemoryBound(to: UInt8.self) else { return nil }
+        context.interpolationQuality = .high
+        context.draw(area, in: CGRect(x: 0, y: 0, width: 1, height: 1))
+        return Int(pixels[0]) - Int(pixels[2])
     }
 }

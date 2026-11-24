@@ -12,10 +12,11 @@ struct PlayerLayout {
     let footer: CGRect
     let contentHeight: CGFloat
 
-    init(size: CGSize, top: CGFloat, bottom: CGFloat, largeText: Bool = false) {
+    init(size: CGSize, top: CGFloat, bottom: CGFloat, largeText: Bool = false, reservesHeader: Bool = true) {
         let margin: CGFloat = size.width < 400 ? 20 : 28
-        let usable = CGRect(x: margin, y: top + 56, width: max(0, size.width - margin * 2),
-                            height: max(0, size.height - top - bottom - 120))
+        let headroom: CGFloat = reservesHeader ? 56 : 18
+        let usable = CGRect(x: margin, y: top + headroom, width: max(0, size.width - margin * 2),
+                            height: max(0, size.height - top - bottom - headroom - 64))
         wide = size.width >= 700 && size.width > size.height
         header = CGRect(x: margin, y: top + 4, width: usable.width, height: 48)
         let controlsHeight: CGFloat = largeText ? 360 : 300
@@ -29,7 +30,8 @@ struct PlayerLayout {
                              width: column, height: max(usable.height, controlsHeight))
             contentHeight = max(size.height, content.maxY + bottom + 64)
         } else {
-            let side = max(0, min(usable.width, size.height * 0.36, 460))
+            let artworkHeight = reservesHeader ? size.height * 0.36 : max(size.height * 0.35, usable.height - controlsHeight)
+            let side = max(0, min(usable.width, artworkHeight, reservesHeader ? 460 : 500))
             artwork = CGRect(x: (size.width - side) / 2, y: usable.minY, width: side, height: side)
             content = CGRect(x: margin, y: artwork.maxY + 24, width: usable.width,
                              height: controlsHeight)

@@ -28,6 +28,12 @@ let tablet = PlayerLayout(size: CGSize(width: 1280, height: 889), top: 24, botto
 check(tablet.wide && tablet.artwork.height <= 560, "Landscape iPad cannot create 1280-point-tall artwork")
 let resized = PlayerLayout(size: CGSize(width: 421, height: 818), top: 24, bottom: 21)
 check(!resized.wide && resized.artwork.width < tablet.artwork.width, "Resizing recomputes geometry without cached device assumptions")
+let landscapeBody = PlayerLayout(size: CGSize(width: 1194, height: 730), top: 0, bottom: 20, reservesHeader: false)
+let sidebarBody = PlayerLayout(size: CGSize(width: 397, height: 730), top: 0, bottom: 20, reservesHeader: false)
+check(landscapeBody.wide && landscapeBody.artwork.width >= 480, "Landscape uses a dedicated artwork column")
+check(!sidebarBody.wide && sidebarBody.artwork.width >= 320, "The sidebar keeps an artwork-led layout")
+check(sidebarBody.artwork.maxY < sidebarBody.content.minY, "Sidebar controls stay below the artwork")
+check(sidebarBody.footer.maxY <= sidebarBody.contentHeight, "The sidebar footer can scroll into view")
 print("Responsive player geometry checks passed")
 
 for width in [CGFloat(320), 414, 847, 1008, 1280] {

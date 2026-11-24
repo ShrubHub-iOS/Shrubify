@@ -16,10 +16,11 @@ class EvolvedIntegrationTests(unittest.TestCase):
         # Spotify. Guard against installing a cell/base-class scroll hook again.
         appearance = ROOT / "Sources/EeveeSpotify/Appearance"
         hooks = (appearance / "NativeTabletGlass.x.swift").read_text()
-        self.assertCountEqual(re.findall(r'ClassHook<([^>]+)>', hooks), ["UIView", "UIView"])
+        self.assertCountEqual(re.findall(r'ClassHook<([^>]+)>', hooks), ["UIView", "UIView", "UIViewController"])
         self.assertCountEqual(re.findall(r'static let targetName = "([^"]+)"', hooks), [
             "NavigationUI_TabBarImpl.TabBarView",
             "_TtC22NowPlaying_BarPageImplP33_CCC0D2EEA6D4725EECD8965E8C38C86D20TouchPassthroughView",
+            "_TtC23NavigationUI_TabBarImpl19TabBarContainerImpl",
         ])
         renderer = (appearance / "NativeTabletGlass.swift").read_text()
         for global_trigger in ["connectedScenes", "UIWindow", "eeveeKaraokeLyricsChanged", "asyncAfter"]:
@@ -40,8 +41,8 @@ class EvolvedIntegrationTests(unittest.TestCase):
         self.assertNotIn("window-scanning fallback", (appearance / "ShrubifyGlassChrome.x.swift").read_text())
         tablet = (appearance / "NativeTabletGlass.swift").read_text()
         self.assertIn("other.owner === owner", tablet)
-        self.assertNotIn('shrubify.native.selection', tablet)
         self.assertNotIn('func updateSelection(', tablet)
+        self.assertIn('plate.contentView.addSubview(indicator)', tablet)
         self.assertIn('state.clearColor(material.contentView)', tablet)
         self.assertIn('state.clearOpacity(root)', tablet)
         self.assertIn('container.insertSubview(plate, belowSubview: sibling)', tablet)

@@ -21,10 +21,10 @@ func activateEvolvedInterface() {
     activateShrubifyGlassChrome()
     activateNativeTabletCanvasReadability()
     guard EvolvedInterfaceAvailability.supportsCustomInterface else {
-        // Enable scoped cosmetic Home features, not the recovered controller replacements.
+        // Tablet presentation is handled by its dedicated player and bar hooks.
         activateHomeHeaderAppearance()
         activateHomeShortcutTiles()
-        writeDebugLog("[Shrubify] iPad: native player and navigation; scoped Home appearance enabled")
+        writeDebugLog("[Shrubify] iPad: artwork-led player body over native presentation; scoped glass and Home appearance")
         return
     }
     if let controller = NSClassFromString("NowPlaying_ScrollImpl.NPVScrollViewController"),

@@ -2,7 +2,8 @@ import SwiftUI
 
 struct ShrubifyStudioView: View {
     var usesSettingsNavigation = false
-    @AppStorage(NativeTabletGlass.preferenceKey) private var nativeGlass = false
+    @AppStorage(NativeTabletGlass.preferenceKey) private var nativeGlass = true
+    @State private var artworkPlayer = UserDefaults.nowPlayingIOS27
     @ViewBuilder private func studioLink<V: View>(title: String, subtitle: String? = nil, icon: String, color: Color, destination: @escaping () -> V) -> some View {
         if usesSettingsNavigation {
             SettingsLink(title: title, subtitle: subtitle, icon: icon, color: color, destination: destination)
@@ -15,7 +16,11 @@ struct ShrubifyStudioView: View {
     var body: some View {
         List {
             if EvolvedInterfaceAvailability.usesNativeTabletInterface {
-                Section(header: Text("iPad appearance"), footer: Text("Artwork, track lists and the full-screen player keep Spotify’s original appearance.")) {
+                Section(header: Text("iPad appearance")) {
+                    if !UserDefaults.standard.bool(forKey: "ShrubifyStabilityMode") {
+                        Toggle("Artwork-led player", isOn: $artworkPlayer)
+                            .onChange(of: artworkPlayer) { UserDefaults.nowPlayingIOS27 = $0 }
+                    }
                     if #available(iOS 26.0, *) {
                         if UserDefaults.standard.bool(forKey: "ShrubifyStabilityMode") {
                             Text("Stability Mode uses Spotify’s original bottom bars.").font(.footnote)
@@ -41,5 +46,6 @@ struct ShrubifyStudioView: View {
             }
         }
         .eeveeSettingsStyle()
+        .onAppear { artworkPlayer = UserDefaults.nowPlayingIOS27 }
     }
 }

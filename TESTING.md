@@ -1,6 +1,6 @@
-# Shrubify 4.2.5~beta1 testing checklist
+# Shrubify 4.2.5~beta2 testing checklist
 
-## 4.2.5 beta 1 on iPad
+## 4.2.5 beta 2 on iPad
 
 - Scroll bright and dark artwork underneath the Home and album docks. Check that the material shows the page beneath it and labels stay readable. Switch tabs and resize or open the split player while watching the selection and plate alignment.
 - Open and close the mini-player repeatedly. With two bars present, confirm both show the page through the glass. Toggle glass off and verify native backings return.
@@ -20,8 +20,8 @@
 - Device layout and scroll-inset acceptance remain required; simulator fixtures do not run Spotify itself.
 
 - The tab bar must read as **one** capsule over the page: no doubled rim, no second capsule edge inside the first, and the page shows through it. On iPad the mini-player is owned by the native glass layer too (the iPhone mini-bar capsule is switched off there), so the two bars no longer overlap.
-- Open the full-screen and sidebar player. No permanent glass card or per-key glass wells surround transport. Verify all native actions and sharp, legible artwork.
-- Studio -> Liquid Glass -> **Glass status** reports detected native tab and mini-player glass and clean native player controls.
+- Open the full-screen and sidebar player. Verify that both show the artwork-led layout, the native header can switch presentation, and the lyrics and playback actions work.
+- Studio -> Liquid Glass -> **Glass status** reports whether glass is attached to the tab bar or mini-player.
 - Turn Liquid Glass off and back on: the bars return to Spotify's own look byte for byte (backgrounds, materials and hidden gradients restored), then the glass returns without a restart.
 - 4.2.3 lyrics acceptance still applies: a source that cannot answer is rescued by LRCLIB (then Genius when its switch is on) before "no lyrics found", and a title with a suffix still resolves.
 - Play a popular song with a source that cannot answer (for example select Musixmatch with an invalid token). The lyrics must still appear: the log shows `safety net: trying LRCLIB` and the provider line names the source that actually answered.

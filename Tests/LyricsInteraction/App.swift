@@ -44,6 +44,7 @@ final class InteractionScene: UIResponder, UIWindowSceneDelegate {
 final class TabBarGradientView: UIView {}
 final class TabBarItemElementView: UIButton {}
 final class FixtureTabBarView: UIVisualEffectView {}
+final class FixtureBackdropView: UIView {}
 
 final class RootController: UIViewController {
     private var closes = 0
@@ -51,8 +52,13 @@ final class RootController: UIViewController {
     private let materialState = UILabel()
     private let tabCount = UILabel()
     private let selectionStatus = UILabel()
+    private let opticalSelection = UILabel()
     private var selections = 0
     private let barSurface = FixtureTabBarView(effect: UIBlurEffect(style: .systemMaterialDark))
+    private let dockWrapper = UIView()
+    private let dockBacking = UIView()
+    private let dockBackdrop = FixtureBackdropView()
+    private var blueBackdrop = false
     private var barHost: UIView { barSurface.contentView }
     private let content = ContentFixture(frame: .zero)
     private let miniHost = UIView()
@@ -80,6 +86,18 @@ final class RootController: UIViewController {
         tabCount.accessibilityIdentifier = "tab-count"; tabCount.text = "0"; view.addSubview(tabCount)
         selectionStatus.frame = CGRect(x: 550, y: 190, width: 250, height: 40)
         selectionStatus.accessibilityIdentifier = "selection-state"; view.addSubview(selectionStatus)
+        opticalSelection.frame = CGRect(x: 32, y: 222, width: 245, height: 40)
+        opticalSelection.accessibilityIdentifier = "optical-selection"; view.addSubview(opticalSelection)
+        let backdropButton = UIButton(type: .system)
+        backdropButton.setTitle("Swap dock backdrop", for: .normal)
+        backdropButton.accessibilityIdentifier = "swap-dock-backdrop"
+        backdropButton.frame = CGRect(x: 290, y: 230, width: 245, height: 34)
+        backdropButton.addAction(UIAction { [weak self] _ in
+            guard let self else { return }
+            blueBackdrop.toggle()
+            dockBackdrop.backgroundColor = blueBackdrop ? .systemBlue : .systemRed
+        }, for: .touchUpInside)
+        view.addSubview(backdropButton)
         let toggle = UIButton(type: .system); toggle.setTitle("Toggle native glass", for: .normal)
         toggle.frame = CGRect(x: 300, y: 190, width: 240, height: 48); toggle.accessibilityIdentifier = "toggle-glass"
         toggle.addAction(UIAction { [weak self] _ in
@@ -93,7 +111,14 @@ final class RootController: UIViewController {
             self?.reportMaterial()
         }, for: .touchUpInside); view.addSubview(toggle)
         view.addSubview(content)
-        view.addSubview(barSurface)
+        dockBackdrop.backgroundColor = .systemRed
+        dockBackdrop.isUserInteractionEnabled = false
+        view.addSubview(dockBackdrop)
+        dockBacking.backgroundColor = .darkGray
+        dockBacking.isUserInteractionEnabled = false
+        view.addSubview(dockBacking)
+        view.addSubview(dockWrapper)
+        dockWrapper.addSubview(barSurface)
         miniHost.frame = CGRect(x: 568, y: 64, width: 240, height: 56); view.addSubview(miniHost)
         mini.frame = miniHost.bounds; mini.accessibilityIdentifier = "SPTNowPlayingBar"
         mini.backgroundColor = .darkGray; miniHost.addSubview(mini)
@@ -116,7 +141,7 @@ final class RootController: UIViewController {
             button.addAction(UIAction { [weak self] _ in
                 guard let self else { return }; selections += 1; tabCount.text = "\(selections)"
                 for (i, item) in row.arrangedSubviews.enumerated() { (item as? UIControl)?.isSelected = i == index }
-                NativeTabletGlass.layout(.tabs, in: barSurface)
+                layoutBars()
                 reportMaterial()
             }, for: .touchUpInside)
             row.addArrangedSubview(button)
@@ -125,17 +150,19 @@ final class RootController: UIViewController {
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         content.frame = CGRect(x: 24, y: 264, width: min(660, view.bounds.width - 48), height: 200)
-        barSurface.frame = CGRect(x: 32, y: view.bounds.height - 104, width: min(825, view.bounds.width - 64), height: 84)
+        dockWrapper.frame = CGRect(x: 32, y: view.bounds.height - 104, width: min(825, view.bounds.width - 64), height: 84)
+        dockBacking.frame = dockWrapper.frame
+        dockBackdrop.frame = dockWrapper.frame.insetBy(dx: -8, dy: -12)
+        barSurface.frame = dockWrapper.bounds
         barSurface.layoutIfNeeded()
         row.frame = barHost.bounds
         legacy.frame = CGRect(x: 0, y: -112, width: barHost.bounds.width, height: 195)
         row.layoutIfNeeded()
-        // Mirror the two layout hooks. The production API never receives the
-        // window, shelf, artwork or a cell; there is no test-only content pass.
+        // Mirror the navigation controller's nested footer and sibling backing.
         if didCaptureNativeLayout { layoutBars() }
     }
     private func layoutBars() {
-        NativeTabletGlass.layout(.tabs, in: barSurface)
+        NativeTabletGlass.layout(.tabs, in: barSurface, navigationRoot: view)
         NativeTabletGlass.layout(.miniPlayer, in: miniHost)
     }
     override func viewDidAppear(_ animated: Bool) {
@@ -163,19 +190,30 @@ final class RootController: UIViewController {
         } else { selectionStatus.text = "No selected tab · \(extra.count) overlays" }
         let glasses = view.subviews.compactMap { $0 as? UIVisualEffectView }
             .filter { $0.accessibilityIdentifier == "shrubify.native.glass.material" && $0.effect is UIGlassEffect }
-        let tabs = glasses.filter { abs($0.frame.midY - barSurface.frame.midY) < 30 }
+        let tabs = glasses.filter { abs($0.frame.midY - dockWrapper.frame.midY) < 30 }
         let minis = glasses.filter { abs($0.frame.midY - miniHost.frame.midY) < 30 }
+        if let plate = tabs.first, let marker = plate.contentView.subviews.first(where: {
+            $0.accessibilityIdentifier == "shrubify.native.selection" && !$0.isHidden
+        }), plate.contentView.bounds.contains(marker.frame),
+           let index = row.arrangedSubviews.firstIndex(where: { item in
+               item.bounds.contains(marker.convert(CGPoint(x: marker.bounds.midX, y: marker.bounds.midY), to: item))
+           }) {
+            opticalSelection.text = "Lens under tab \(index)"
+        } else {
+            opticalSelection.text = "No selection lens"
+        }
         let safe = (tabs + minis).allSatisfy { plate in
             guard let parent = plate.superview, let plateIndex = parent.subviews.firstIndex(of: plate) else { return false }
-            let host: UIView = tabs.contains(where: { $0 === plate }) ? barSurface : miniHost
+            let host: UIView = tabs.contains(where: { $0 === plate }) ? dockWrapper : miniHost
             guard let hostIndex = parent.subviews.firstIndex(of: host) else { return false }
             return !plate.isUserInteractionEnabled && plate.accessibilityElementsHidden && plateIndex < hostIndex
         }
         let wells = (row.arrangedSubviews + [miniPlay]).reduce(0) { $0 + $1.fixtureGlassCount }
-        let cleared = legacy.alpha == 0 && barSurface.effect == nil
+        let cleared = legacy.alpha == 0 && dockBacking.alpha == 0 && barSurface.effect == nil
             && (barHost.layer.backgroundColor?.alpha ?? 0) == 0
             && (mini.layer.backgroundColor?.alpha ?? 0) == 0
-        let restored = legacy.alpha == 1 && barSurface.effect is UIBlurEffect && barHost.backgroundColor == .darkGray && mini.backgroundColor == .darkGray
+        let restored = legacy.alpha == 1 && dockBacking.alpha == 1 && barSurface.effect is UIBlurEffect
+            && barHost.backgroundColor == .darkGray && mini.backgroundColor == .darkGray
         let backing = cleared ? "cleared" : (restored ? "native" : "partial")
         let frames = controlFrames
         let controlsIntact = cleared

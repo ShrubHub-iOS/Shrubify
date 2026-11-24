@@ -717,7 +717,7 @@ enum NowPlayingIOS27 {
     /// 不是专辑封面。
     /// `SPTPlayerTrack.metadata["image_url"]` 是这首曲目的专辑封面，
     /// `LyricsArtworkResolver` 已经把它翻译成 `i.scdn.co` 地址（歌词背景在用同一条链）。
-    private static func refreshMetadataArtwork(trackId: String) {
+    static func refreshMetadataArtwork(trackId: String) {
         if trackId != metadataArtworkTrackId {
             metadataArtworkTrackId = trackId
             metadataArtworkImage = nil

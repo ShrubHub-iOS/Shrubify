@@ -1,11 +1,7 @@
 import SwiftUI
 import UIKit
 
-/// Liquid Glass for every device and every surface.
-///
-/// One master switch, one material and one intensity control drive the tab bar,
-/// mini-player, player footer and the iPad bottom-bar backings, so the look is
-/// consistent instead of being tuned page by page.
+/// Shared material settings for the surfaces that support system glass.
 struct ShrubifyGlassSettingsView: View {
     @State private var enabled = ShrubifyLiquidGlass.isEnabled
     @State private var style = ShrubifyLiquidGlass.style
@@ -16,7 +12,9 @@ struct ShrubifyGlassSettingsView: View {
         List {
             Section(
                 header: Text("Liquid Glass"),
-                footer: Text("Applies to the player, the tab bar and the mini-player on iPhone and iPad.")
+                footer: Text(UIDevice.current.userInterfaceIdiom == .pad
+                    ? "Applies to the iPad tab dock and mini-player."
+                    : "Applies to supported iPhone controls and bars.")
             ) {
                 Toggle("Liquid Glass", isOn: $enabled)
                     .onChange(of: enabled) { value in
@@ -40,7 +38,7 @@ struct ShrubifyGlassSettingsView: View {
                     .font(.footnote)
                     .foregroundColor(.secondary)
 
-                VStack(alignment: .leading, spacing: 4) {
+                if style == .tinted { VStack(alignment: .leading, spacing: 4) {
                     HStack {
                         Text("Accent tint strength")
                         Spacer()
@@ -49,12 +47,11 @@ struct ShrubifyGlassSettingsView: View {
                             .foregroundColor(.secondary)
                     }
                     Slider(value: $intensity, in: 0...1)
-                        .disabled(style != .tinted)
                     .onChange(of: intensity) { value in
                         UserDefaults.container.set(value, forKey: ShrubifyLiquidGlass.intensityKey)
                         ShrubifyLiquidGlass.notifyChange()
                     }
-                }
+                } }
             }
 
             if #available(iOS 26.0, *), UIDevice.current.userInterfaceIdiom == .pad {
@@ -73,7 +70,7 @@ struct ShrubifyGlassSettingsView: View {
             if #available(iOS 26.0, *), UIDevice.current.userInterfaceIdiom == .pad {
                 Section(
                     header: Text("Glass status"),
-                    footer: Text("What Shrubify actually found on this Spotify build. An unrecognized host retains the native interface.")
+                    footer: Text("Shows where Shrubify attached a system effect. The artwork-led player layout has its own setting in Studio.")
                 ) {
                     ForEach(ShrubifyGlassChrome.statusLines, id: \.self) { line in
                         Text(line)

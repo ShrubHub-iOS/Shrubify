@@ -24,9 +24,9 @@ enum ShrubifyGlassChrome {
             return ["Bottom bar glass: Reduce Transparency keeps native backings."]
         }
         return [
-            "Tab bar: " + (NativeTabletGlass.owns(.tabs) ? "system glass" : "native controls; glass host not detected"),
-            "Mini-player: " + (NativeTabletGlass.owns(.miniPlayer) ? "system glass" : "native controls; glass host not detected"),
-            "Player: native controls without injected transport rings."
+            "Tab bar: " + (NativeTabletGlass.owns(.tabs) ? "system effect attached" : "native bar is showing"),
+            "Mini-player: " + (NativeTabletGlass.owns(.miniPlayer) ? "system effect attached" : "no attached effect"),
+            "Player layout: " + (ResponsivePlayer.tabletEnabled ? "Artwork-led" : "Spotify")
         ]
     }
 }
