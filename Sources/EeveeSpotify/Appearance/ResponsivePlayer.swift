@@ -47,11 +47,7 @@ enum ResponsivePlayer {
             views.add(view)
             page.addSubview(view)
         }
-        // The native header owns the pane/fullscreen controls. Cover only
-        // the body so those controls retain their real presentation routes.
-        let headerHeight = tablet ? page.safeAreaInsets.top + 62 : 0
-        let frame = page.bounds.inset(by: UIEdgeInsets(top: headerHeight, left: 0, bottom: 0, right: 0))
-        if view.frame != frame { view.frame = frame }
+        if view.frame != page.bounds { view.frame = page.bounds }
         view.refresh(image: image, trackID: trackID)
         page.bringSubviewToFront(view)
     }
@@ -90,6 +86,8 @@ final class ResponsivePlayerView: UIView {
     weak var page: UIView?
     fileprivate let tablet: Bool
     private let scroll = UIScrollView()
+    private let backdrop = UIView()
+    private let headerBlend = CAGradientLayer()
     private let background = UIImageView()
     private let shade = UIView()
     private let artworkShade = CAGradientLayer()
@@ -102,8 +100,10 @@ final class ResponsivePlayerView: UIView {
     private let elapsed = UILabel()
     private let remaining = UILabel()
     private let volume = MPVolumeView()
+    private let volumeTrack = UIImageView(image: UIImage(systemName: "speaker.wave.2"))
     private let controls = UIStackView()
     private let footer = UIStackView()
+    private var footerGlass: UIVisualEffectView?
     private let lyrics = UIView()
     private let notice = UILabel()
     private let credit = UILabel()
@@ -125,6 +125,7 @@ final class ResponsivePlayerView: UIView {
         init(_ view: UIView) { self.view = view; alpha = view.alpha }
     }
     private var headerSnapshots: [HeaderSnapshot] = []
+    private var headerHeight: CGFloat { TabletPlayerLayout.headerHeight(safeTop: safeAreaInsets.top) }
     private var lastDiscovery: TimeInterval = 0
     private var lastTabletRefresh: TimeInterval = 0
     private var showingLyrics = false
@@ -147,7 +148,9 @@ final class ResponsivePlayerView: UIView {
         super.init(frame: page.bounds)
         accessibilityIdentifier = "shrubify-responsive-player"
         autoresizingMask = [.flexibleWidth, .flexibleHeight]
-        backgroundColor = .black
+        isOpaque = false
+        backdrop.backgroundColor = .black
+        backdrop.isUserInteractionEnabled = false
         background.contentMode = .scaleAspectFill
         background.alpha = 0.7
         background.isUserInteractionEnabled = false
@@ -155,14 +158,22 @@ final class ResponsivePlayerView: UIView {
         shade.backgroundColor = tablet ? .clear : UIColor.black.withAlphaComponent(0.5)
         shade.isUserInteractionEnabled = false
         if tablet {
-            artworkShade.colors = [UIColor.black.withAlphaComponent(0.26).cgColor,
-                                   UIColor.black.withAlphaComponent(0.42).cgColor,
-                                   UIColor.black.withAlphaComponent(0.88).cgColor]
+            artworkShade.colors = [UIColor.black.withAlphaComponent(0.12).cgColor,
+                                   UIColor.black.withAlphaComponent(0.34).cgColor,
+                                   UIColor.black.withAlphaComponent(0.80).cgColor]
             artworkShade.locations = [0, 0.46, 1]
             shade.layer.addSublayer(artworkShade)
+            // Keep Spotify's real pane, dismiss and menu controls visible
+            // through the top. Blend the artwork treatment across their band.
+            headerBlend.colors = [UIColor.clear.cgColor, UIColor.clear.cgColor,
+                                  UIColor.black.withAlphaComponent(0.55).cgColor, UIColor.black.cgColor]
+            backdrop.layer.mask = headerBlend
             isHidden = true
         }
-        addSubview(background); addSubview(shade); addSubview(scroll)
+        backdrop.addSubview(background)
+        backdrop.addSubview(shade)
+        addSubview(backdrop)
+        addSubview(scroll)
         scroll.alwaysBounceVertical = false
         scroll.contentInsetAdjustmentBehavior = .never
         scroll.addSubview(artwork)
@@ -179,10 +190,9 @@ final class ResponsivePlayerView: UIView {
         artist.setTitleColor(UIColor.white.withAlphaComponent(0.75), for: .normal)
         title.contentHorizontalAlignment = .leading
         artist.contentHorizontalAlignment = .leading
-        title.titleLabel?.font = UIFont.preferredFont(forTextStyle: .title2)
-        artist.titleLabel?.font = UIFont.preferredFont(forTextStyle: .body)
-        title.titleLabel?.adjustsFontForContentSizeCategory = true
-        artist.titleLabel?.adjustsFontForContentSizeCategory = true
+        updateMetadataFonts()
+        title.titleLabel?.adjustsFontForContentSizeCategory = !tablet
+        artist.titleLabel?.adjustsFontForContentSizeCategory = !tablet
         title.titleLabel?.lineBreakMode = .byTruncatingTail
         artist.titleLabel?.lineBreakMode = .byTruncatingTail
         title.addAction(UIAction { [weak self] _ in self?.openMetadata("album_uri") }, for: .touchUpInside)
@@ -192,6 +202,10 @@ final class ResponsivePlayerView: UIView {
         progress.minimumTrackTintColor = .white
         progress.maximumTrackTintColor = UIColor.white.withAlphaComponent(0.24)
         progress.accessibilityLabel = "Playback position"
+        if tablet {
+            progress.setThumbImage(Self.sliderThumb(diameter: 10, color: .white), for: .normal)
+            progress.setThumbImage(Self.sliderThumb(diameter: 14, color: .white), for: .highlighted)
+        }
         progress.addAction(UIAction { [weak self] _ in self?.seekingTrackID = self?.trackID }, for: .touchDown)
         progress.addAction(UIAction { [weak self] _ in self?.seek() }, for: [.touchUpInside, .touchUpOutside])
         progress.addAction(UIAction { [weak self] _ in
@@ -208,9 +222,9 @@ final class ResponsivePlayerView: UIView {
         controls.axis = .horizontal; controls.distribution = .fillEqually; controls.alignment = .center
         for (id, symbol, label) in [
             ("Components.UI.ShuffleButton", "shuffle", "Shuffle"),
-            ("SPTNowPlayingPreviousTrackButton", "backward.fill", "Previous track"),
+            ("SPTNowPlayingPreviousTrackButton", tablet ? "backward.end.fill" : "backward.fill", "Previous track"),
             ("SPTNowPlayingPlayButton", "play.fill", "Play"),
-            ("SPTNowPlayingNextTrackButton", "forward.fill", "Next track"),
+            ("SPTNowPlayingNextTrackButton", tablet ? "forward.end.fill" : "forward.fill", "Next track"),
             ("Nowplaying-RepeatButton", "repeat", "Repeat")
         ] {
             let button = UIButton(type: .system)
@@ -220,6 +234,16 @@ final class ResponsivePlayerView: UIView {
         scroll.addSubview(controls)
         volume.showsRouteButton = false
         volume.accessibilityLabel = "Volume"
+        if tablet {
+            let level = UIColor.white.withAlphaComponent(0.57)
+            volume.setMinimumVolumeSliderImage(Self.volumeLine(color: level), for: .normal)
+            volume.setMaximumVolumeSliderImage(Self.volumeLine(color: UIColor.white.withAlphaComponent(0.16)), for: .normal)
+            volume.setVolumeThumbImage(Self.sliderThumb(diameter: 8, color: level), for: .normal)
+            volumeTrack.tintColor = level
+            volumeTrack.contentMode = .center
+            volumeTrack.accessibilityElementsHidden = true
+            scroll.addSubview(volumeTrack)
+        }
         scroll.addSubview(volume)
         footer.axis = .horizontal; footer.distribution = .fillEqually; footer.alignment = .center
         configure(lyricsButton, symbol: "quote.bubble", label: "Lyrics") { [weak self] in self?.toggleLyrics() }
@@ -234,6 +258,12 @@ final class ResponsivePlayerView: UIView {
             let button = UIButton(type: .system)
             configure(button, symbol: symbol, label: label) { [weak self] in self?.performNative(id) }
             actions[id] = button; footer.addArrangedSubview(button)
+        }
+        if tablet, #available(iOS 26.0, *) {
+            let glass = ShrubifyLiquidGlass.makePlate()
+            glass.accessibilityIdentifier = "shrubify.player.shortcuts"
+            scroll.addSubview(glass)
+            footerGlass = glass
         }
         scroll.addSubview(footer)
         lyrics.isHidden = true
@@ -265,7 +295,8 @@ final class ResponsivePlayerView: UIView {
     private func configure(_ button: UIButton, symbol: String, label: String, action: @escaping () -> Void) {
         // Playback glyphs are content, not permanent floating glass controls.
         button.tintColor = .white
-        button.setImage(UIImage(systemName: symbol, withConfiguration: UIImage.SymbolConfiguration(pointSize: 23, weight: .medium)), for: .normal)
+        let size: CGFloat = tablet ? 19 : 23
+        button.setImage(UIImage(systemName: symbol, withConfiguration: UIImage.SymbolConfiguration(pointSize: size, weight: .medium)), for: .normal)
         button.accessibilityLabel = label
         button.addAction(UIAction { _ in action() }, for: .touchUpInside)
         button.widthAnchor.constraint(greaterThanOrEqualToConstant: 44).isActive = true
@@ -298,8 +329,6 @@ final class ResponsivePlayerView: UIView {
             }
         }
         if let info {
-            title.titleLabel?.font = UIFont.preferredFont(forTextStyle: .title2)
-            artist.titleLabel?.font = UIFont.preferredFont(forTextStyle: .body)
             title.setTitle(info.title, for: .normal)
             artist.setTitle(info.artist, for: .normal)
             title.accessibilityLabel = "Album for " + info.title
@@ -331,7 +360,7 @@ final class ResponsivePlayerView: UIView {
         remaining.text = "−" + Self.time(max(0, state.durationMs - state.positionMs))
         if let play = actions["SPTNowPlayingPlayButton"] {
             play.setImage(UIImage(systemName: state.isPlaying ? "pause.fill" : "play.fill",
-                                  withConfiguration: UIImage.SymbolConfiguration(pointSize: 34, weight: .semibold)), for: .normal)
+                                  withConfiguration: UIImage.SymbolConfiguration(pointSize: tablet ? 30 : 34, weight: .semibold)), for: .normal)
             play.accessibilityLabel = state.isPlaying ? "Pause" : "Play"
         }
         for (id, button) in actions {
@@ -339,10 +368,17 @@ final class ResponsivePlayerView: UIView {
             if tablet { button.isHidden = source == nil }
             button.isEnabled = source.map { (NowPlayingIOS27.nearestControl($0)?.isEnabled ?? true) && $0.isUserInteractionEnabled } ?? false
             button.alpha = button.isEnabled ? 1 : 0.35
-            if let label = source?.accessibilityLabel, !label.isEmpty { button.accessibilityLabel = label }
-            button.isSelected = (source as? UIControl)?.isSelected ?? false
+            if id != "SPTNowPlayingPlayButton", let label = source?.accessibilityLabel, !label.isEmpty {
+                button.accessibilityLabel = label
+            }
+            button.isSelected = (source as? UIControl)?.isSelected == true || source?.accessibilityTraits.contains(.selected) == true
             button.accessibilityValue = source?.accessibilityValue ?? (button.isSelected ? "On" : nil)
-            button.tintColor = button.isSelected ? .systemGreen : .white
+            if tablet {
+                let toggles = id == "Components.UI.ShuffleButton" || id == "Nowplaying-RepeatButton"
+                button.tintColor = toggles && !button.isSelected ? UIColor.white.withAlphaComponent(0.55) : .white
+            } else {
+                button.tintColor = button.isSelected ? .systemGreen : .white
+            }
         }
         close.isEnabled = native.object(forKey: "now-playing-minimize-button") != nil
         let disabled = NgzhwmSettingsViewModel.isLyricsFeatureDisabled
@@ -376,7 +412,7 @@ final class ResponsivePlayerView: UIView {
             queue.append(contentsOf: view.subviews)
             let rect = view.convert(view.bounds, to: page)
             guard !view.isHidden, rect.intersects(page.bounds) else { continue }
-            if tablet, view !== page, rect.minY >= frame.minY,
+            if tablet, view !== page, rect.minY >= page.bounds.minY + headerHeight,
                !savedAccessibility.contains(where: { snapshot in
                    guard let saved = snapshot.view else { return false }
                    return view === saved || view.isDescendant(of: saved)
@@ -543,19 +579,59 @@ final class ResponsivePlayerView: UIView {
         updateClock()
     }
 
+    private func updateMetadataFonts() {
+        if tablet {
+            title.titleLabel?.font = UIFontMetrics(forTextStyle: .title2)
+                .scaledFont(for: .systemFont(ofSize: 27, weight: .semibold), compatibleWith: traitCollection)
+            artist.titleLabel?.font = UIFontMetrics(forTextStyle: .body)
+                .scaledFont(for: .systemFont(ofSize: 17, weight: .medium), compatibleWith: traitCollection)
+        } else {
+            title.titleLabel?.font = UIFont.preferredFont(forTextStyle: .title2)
+            artist.titleLabel?.font = UIFont.preferredFont(forTextStyle: .body)
+        }
+    }
+
+    private static func sliderThumb(diameter: CGFloat, color: UIColor) -> UIImage {
+        UIGraphicsImageRenderer(size: CGSize(width: diameter, height: diameter)).image { context in
+            context.cgContext.setFillColor(color.cgColor)
+            context.cgContext.fillEllipse(in: CGRect(x: 0, y: 0, width: diameter, height: diameter))
+        }
+    }
+
+    private static func volumeLine(color: UIColor) -> UIImage {
+        UIGraphicsImageRenderer(size: CGSize(width: 9, height: 3)).image { _ in
+            color.setFill()
+            UIBezierPath(roundedRect: CGRect(x: 0, y: 0, width: 9, height: 3), cornerRadius: 1.5).fill()
+        }.resizableImage(withCapInsets: UIEdgeInsets(top: 0, left: 4, bottom: 0, right: 4))
+    }
+
+    override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
+        if tablet && point.y < headerHeight { return nil }
+        return super.hitTest(point, with: event)
+    }
+
+    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+        if traitCollection.preferredContentSizeCategory != previousTraitCollection?.preferredContentSizeCategory {
+            updateMetadataFonts()
+            setNeedsLayout()
+        }
+    }
+
     override func layoutSubviews() {
         super.layoutSubviews()
+        backdrop.frame = bounds
+        background.frame = backdrop.bounds
+        shade.frame = backdrop.bounds
+        background.isHidden = UIAccessibility.isReduceTransparencyEnabled
+        if tablet {
+            layoutTablet()
+            return
+        }
         let large = traitCollection.preferredContentSizeCategory.isAccessibilityCategory
         let layout = PlayerLayout(size: bounds.size, top: safeAreaInsets.top, bottom: safeAreaInsets.bottom,
-                                  largeText: large, reservesHeader: !tablet)
-        background.frame = bounds; shade.frame = bounds; scroll.frame = bounds
-        if tablet {
-            CATransaction.begin()
-            CATransaction.setDisableActions(true)
-            artworkShade.frame = shade.bounds
-            CATransaction.commit()
-        }
-        background.isHidden = UIAccessibility.isReduceTransparencyEnabled
+                                  largeText: large)
+        scroll.frame = bounds
         scroll.contentSize = CGSize(width: bounds.width, height: layout.contentHeight)
         close.frame = CGRect(x: layout.header.minX, y: layout.header.minY, width: 48, height: 48)
         menu.frame = CGRect(x: layout.header.maxX - 48, y: layout.header.minY, width: 48, height: 48)
@@ -563,7 +639,7 @@ final class ResponsivePlayerView: UIView {
         let panel = layout.content
         // Lyrics replace artwork on narrow screens and occupy the upper right
         // column on wide screens. Controls keep their own reserved region.
-        let extra = layout.wide ? max(0, panel.height - (large ? 360 : 300)) * (tablet ? 0.5 : 1) : 0
+        let extra = layout.wide ? max(0, panel.height - (large ? 360 : 300)) : 0
         let textY = panel.minY + extra
         let titleHeight = max(44, (title.titleLabel?.font.lineHeight ?? 32) + 12)
         title.frame = CGRect(x: panel.minX, y: textY, width: panel.width, height: titleHeight)
@@ -591,6 +667,41 @@ final class ResponsivePlayerView: UIView {
         notice.frame = lyrics.bounds.insetBy(dx: 16, dy: 16)
         credit.frame = CGRect(x: panel.minX, y: footer.frame.maxY + 4, width: panel.width, height: 20)
         if showingLyrics { scroll.contentSize.height = max(scroll.contentSize.height, credit.frame.maxY + safeAreaInsets.bottom + 8) }
+    }
+
+    private func layoutTablet() {
+        let top = min(headerHeight, bounds.height)
+        scroll.frame = CGRect(x: 0, y: top, width: bounds.width, height: bounds.height - top)
+        let layout = TabletPlayerLayout(size: scroll.bounds.size, bottom: safeAreaInsets.bottom,
+                                        titleHeight: max(38, (title.titleLabel?.font.lineHeight ?? 32) + 5),
+                                        artistHeight: max(29, (artist.titleLabel?.font.lineHeight ?? 22) + 6))
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        artworkShade.frame = shade.bounds
+        headerBlend.frame = backdrop.bounds
+        let height = max(1, bounds.height)
+        headerBlend.locations = [0, NSNumber(value: Double(max(0, min(1, (top - 12) / height)))),
+                                 NSNumber(value: Double(min(1, (top + 12) / height))),
+                                 NSNumber(value: Double(min(1, (top + 44) / height)))]
+        CATransaction.commit()
+
+        artwork.frame = layout.artwork
+        artwork.isHidden = showingLyrics
+        lyrics.frame = layout.artwork
+        notice.frame = lyrics.bounds.insetBy(dx: 16, dy: 16)
+        title.frame = layout.title
+        artist.frame = layout.artist
+        progress.frame = layout.progress
+        elapsed.frame = CGRect(x: layout.clock.minX, y: layout.clock.minY, width: layout.clock.width / 2, height: layout.clock.height)
+        remaining.frame = elapsed.frame.offsetBy(dx: elapsed.frame.width, dy: 0)
+        controls.frame = layout.transport
+        volumeTrack.frame = CGRect(x: layout.volume.minX, y: layout.volume.minY, width: 26, height: layout.volume.height)
+        volume.frame = layout.volume.inset(by: UIEdgeInsets(top: 0, left: 34, bottom: 0, right: 0))
+        footer.frame = layout.footer
+        footerGlass?.frame = layout.footer
+        credit.frame = CGRect(x: layout.footer.minX, y: layout.footer.maxY + 4, width: layout.footer.width, height: 20)
+        let heightWithCredit = showingLyrics ? credit.frame.maxY + safeAreaInsets.bottom + 8 : 0
+        scroll.contentSize = CGSize(width: scroll.bounds.width, height: max(layout.contentHeight, heightWithCredit))
     }
 
     func removePlayer() {

@@ -27,7 +27,11 @@ enum NativeTabletGlass {
         weak var navigationRoot: UIView?
         weak var backingWrapper: UIView?
         var fallback = false
+        weak var miniOwner: UIView?
         var compactRow: CompactRow?
+        private weak var clippedHost: UIView?
+        private var clippedFrame: CGRect?
+        private var capsuleMask: CAShapeLayer?
         var restoreBacking: [() -> Void] = []
         // Repaint protection: Spotify sometimes redraws an already-cleared
         // background when switching tabs. The original state is captured once.
@@ -94,7 +98,36 @@ enum NativeTabletGlass {
             restoreBacking.append { [weak view] in if view?.alpha == 0 { view?.alpha = alpha } }
             view.alpha = 0
         }
+        func clip(_ host: UIView, to frame: CGRect) {
+            if clippedHost !== host || host.layer.mask !== capsuleMask {
+                restoreClip()
+                // Spotify may already use a mask for a transition. Leave that
+                // animation in charge rather than overwriting its shape.
+                guard host.layer.mask == nil else { return }
+                clippedHost = host
+                let mask = CAShapeLayer()
+                capsuleMask = mask
+                host.layer.mask = mask
+            }
+            guard let capsuleMask, clippedFrame != frame || capsuleMask.frame != host.bounds else { return }
+            clippedFrame = frame
+            CATransaction.begin()
+            CATransaction.setDisableActions(true)
+            capsuleMask.frame = host.bounds
+            capsuleMask.path = UIBezierPath(roundedRect: frame,
+                                            cornerRadius: min(frame.width, frame.height) / 2).cgPath
+            CATransaction.commit()
+        }
+
+        private func restoreClip() {
+            if let host = clippedHost, host.layer.mask === capsuleMask { host.layer.mask = nil }
+            clippedHost = nil
+            capsuleMask = nil
+            clippedFrame = nil
+        }
+
         func removeMaterial() {
+            restoreClip()
             plate?.removeFromSuperview(); plate = nil
             selection = nil
             glassContainer = nil
@@ -150,17 +183,15 @@ enum NativeTabletGlass {
         UserDefaults.standard.object(forKey: preferenceKey) as? Bool ?? true
     }
 
-    /// True when a recognized bottom bar has our sole live optical plate.
-    static func owns(_ bar: Bar, in window: UIView? = nil) -> Bool {
-        guard #available(iOS 26.0, *), enabled, accessibilityObserver != nil else { return false }
+    static func materialSize(_ bar: Bar) -> CGSize? {
+        guard #available(iOS 26.0, *), enabled, accessibilityObserver != nil else { return nil }
         for case let host as UIView in bars.keyEnumerator().allObjects {
             guard let state = bars.object(forKey: host), state.bar == bar else { continue }
-            if let plate = state.plate, let attached = plate.window,
+            if let plate = state.plate, plate.window != nil,
                plate.superview === state.glassContainer, plate.effect is UIGlassEffect,
-               !host.isHidden, !plate.isHidden,
-               window == nil || attached === window { return true }
+               !host.isHidden, !plate.isHidden { return plate.bounds.size }
         }
-        return false
+        return nil
     }
 
     /// Legacy fallback support remains bounded to explicit hosts; no window-scanning hooks are installed.
@@ -188,24 +219,78 @@ enum NativeTabletGlass {
         }
     }
 
+    private static let navigationClass = NSClassFromString("_TtC23NavigationUI_TabBarImpl19TabBarContainerImpl")
+    private static let tabViews = [
+        "NavigationUI_TabBarImpl.TabBarView",
+        "_TtC23NavigationUI_TabBarImpl10TabBarView",
+        "NavigationUI_TabBarImpl.TabBarCompactView",
+        "_TtC23NavigationUI_TabBarImpl17TabBarCompactView"
+    ]
+
     static func layoutNavigation(in root: UIView) {
         guard root.window != nil else { return }
         var nodes = [root]
         var index = 0
+        var compact: UIView?
         while index < nodes.count {
             let view = nodes[index]
             index += 1
-            if NSStringFromClass(type(of: view)) == "NavigationUI_TabBarImpl.TabBarView" {
+            guard !view.isHidden, view.alpha > 0.5 else { continue }
+            let name = NSStringFromClass(type(of: view))
+            if tabViews.prefix(2).contains(name), (1...110).contains(view.bounds.height),
+               findOwner(in: view, bar: .tabs) != nil {
                 layout(.tabs, in: view, navigationRoot: root)
                 return
             }
+            if tabViews.suffix(2).contains(name), (1...110).contains(view.bounds.height),
+               findOwner(in: view, bar: .tabs) != nil { compact = view }
             if !(view is UIScrollView || view is UIControl || view is UIImageView), nodes.count < 112 {
                 nodes.append(contentsOf: view.subviews.prefix(112 - nodes.count))
             }
         }
+        if let compact { layout(.tabs, in: compact, fallback: true, navigationRoot: root) }
     }
 
-    static func layout(_ bar: Bar, in host: UIView, fallback: Bool = false, navigationRoot: UIView? = nil) {
+    static func layoutCompactTabs(in host: UIView) {
+        guard enabled, let root = navigationRoot(for: host) else { return }
+        if let tabBar = host.subviews.first(where: { tabViews.prefix(2).contains(NSStringFromClass(type(of: $0))) }) {
+            layout(.tabs, in: tabBar, navigationRoot: root)
+        } else {
+            layout(.tabs, in: host, fallback: true, navigationRoot: root)
+        }
+    }
+
+    static func layoutMiniControllerView(_ view: UIView) {
+        // A content-controller callback and the page wrapper can both fire.
+        // The wrapper owns the glass wherever it actually encloses this bar.
+        let compactClassName = "_TtC22NowPlaying_BarPageImplP33_CCC0D2EEA6D4725EECD8965E8C38C86D20TouchPassthroughView"
+        var node: UIView? = view
+        for _ in 0..<5 {
+            guard let candidate = node else { break }
+            let name = NSStringFromClass(type(of: candidate))
+            if name == compactClassName || name == "NowPlaying_BarPageImpl.TouchPassthroughView" {
+                layout(.miniPlayer, in: candidate, miniOwner: view)
+                return
+            }
+            node = candidate.superview
+        }
+        layout(.miniPlayer, in: view, fallback: true, miniOwner: view)
+    }
+
+    private static func navigationRoot(for host: UIView) -> UIView? {
+        guard let navigationClass else { return nil }
+        var responder: UIResponder? = host
+        for _ in 0..<18 {
+            guard let current = responder else { break }
+            if let controller = current as? UIViewController, controller.isKind(of: navigationClass),
+               let root = controller.viewIfLoaded, host.isDescendant(of: root) { return root }
+            responder = current.next
+        }
+        return nil
+    }
+
+    static func layout(_ bar: Bar, in host: UIView, fallback: Bool = false, navigationRoot: UIView? = nil,
+                       miniOwner: UIView? = nil) {
         guard #available(iOS 26.0, *), accessibilityObserver != nil else { return }
         guard host.window != nil else {
             bars.object(forKey: host)?.remove()
@@ -216,7 +301,9 @@ enum NativeTabletGlass {
         if let existing = bars.object(forKey: host) { state = existing }
         else { state = State(bar); state.fallback = fallback; bars.setObject(state, forKey: host) }
         if !fallback { state.fallback = false }
-        if let navigationRoot, host.isDescendant(of: navigationRoot) { state.navigationRoot = navigationRoot }
+        if let miniOwner { state.miniOwner = miniOwner }
+        if bar == .tabs, let root = navigationRoot ?? Self.navigationRoot(for: host),
+           host.isDescendant(of: root) { state.navigationRoot = root }
         // Remember the bar so Studio can apply a change immediately. When off,
         // don't inspect a single subview, allocate a material or mutate UIKit.
         if enabled { update(host, state) }
@@ -228,10 +315,16 @@ enum NativeTabletGlass {
         guard !host.isHidden, host.alpha > 0.5,
               (1...110).contains(host.bounds.height) else { state.remove(); return }
         let owner: UIView
-        if let cached = state.owner, (cached === host || cached.isDescendant(of: host)), matches(cached, state.bar) { owner = cached }
+        if let cached = state.owner, (cached === host || cached.isDescendant(of: host)),
+           !cached.isHidden, cached.alpha > 0.5,
+           (matches(cached, state.bar) || cached === state.miniOwner) { owner = cached }
         else {
             state.remove()
-            guard let found = findOwner(in: host, bar: state.bar) else { return }
+            let controllerView = state.miniOwner.flatMap { candidate in
+                (candidate === host || candidate.isDescendant(of: host)) && !candidate.isHidden
+                    && (30...110).contains(candidate.bounds.height) ? candidate : nil
+            }
+            guard let found = findOwner(in: host, bar: state.bar) ?? controllerView else { return }
             owner = found
             state.owner = found
         }
@@ -247,7 +340,15 @@ enum NativeTabletGlass {
         if state.bar == .tabs, let row = owner as? UIStackView {
             let items = row.arrangedSubviews.filter { !$0.isHidden && $0.alpha > 0.01 && $0.bounds.width > 1 }
             guard (2...6).contains(items.count) else { state.remove(); return }
-            content = items.reduce(CGRect.null) { $0.union($1.convert($1.bounds, to: owner)) }
+            let footprint = items.reduce(CGRect.null) { $0.union($1.convert($1.bounds, to: owner)) }
+            if footprint.width <= CGFloat(items.count) * 82 + 40 {
+                content = footprint
+            } else if let visibleContent = visibleTabContent(items, in: owner) {
+                content = visibleContent
+            } else {
+                state.removeMaterial()
+                return
+            }
             tabCount = items.count
             tabs = items
         } else {
@@ -311,6 +412,7 @@ enum NativeTabletGlass {
                 // Clearing these views is idempotent and does not append
                 // duplicate restoration closures across layout passes.
                 clearBarBacking(around: owner, within: host, state: state)
+                if state.bar == .tabs { state.clip(host, to: owner.convert(frame, to: host)) }
                 placeSelection(in: plate, tabs: tabs, state: state)
                 return
             }
@@ -330,6 +432,7 @@ enum NativeTabletGlass {
         // underneath our single glass effect; that is the grey-slab failure.
         // Leave native hit regions and unrecognized content unchanged.
         clearBarBacking(around: owner, within: host, state: state)
+        if state.bar == .tabs { state.clip(host, to: owner.convert(frame, to: host)) }
         placeSelection(in: plate, tabs: tabs, state: state)
     }
 
@@ -352,8 +455,7 @@ enum NativeTabletGlass {
     private static func compactIfSupported(_ row: UIStackView, host: UIView, state: State) {
         let visible = row.arrangedSubviews.filter { !$0.isHidden && $0.alpha > 0.01 }
         let hostName = NSStringFromClass(type(of: host))
-        guard hostName.contains("TabBarView"), !hostName.contains("TabBarItem"),
-              row.accessibilityIdentifier == "tabs-container-view-identifier",
+        guard (hostName.contains("TabBarView") || hostName.contains("TabBarCompactView")),
               row.axis == .horizontal,
               row.distribution == .fillEqually,
               !row.traitCollection.preferredContentSizeCategory.isAccessibilityCategory,
@@ -379,6 +481,30 @@ enum NativeTabletGlass {
         if !row.isLayoutMarginsRelativeArrangement { row.isLayoutMarginsRelativeArrangement = true }
         geometry.appliedMargins = row.directionalLayoutMargins
         // The caller lays out only this verified child stack, never its host.
+    }
+
+    /// Some native rows keep wide layout slots after their icons and labels
+    /// have already been centered. Measure those drawn items in that case.
+    private static func visibleTabContent(_ items: [UIView], in row: UIView) -> CGRect? {
+        var footprint = CGRect.null
+        for item in items {
+            var glyphs = CGRect.null
+            var nodes = [item]
+            var index = 0
+            while index < nodes.count {
+                let view = nodes[index]
+                index += 1
+                guard !view.isHidden, view.alpha > 0.01 else { continue }
+                if (view is UILabel || view is UIImageView), view.bounds.width <= 128, view.bounds.height <= 64 {
+                    let bounds = view.convert(view.bounds, to: row)
+                    if bounds.width > 1, bounds.height > 1 { glyphs = glyphs.union(bounds) }
+                }
+                if nodes.count < 32 { nodes.append(contentsOf: view.subviews.prefix(32 - nodes.count)) }
+            }
+            guard !glyphs.isNull else { return nil }
+            footprint = footprint.union(glyphs)
+        }
+        return footprint.insetBy(dx: -10, dy: -6).intersection(row.bounds)
     }
 
     private static func placeSelection(in plate: UIVisualEffectView, tabs: [UIView], state: State) {
@@ -445,6 +571,7 @@ enum NativeTabletGlass {
         var nodes = [host]; var index = 0
         while index < nodes.count {
             let view = nodes[index]; index += 1
+            guard !view.isHidden, view.alpha > 0.5 else { continue }
             if matches(view, bar) { return view }
             if !(view is UIScrollView || view is UIControl || view is UIImageView), nodes.count < 96 {
                 nodes.append(contentsOf: view.subviews.prefix(96 - nodes.count))
@@ -507,6 +634,7 @@ enum NativeTabletGlass {
                     if #available(iOS 26.0, *), (child as? UIVisualEffectView)?.effect is UIGlassEffect { continue }
                     let frame = child.convert(child.bounds, to: root)
                     guard frame.intersects(hostFrame), frame.width >= hostFrame.width * 0.7 else { continue }
+                    guard !(child is UIStackView || child is UIScrollView) else { continue }
                     let name = NSStringFromClass(type(of: child))
                     let named = name.contains("TabBarGradientView") || name.contains("TabBarBackgroundView")
                     let fillsBand = (child is UIVisualEffectView || type(of: child) == UIView.self)
@@ -536,7 +664,10 @@ enum NativeTabletGlass {
             let namedBackground = name.contains("TabBarGradientView")
                 || name.contains("TabBarBackgroundView")
                 || child.accessibilityIdentifier == "tabs-background-view-identifier"
-            if namedBackground, !containsNativeContent(child) {
+            let occupiesBar = (child is UIVisualEffectView || type(of: child) == UIView.self)
+                && child.bounds.width >= root.bounds.width * 0.8 && child.bounds.height >= root.bounds.height * 0.8
+                && child.frame.intersects(root.bounds)
+            if (namedBackground || occupiesBar), !owner.isDescendant(of: child), !containsNativeContent(child) {
                 state.hide(child)
             }
         }

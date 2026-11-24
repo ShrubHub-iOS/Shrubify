@@ -1,6 +1,6 @@
-> **4.2.5 beta 2:** Artwork-led iPad Now Playing and a compact glass dock. The stable install channel continues to serve 4.2.4.
+> **4.2.5 beta 3:** iPad Now Playing layout and bottom-bar rendering fixes. The stable install channel continues to serve 4.2.4.
 
-# Shrubify 4.2.5~beta2
+# Shrubify 4.2.5~beta3
 
 **Created and maintained by shrubbery and the ShrubHub team.**
 
@@ -22,7 +22,7 @@ The iPad player adapts the artwork and controls to the pane and keeps Spotify’
 
 ## Install and build
 
-- **Shrubify 4.2.5 beta 2 release notes** [RELEASE-4.2.5~beta2.md](RELEASE-4.2.5~beta2.md)
+- **Shrubify 4.2.5 beta 3 release notes** [RELEASE-4.2.5~beta3.md](RELEASE-4.2.5~beta3.md)
 
 - **Source and full setup:** [SHRUBIFY-SETUP.md](SHRUBIFY-SETUP.md)
 - **Changes in this release:** [CHANGELOG.md](CHANGELOG.md)

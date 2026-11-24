@@ -24,9 +24,14 @@ enum ShrubifyGlassChrome {
             return ["Bottom bar glass: Reduce Transparency keeps native backings."]
         }
         return [
-            "Tab bar: " + (NativeTabletGlass.owns(.tabs) ? "system effect attached" : "native bar is showing"),
-            "Mini-player: " + (NativeTabletGlass.owns(.miniPlayer) ? "system effect attached" : "no attached effect"),
+            "Tab bar: " + materialDescription(.tabs),
+            "Mini-player: " + materialDescription(.miniPlayer),
             "Player layout: " + (ResponsivePlayer.tabletEnabled ? "Artwork-led" : "Spotify")
         ]
+    }
+
+    private static func materialDescription(_ bar: NativeTabletGlass.Bar) -> String {
+        guard let size = NativeTabletGlass.materialSize(bar) else { return "no attached effect" }
+        return "System effect, \(Int(size.width.rounded())) × \(Int(size.height.rounded())) pt"
     }
 }

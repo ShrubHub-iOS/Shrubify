@@ -12,9 +12,9 @@ struct PlayerLayout {
     let footer: CGRect
     let contentHeight: CGFloat
 
-    init(size: CGSize, top: CGFloat, bottom: CGFloat, largeText: Bool = false, reservesHeader: Bool = true) {
+    init(size: CGSize, top: CGFloat, bottom: CGFloat, largeText: Bool = false) {
         let margin: CGFloat = size.width < 400 ? 20 : 28
-        let headroom: CGFloat = reservesHeader ? 56 : 18
+        let headroom: CGFloat = 56
         let usable = CGRect(x: margin, y: top + headroom, width: max(0, size.width - margin * 2),
                             height: max(0, size.height - top - bottom - headroom - 64))
         wide = size.width >= 700 && size.width > size.height
@@ -30,8 +30,7 @@ struct PlayerLayout {
                              width: column, height: max(usable.height, controlsHeight))
             contentHeight = max(size.height, content.maxY + bottom + 64)
         } else {
-            let artworkHeight = reservesHeader ? size.height * 0.36 : max(size.height * 0.35, usable.height - controlsHeight)
-            let side = max(0, min(usable.width, artworkHeight, reservesHeader ? 460 : 500))
+            let side = max(0, min(usable.width, size.height * 0.36, 460))
             artwork = CGRect(x: (size.width - side) / 2, y: usable.minY, width: side, height: side)
             content = CGRect(x: margin, y: artwork.maxY + 24, width: usable.width,
                              height: controlsHeight)
@@ -39,5 +38,64 @@ struct PlayerLayout {
         }
         footer = CGRect(x: content.minX, y: contentHeight - bottom - 56,
                         width: content.width, height: 48)
+    }
+}
+
+/// Artwork and controls share one measured footprint in each iPad pane.
+struct TabletPlayerLayout {
+    let wide: Bool
+    let artwork: CGRect
+    let title: CGRect
+    let artist: CGRect
+    let progress: CGRect
+    let clock: CGRect
+    let transport: CGRect
+    let volume: CGRect
+    let footer: CGRect
+    let contentHeight: CGFloat
+
+    static func headerHeight(safeTop: CGFloat) -> CGFloat { safeTop + 62 }
+
+    // The scroll view starts below the fixed native header.
+    init(size: CGSize, bottom: CGFloat, titleHeight: CGFloat, artistHeight: CGFloat) {
+        let margin: CGFloat = size.width >= 700 ? 36 : 24
+        let gap: CGFloat = 36
+        let verticalPadding: CGFloat = 20
+        let availableWidth = max(0, size.width - margin * 2)
+        let availableHeight = max(0, size.height - bottom - verticalPadding * 2)
+        wide = size.width >= 760 && size.width > size.height
+
+        let controlsHeight = titleHeight + artistHeight + 207
+        let controlWidth = min(availableWidth, wide ? 388 : 440)
+        let artworkSide: CGFloat
+        let controlX: CGFloat
+        let controlY: CGFloat
+        if wide {
+            artworkSide = max(0, min(480, availableWidth - controlWidth - gap, availableHeight))
+            let left = (size.width - artworkSide - gap - controlWidth) / 2
+            let groupHeight = max(artworkSide, controlsHeight)
+            let top = verticalPadding + max(0, (availableHeight - groupHeight) / 2)
+            artwork = CGRect(x: left, y: top + (groupHeight - artworkSide) / 2, width: artworkSide, height: artworkSide)
+            controlX = artwork.maxX + gap
+            controlY = top + (groupHeight - controlsHeight) / 2
+        } else {
+            artworkSide = min(availableWidth, 456, max(156, availableHeight - controlsHeight - 24))
+            let groupHeight = artworkSide + 24 + controlsHeight
+            let top = verticalPadding + max(0, (availableHeight - groupHeight) / 2)
+            artwork = CGRect(x: (size.width - artworkSide) / 2, y: top, width: artworkSide, height: artworkSide)
+            controlX = (size.width - controlWidth) / 2
+            controlY = artwork.maxY + 24
+        }
+
+        title = CGRect(x: controlX, y: controlY, width: controlWidth, height: titleHeight)
+        artist = CGRect(x: controlX, y: title.maxY, width: controlWidth, height: artistHeight)
+        progress = CGRect(x: controlX, y: artist.maxY + 6, width: controlWidth, height: 36)
+        clock = CGRect(x: controlX, y: progress.maxY - 4, width: controlWidth, height: 18)
+        transport = CGRect(x: controlX, y: clock.maxY + 6, width: controlWidth, height: 48)
+        volume = CGRect(x: controlX, y: transport.maxY + 6, width: controlWidth, height: 38)
+        let footerWidth = min(controlWidth, 292)
+        footer = CGRect(x: controlX + (controlWidth - footerWidth) / 2,
+                        y: volume.maxY + 9, width: footerWidth, height: 44)
+        contentHeight = max(size.height, max(artwork.maxY, footer.maxY) + verticalPadding + bottom)
     }
 }

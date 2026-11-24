@@ -1,10 +1,10 @@
-# Shrubify 4.2.5~beta2 testing checklist
+# Shrubify 4.2.5~beta3 testing checklist
 
-## 4.2.5 beta 2 on iPad
+## 4.2.5 beta 3 on iPad
 
 - Scroll bright and dark artwork underneath the Home and album docks. Check that the material shows the page beneath it and labels stay readable. Switch tabs and resize or open the split player while watching the selection and plate alignment.
 - Open and close the mini-player repeatedly. With two bars present, confirm both show the page through the glass. Toggle glass off and verify native backings return.
-- Open full screen and split Now Playing over bright Canvas. Check that title, elapsed time and all action icons stay visible, including after a track change.
+- Open full screen and split Now Playing over bright Canvas. Check that the transition below the header has no hard edge. The playback, volume and shortcut rows should fit in the normal split pane. Change tracks and use the stock pane, dismiss and menu buttons.
 - Play “Conversations” and “Bad Energy” from Legends Never Die. Tap Lyrics before the initial lookup finishes and try rapid skips, an offline retry and reopening. Verify timed lyrics follow the playing track and native lyrics survive a failed custom request.
 
 ## Selective native glass acceptance

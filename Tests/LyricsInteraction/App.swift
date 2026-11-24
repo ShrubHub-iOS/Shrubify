@@ -66,6 +66,7 @@ final class RootController: UIViewController {
     private let miniPlay = UIButton(type: .system)
     private let row = UIStackView()
     private let legacy = TabBarGradientView()
+    private let flatBarBacking = UIView()
     private var didCaptureNativeLayout = false
     private var nativeFrames: [CGRect] = []
     private var nativeMargins: NSDirectionalEdgeInsets = .zero
@@ -127,6 +128,9 @@ final class RootController: UIViewController {
         miniPlay.addAction(UIAction { [weak self] _ in self?.miniPlay.setTitle("Pause", for: .normal) }, for: .touchUpInside)
         mini.addSubview(miniPlay)
         barHost.backgroundColor = .darkGray
+        flatBarBacking.backgroundColor = .gray
+        flatBarBacking.isUserInteractionEnabled = false
+        barHost.addSubview(flatBarBacking)
         legacy.frame = CGRect(x: 0, y: -112, width: 825, height: 195); legacy.backgroundColor = .black
         legacy.accessibilityIdentifier = "fixture-legacy"
         barHost.addSubview(legacy)
@@ -156,6 +160,7 @@ final class RootController: UIViewController {
         barSurface.frame = dockWrapper.bounds
         barSurface.layoutIfNeeded()
         row.frame = barHost.bounds
+        flatBarBacking.frame = barHost.bounds
         legacy.frame = CGRect(x: 0, y: -112, width: barHost.bounds.width, height: 195)
         row.layoutIfNeeded()
         // Mirror the navigation controller's nested footer and sibling backing.
@@ -209,10 +214,12 @@ final class RootController: UIViewController {
             return !plate.isUserInteractionEnabled && plate.accessibilityElementsHidden && plateIndex < hostIndex
         }
         let wells = (row.arrangedSubviews + [miniPlay]).reduce(0) { $0 + $1.fixtureGlassCount }
-        let cleared = legacy.alpha == 0 && dockBacking.alpha == 0 && barSurface.effect == nil
+        let cleared = legacy.alpha == 0 && dockBacking.alpha == 0 && flatBarBacking.alpha == 0
+            && barSurface.effect == nil && barSurface.layer.mask is CAShapeLayer
             && (barHost.layer.backgroundColor?.alpha ?? 0) == 0
             && (mini.layer.backgroundColor?.alpha ?? 0) == 0
-        let restored = legacy.alpha == 1 && dockBacking.alpha == 1 && barSurface.effect is UIBlurEffect
+        let restored = legacy.alpha == 1 && dockBacking.alpha == 1 && flatBarBacking.alpha == 1
+            && barSurface.effect is UIBlurEffect && barSurface.layer.mask == nil
             && barHost.backgroundColor == .darkGray && mini.backgroundColor == .darkGray
         let backing = cleared ? "cleared" : (restored ? "native" : "partial")
         let frames = controlFrames

@@ -148,6 +148,9 @@ final class ControlsTests: XCTestCase {
         XCTAssertEqual(app.staticTexts["optical-selection"].label, "Lens under tab 0")
         let tile = app.buttons["TabBar.Item.fixture-2"].frame
         let sample = CGPoint(x: tile.minX + 14, y: tile.midY - 18)
+        let outsideCapsule = CGPoint(x: app.frame.minX + 65, y: tile.midY)
+        XCTAssertGreaterThan(redMinusBlue(at: outsideCapsule, in: app) ?? 0, 35,
+                             "A stock rectangle covers the content outside the capsule")
         guard let red = redMinusBlue(at: sample, in: app) else {
             return XCTFail("Could not sample the glass over the red backdrop")
         }

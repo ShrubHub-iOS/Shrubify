@@ -13,7 +13,7 @@ struct ShrubifyGlassSettingsView: View {
             Section(
                 header: Text("Liquid Glass"),
                 footer: Text(UIDevice.current.userInterfaceIdiom == .pad
-                    ? "Applies to the iPad tab dock and mini-player."
+                    ? "Applies to the iPad dock, mini-player and player shortcuts."
                     : "Applies to supported iPhone controls and bars.")
             ) {
                 Toggle("Liquid Glass", isOn: $enabled)
@@ -57,7 +57,7 @@ struct ShrubifyGlassSettingsView: View {
             if #available(iOS 26.0, *), UIDevice.current.userInterfaceIdiom == .pad {
                 Section(
                     header: Text("iPad bottom bars"),
-                    footer: Text("Adds native glass behind the tab bar and mini-player. Expanded playback controls stay clean.")
+                    footer: Text("Adds native glass behind the tab bar and mini-player.")
                 ) {
                     Toggle("Glass on bottom bars", isOn: $nativeBars)
                         .onChange(of: nativeBars) { value in
