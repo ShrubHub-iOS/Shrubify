@@ -13,41 +13,21 @@ enum ArtworkInspector {
         return view.isKind(of: coverClass) && NowPlayingLyricsPlate.isInsideCoverCell(view)
     }
 
-    /// The Spotify cover is still in the active page. Forward only its own
-    /// enabled single-tap action, with the same sender and checked signature.
+    /// Spotify 9.2.0 exposes handleTap as a no-argument Objective-C
+    /// method on the cover. Require the same live view and enabled gesture
+    /// that Spotify uses for its own tap.
     static func openNative(from cover: UIView) -> Bool {
+        let action = NSSelectorFromString("handleTap")
         guard isNativeCover(cover),
-              let targets = class_getInstanceVariable(UIGestureRecognizer.self, "_targets") else { return false }
-        for case let tap as UITapGestureRecognizer in cover.gestureRecognizers ?? []
-        where tap.isEnabled && tap.numberOfTapsRequired == 1 && tap.numberOfTouchesRequired == 1 {
-            guard let pairs = object_getIvar(tap, targets) as? [AnyObject], pairs.count <= 4 else { continue }
-            for pair in pairs {
-                guard let target = class_getInstanceVariable(type(of: pair), "_target"),
-                      let targetEncoding = ivar_getTypeEncoding(target), targetEncoding.pointee == 64,
-                      let owner = object_getIvar(pair, target), (owner as AnyObject) === cover,
-                      let action = class_getInstanceVariable(type(of: pair), "_action"),
-                      let encoding = ivar_getTypeEncoding(action), String(cString: encoding) == ":" else { continue }
-                let pointer = Unmanaged.passUnretained(pair).toOpaque().advanced(by: ivar_getOffset(action))
-                guard let raw = pointer.load(as: UnsafeRawPointer?.self) else { continue }
-                let selector = unsafeBitCast(raw, to: Selector.self)
-                guard let method = class_getInstanceMethod(type(of: cover), selector),
-                      let returnType = method_copyReturnType(method) else { continue }
-                defer { free(returnType) }
-                guard String(cString: returnType) == "v" else { continue }
-                switch method_getNumberOfArguments(method) {
-                case 2:
-                    if UIApplication.shared.sendAction(selector, to: cover, from: tap, for: nil) { return true }
-                case 3:
-                    guard let argument = method_copyArgumentType(method, 2) else { continue }
-                    defer { free(argument) }
-                    guard argument.pointee == 64 else { continue } // Objective-C object
-                    if UIApplication.shared.sendAction(selector, to: cover, from: tap, for: nil) { return true }
-                default:
-                    continue
-                }
-            }
-        }
-        return false
+              let tap = cover.gestureRecognizers?.compactMap({ $0 as? UITapGestureRecognizer }).first(where: {
+                  $0.isEnabled && $0.numberOfTapsRequired == 1 && $0.numberOfTouchesRequired == 1
+              }),
+              let method = class_getInstanceMethod(type(of: cover), action),
+              method_getNumberOfArguments(method) == 2,
+              let returnType = method_copyReturnType(method) else { return false }
+        defer { free(returnType) }
+        guard String(cString: returnType) == "v" else { return false }
+        return UIApplication.shared.sendAction(action, to: cover, from: tap, for: nil)
     }
 
     @available(iOS 15.0, *)
