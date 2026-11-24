@@ -345,7 +345,11 @@ final class ResponsivePlayerView: UIView {
         button.setImage(UIImage(systemName: symbol, withConfiguration: UIImage.SymbolConfiguration(pointSize: size, weight: .medium)), for: .normal)
         button.accessibilityLabel = label
         button.addAction(UIAction { _ in action() }, for: .touchUpInside)
-        button.widthAnchor.constraint(greaterThanOrEqualToConstant: 44).isActive = true
+        let minimumWidth = button.widthAnchor.constraint(greaterThanOrEqualToConstant: 44)
+        // A hidden optional action gets zero width from its horizontal stack.
+        // The visible layout still reserves 44 points for every action.
+        minimumWidth.priority = .defaultHigh
+        minimumWidth.isActive = true
         button.heightAnchor.constraint(greaterThanOrEqualToConstant: 44).isActive = true
     }
 
