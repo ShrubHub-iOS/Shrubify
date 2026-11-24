@@ -119,10 +119,12 @@ enum NativeTabletGlass {
         }
         func restore() {
             guard let row, let appliedMargins else { return }
-            if row.directionalLayoutMargins == appliedMargins {
-                row.directionalLayoutMargins = originalMargins
-                row.isLayoutMarginsRelativeArrangement = originalRelative
-            }
+            var margins = row.directionalLayoutMargins
+            if margins.leading == appliedMargins.leading { margins.leading = originalMargins.leading }
+            if margins.trailing == appliedMargins.trailing { margins.trailing = originalMargins.trailing }
+            row.directionalLayoutMargins = margins
+            row.isLayoutMarginsRelativeArrangement = originalRelative
+            row.setNeedsLayout()
         }
     }
 
@@ -331,9 +333,9 @@ enum NativeTabletGlass {
         guard row.bounds.width - margins.leading - margins.trailing >= CGFloat(visible.count) * 44 else {
             geometry.restore(); state.compactRow = nil; return
         }
-        geometry.appliedMargins = margins
         if row.directionalLayoutMargins != margins { row.directionalLayoutMargins = margins }
         if !row.isLayoutMarginsRelativeArrangement { row.isLayoutMarginsRelativeArrangement = true }
+        geometry.appliedMargins = row.directionalLayoutMargins
         // The caller lays out only this verified child stack, never its host.
     }
 

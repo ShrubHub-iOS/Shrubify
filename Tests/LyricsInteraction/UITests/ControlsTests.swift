@@ -149,7 +149,7 @@ final class ControlsTests: XCTestCase {
         XCTAssertEqual(app.staticTexts["selection-state"].label, "Tab 2 native-selected · 0 overlays")
         XCTAssertEqual(app.staticTexts["tab-count"].label, "1")
         app.buttons["toggle-glass"].tap()
-        XCTAssertEqual(state.label, "0/0 bars · 0 wells · intact · native")
+        XCTAssertEqual(state.label, "0/0 bars · 0 wells · intact · native", state.value as? String ?? "")
         XCTAssertEqual(app.staticTexts["selection-state"].label, "Tab 2 native-selected · 0 overlays")
         for index in 0..<5 { app.buttons["TabBar.Item.fixture-\(index)"].tap() }
         XCTAssertEqual(app.staticTexts["tab-count"].label, "6")

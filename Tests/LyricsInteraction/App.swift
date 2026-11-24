@@ -60,8 +60,10 @@ final class RootController: UIViewController {
     private let miniPlay = UIButton(type: .system)
     private let row = UIStackView()
     private let legacy = TabBarGradientView()
-    private var baselineSize = CGSize.zero
+    private var didCaptureNativeLayout = false
     private var nativeFrames: [CGRect] = []
+    private var nativeMargins: NSDirectionalEdgeInsets = .zero
+    private var nativeMarginsRelative = false
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -86,7 +88,8 @@ final class RootController: UIViewController {
             let key = NativeTabletGlass.preferenceKey
             UserDefaults.standard.set(!NativeTabletGlass.isOnForCurrentDevice, forKey: key)
             NativeTabletGlass.reapply()
-            self?.layoutBars()
+            self?.view.setNeedsLayout()
+            self?.view.layoutIfNeeded()
             self?.reportMaterial()
         }, for: .touchUpInside); view.addSubview(toggle)
         view.addSubview(content)
@@ -127,24 +130,28 @@ final class RootController: UIViewController {
         row.frame = barHost.bounds
         legacy.frame = CGRect(x: 0, y: -112, width: barHost.bounds.width, height: 195)
         row.layoutIfNeeded()
-        if baselineSize != row.bounds.size {
-            baselineSize = row.bounds.size; nativeFrames = controlFrames
-        }
         // Mirror the two layout hooks. The production API never receives the
         // window, shelf, artwork or a cell; there is no test-only content pass.
-        layoutBars()
+        if didCaptureNativeLayout { layoutBars() }
     }
     private func layoutBars() {
-        // The first pass updates margins. Apply the stack's resulting layout
-        // before sampling the plate, as UIKit does on a following pass.
-        NativeTabletGlass.layout(.tabs, in: barSurface)
-        row.layoutIfNeeded()
         NativeTabletGlass.layout(.tabs, in: barSurface)
         NativeTabletGlass.layout(.miniPlayer, in: miniHost)
     }
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
         view.layoutIfNeeded()
+        if !didCaptureNativeLayout {
+            // Wait for the visual-effect host to finish its first layout
+            // before taking the unmodified tab frame baseline.
+            row.setNeedsLayout()
+            row.layoutIfNeeded()
+            nativeFrames = controlFrames
+            nativeMargins = row.directionalLayoutMargins
+            nativeMarginsRelative = row.isLayoutMarginsRelativeArrangement
+            didCaptureNativeLayout = true
+            layoutBars()
+        }
         reportMaterial()
     }
     private var controlFrames: [CGRect] { row.arrangedSubviews.map(\.frame) + [miniPlay.frame] }
@@ -175,8 +182,17 @@ final class RootController: UIViewController {
             ? frames.last == nativeFrames.last && row.arrangedSubviews.allSatisfy {
                 $0.frame.width >= 44 && $0.frame.height >= 44 && row.bounds.contains($0.frame)
             }
-            : frames == nativeFrames
+            : frames.count == nativeFrames.count
+                && zip(frames, nativeFrames).allSatisfy { pair in
+                    let (actual, original) = pair
+                    return abs(actual.minX - original.minX) < 0.5 && abs(actual.maxX - original.maxX) < 0.5
+                        && abs(actual.minY - original.minY) < 0.5 && abs(actual.maxY - original.maxY) < 0.5
+                }
+                && row.directionalLayoutMargins == nativeMargins
+                && row.isLayoutMarginsRelativeArrangement == nativeMarginsRelative
         materialState.text = "\(tabs.count)/\(minis.count) bars · \(wells) wells · \(controlsIntact && safe ? "intact" : "changed") · \(backing)"
+        materialState.accessibilityValue = controlsIntact ? nil
+            : "Frames \(frames) vs \(nativeFrames), margins \(row.directionalLayoutMargins) vs \(nativeMargins), relative \(row.isLayoutMarginsRelativeArrangement) vs \(nativeMarginsRelative)"
     }
     private func openLyrics() {
         let modal = KaraokeModal.make(onDismiss: { [weak self] in
