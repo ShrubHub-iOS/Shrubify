@@ -27,6 +27,18 @@ check(lineOnly.lines[0].syllables.allSatisfy { $0.startMs == 1000 && $0.endMs ==
 check(KaraokeLyricsAdapter.convert(lines: plain, timeSynced: false, providerName: "Genius") == nil, "Untimed text must not become fake karaoke")
 let rtl = KaraokeLyricsAdapter.convert(lines: [LyricsLineDto(content: "שלום עולם", offsetMs: 0)], timeSynced: true, providerName: "PetitLyrics")!
 check(rtl.isRTL && rtl.lines[0].plainText == "שלום עולם", "Restore the original RTL model")
+let partialLine = LyricsLineDto(content: "Hello, missing words!", offsetMs: 500, endOffsetMs: 1400,
+    words: [LyricsWordDto(text: "Hello", startMs: 600, endMs: 800), LyricsWordDto(text: "words", startMs: 1100, endMs: 1300)])
+let partial = KaraokeLyricsAdapter.convert(lines: [partialLine, LyricsLineDto(content: "Next", offsetMs: 2000)],
+                                           timeSynced: true, providerName: "Test")!
+check(partial.lines[0].syllables.plainText == "Hello, missing words!", "Rendering retains untimed words and punctuation")
+check(partial.lines[0].syllables.filter { $0.endMs > $0.startMs }.map(\.text) == ["Hello", "words"],
+      "Preserved text does not gain fake word timing")
+check(partial.timingLabel == "Partial word sync", "Mixed timing is labeled separately")
+check(partial.activeLineIndex(at: 499, requiresActiveInterval: true) == nil
+    && partial.activeLineIndex(at: 900, requiresActiveInterval: true) == 0
+    && partial.activeLineIndex(at: 1500, requiresActiveInterval: true) == nil
+    && partial.activeLineIndex(at: 2000, requiresActiveInterval: true) == 1, "Live lyric follows real intervals")
 print("Original custom lyrics adapter: syllables, CJK/RTL, timing, line-only sources and credits passed")
 
 // Tone mapping preserves color while capping every background luminance.

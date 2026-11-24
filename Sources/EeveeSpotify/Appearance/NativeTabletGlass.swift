@@ -29,6 +29,7 @@ enum NativeTabletGlass {
         var fallback = false
         weak var miniOwner: UIView?
         var compactRow: CompactRow?
+        var geometryRetry: DispatchWorkItem?
         private weak var clippedHost: UIView?
         private var clippedFrame: CGRect?
         private var capsuleMask: CAShapeLayer?
@@ -127,6 +128,8 @@ enum NativeTabletGlass {
         }
 
         func removeMaterial() {
+            geometryRetry?.cancel()
+            geometryRetry = nil
             restoreClip()
             plate?.removeFromSuperview(); plate = nil
             selection = nil
@@ -310,7 +313,7 @@ enum NativeTabletGlass {
     }
 
     @available(iOS 26.0, *)
-    private static func update(_ host: UIView, _ state: State) {
+    private static func update(_ host: UIView, _ state: State, canRetryGeometry: Bool = true) {
         // Never search a page-sized host, even if a future class name matches.
         guard !host.isHidden, host.alpha > 0.5,
               (1...110).contains(host.bounds.height) else { state.remove(); return }
@@ -339,14 +342,17 @@ enum NativeTabletGlass {
         let tabs: [UIView]
         if state.bar == .tabs, let row = owner as? UIStackView {
             let items = row.arrangedSubviews.filter { !$0.isHidden && $0.alpha > 0.01 && $0.bounds.width > 1 }
-            guard (2...6).contains(items.count) else { state.remove(); return }
+            guard (2...6).contains(items.count) else {
+                deferTabGeometry(in: host, state: state, canRetry: canRetryGeometry)
+                return
+            }
             let footprint = items.reduce(CGRect.null) { $0.union($1.convert($1.bounds, to: owner)) }
             if footprint.width <= CGFloat(items.count) * 82 + 40 {
                 content = footprint
             } else if let visibleContent = visibleTabContent(items, in: owner) {
                 content = visibleContent
             } else {
-                state.removeMaterial()
+                deferTabGeometry(in: host, state: state, canRetry: canRetryGeometry)
                 return
             }
             tabCount = items.count
@@ -363,12 +369,14 @@ enum NativeTabletGlass {
             // A just-compacted stack can report its pre-layout 825pt frames
             // for one pass. Do not tear down the margins before UIKit lays out.
             if state.bar == .tabs, state.compactRow != nil {
-                state.removeMaterial()
+                deferTabGeometry(in: host, state: state, canRetry: canRetryGeometry)
                 return
             }
             state.remove()
             return
         }
+        state.geometryRetry?.cancel()
+        state.geometryRetry = nil
         // A fallback and direct hook may discover the same owner. Restore the
         // outgoing backing before transfer, and never share ownership across windows.
         for case let otherHost as UIView in bars.keyEnumerator().allObjects {
@@ -434,6 +442,23 @@ enum NativeTabletGlass {
         clearBarBacking(around: owner, within: host, state: state)
         if state.bar == .tabs { state.clip(host, to: owner.convert(frame, to: host)) }
         placeSelection(in: plate, tabs: tabs, state: state)
+    }
+
+    @available(iOS 26.0, *)
+    private static func deferTabGeometry(in host: UIView, state: State, canRetry: Bool) {
+        guard canRetry else { state.removeMaterial(); return }
+        guard state.geometryRetry == nil else { return }
+        // UIKit can briefly report its pre-transition tab frames. Keep the
+        // existing material through that pass, then require valid geometry.
+        let retry = DispatchWorkItem { [weak host, weak state] in
+            onMainThreadSync {
+                guard let host, let state, host.window != nil, enabled else { return }
+                state.geometryRetry = nil
+                update(host, state, canRetryGeometry: false)
+            }
+        }
+        state.geometryRetry = retry
+        DispatchQueue.main.async(execute: retry)
     }
 
     /// Lift the plate out of compact wrappers owned by the tab controller.
@@ -597,6 +622,26 @@ enum NativeTabletGlass {
             clearBackingChildren(of: root, protecting: owner, state: state)
             if root === host { break }
             ancestor = root.superview
+        }
+        if state.bar == .miniPlayer {
+            var nodes = [owner]
+            var index = 0
+            while index < nodes.count {
+                let view = nodes[index]
+                index += 1
+                let rect = view.convert(view.bounds, to: owner)
+                guard rect.width >= owner.bounds.width * 0.82,
+                      rect.height >= owner.bounds.height * 0.67,
+                      rect.height <= 110, !(view is UIControl || view is UIImageView || view is UIScrollView)
+                else { continue }
+                state.clearColor(view)
+                state.clearOpacity(view)
+                if let effect = view as? UIVisualEffectView { state.clearBlur(effect) }
+                clearBackingChildren(of: view, protecting: owner, state: state)
+                if nodes.count < 24 {
+                    nodes.append(contentsOf: view.subviews.filter { $0 !== state.plate }.prefix(24 - nodes.count))
+                }
+            }
         }
         // Some split layouts put the rectangular fill on a shared bar-height
         // wrapper that is wider than either bar. Clear its fill and known

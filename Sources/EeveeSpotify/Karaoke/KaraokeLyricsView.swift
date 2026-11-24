@@ -68,24 +68,9 @@ struct KaraokeLyricsView: View {
             options: options,
             timingOffsetMs: $options.timingOffsetMs,
             currentMs: currentMs,
-            activeLineIndex: model.playback.hasPosition ? activeLineIndex(in: lyrics, at: currentMs) : nil,
+            activeLineIndex: model.playback.hasPosition ? lyrics.activeLineIndex(at: currentMs) : nil,
             seek: { model.seek(to: $0) }
         )
-    }
-
-    private func activeLineIndex(in lyrics: KaraokeLyricsDto, at currentMs: Int) -> Int? {
-        guard !lyrics.lines.isEmpty else { return nil }
-        var low = 0
-        var high = lyrics.lines.count
-        while low < high {
-            let middle = low + (high - low) / 2
-            if lyrics.lines[middle].startMs <= currentMs {
-                low = middle + 1
-            } else {
-                high = middle
-            }
-        }
-        return low > 0 ? low - 1 : nil
     }
 
     private var closeButton: some View { KaraokeCloseButton(action: onDismiss) }
@@ -126,9 +111,7 @@ struct KaraokeLyricsView: View {
     }
     private func subtitle(artist: String?) -> String {
         let provider = model.lyrics?.providerName ?? "Lyrics"
-        let mode = model.lyrics.map { lyrics in
-            lyrics.lines.contains { $0.syllables.contains { $0.endMs > $0.startMs } } ? "Word sync" : "Line sync"
-        }
+        let mode = model.lyrics?.timingLabel
         let source = provider + (mode.map { " • " + $0 } ?? "")
         return artist.flatMap { $0.isEmpty ? nil : $0 + " • " + source } ?? source
     }
@@ -177,11 +160,6 @@ private struct KaraokeScrollingLines: View {
                     .scaleEffect(x: 1, y: flip)
                 }
 
-                Text(lyrics.lines.contains { $0.syllables.contains { $0.endMs > $0.startMs } }
-                     ? "Word-synced lyrics" : "Line-synced lyrics · word timing unavailable from this source")
-                    .font(.caption).foregroundColor(.white.opacity(0.86))
-                    .multilineTextAlignment(.center).padding(.horizontal, 24)
-                    .scaleEffect(x: 1, y: flip)
                 KaraokeCreditsFooterView(lyrics: lyrics)
                     .scaleEffect(x: 1, y: flip)
 

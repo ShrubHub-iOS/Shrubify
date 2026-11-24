@@ -16,8 +16,18 @@ func hasUsableWordLevelData(_ dto: LyricsDto?) -> Bool {
     guard let dto, dto.timeSynced else { return false }
     let lines = dto.lines
     guard !lines.isEmpty else { return false }
-    let wordLevelLines = lines.filter { ($0.words?.count ?? 0) >= 2 }.count
+    let wordLevelLines = lines.filter(hasDistinctWordStarts).count
     return wordLevelLines * 10 >= lines.count * 5  // >= 50%
+}
+
+private func hasDistinctWordStarts(_ line: LyricsLineDto) -> Bool {
+    guard let words = line.words else { return false }
+    var first: Int?
+    for word in words where word.startMs >= 0 && !word.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+        if let first, first != word.startMs { return true }
+        if first == nil { first = word.startMs }
+    }
+    return false
 }
 
 /// 逐**行**数据是否可用：时间同步 + 至少一半的行带 `offsetMs`。
@@ -70,7 +80,7 @@ func wordLevelJudgeLine(dto: LyricsDto?, version: Int) -> String? {
         return "[WordByWord] word-level judge: 0 lyric line (version \(version))"
     }
 
-    let wordLines = lines.filter { ($0.words?.count ?? 0) >= 2 }.count
+    let wordLines = lines.filter(hasDistinctWordStarts).count
     let timedLines = lines.filter { $0.offsetMs != nil }.count
     let wordOK = hasUsableWordLevelData(dto)
     let lineOK = hasUsableLineLevelData(dto)

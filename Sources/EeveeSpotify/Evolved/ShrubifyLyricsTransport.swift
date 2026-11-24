@@ -50,7 +50,8 @@ func loadLyricsDataAsync(_ path: String, originalLyrics: Lyrics? = nil, force: B
         let deliver: (Data?) -> Void = { data in
             if let data { completion(data); return }
             if let originalLyrics, let id = extractTrackId(from: path),
-               CurrentSpotifyTrack.identifier == id, originalLyrics.data.timeSynchronized,
+               CurrentSpotifyTrack.identifier == id,
+               KaraokeLyricsStore.shared.lyrics(forTrackId: id) == nil, originalLyrics.data.timeSynchronized,
                !originalLyrics.data.lines.isEmpty {
                 let lines = originalLyrics.data.lines.map {
                     LyricsLineDto(content: $0.content, offsetMs: Int($0.offsetMs))

@@ -136,6 +136,7 @@ enum NowPlayingIOS27 {
     static var metadataArtworkTrackId = ""
     static var metadataArtworkImage: UIImage?
     static var metadataArtworkLoading = false
+    private static var metadataArtworkRequest: UUID?
     static var metadataArtworkAttempts = 0
     static var metadataArtworkCache: [String: UIImage] = [:]
     static var metadataArtworkOrder: [String] = []
@@ -722,37 +723,50 @@ enum NowPlayingIOS27 {
             metadataArtworkTrackId = trackId
             metadataArtworkImage = nil
             metadataArtworkLoading = false
+            metadataArtworkRequest = nil
             metadataArtworkAttempts = 0
         }
-        guard !trackId.isEmpty,
-              !metadataArtworkLoading,
-              metadataArtworkImage == nil else { return }
+        guard !trackId.isEmpty, !metadataArtworkLoading, metadataArtworkImage == nil else { return }
         if let cached = metadataArtworkCache[trackId] {
             metadataArtworkImage = cached
             return
         }
-        // 最多试 6 次（≈1.8s）：metadata 有时比播放器晚一两拍才就绪，失败也不无限刷。
-        guard metadataArtworkAttempts < 6,
-              let track = CurrentSpotifyTrack.snapshot,
-              let url = LyricsArtworkResolver.artworkURL(for: track) else { return }
+        guard metadataArtworkAttempts < 3,
+              let track = CurrentSpotifyTrack.snapshot, track.identifier == trackId else { return }
+        let urls = LyricsArtworkResolver.playerArtworkURLs(for: track)
+        guard !urls.isEmpty else { return }
         metadataArtworkAttempts += 1
         metadataArtworkLoading = true
-        URLSession.shared.dataTask(with: url) { data, _, _ in
-            let image = data.flatMap { UIImage(data: $0) }
+        let request = UUID()
+        metadataArtworkRequest = request
+        fetchMetadataArtwork(urls[...], for: trackId, request: request)
+    }
+
+    private static func fetchMetadataArtwork(_ urls: ArraySlice<URL>, for trackId: String, request: UUID) {
+        guard let url = urls.first else {
+            metadataArtworkLoading = false
+            metadataArtworkRequest = nil
+            return
+        }
+        URLSession.shared.dataTask(with: URLRequest(url: url, timeoutInterval: 6)) { data, response, _ in
+            let ok = (response as? HTTPURLResponse).map { (200..<300).contains($0.statusCode) } ?? false
+            let image = ok ? data.flatMap { UIImage(data: $0) } : nil
             DispatchQueue.main.async {
-                guard metadataArtworkTrackId == trackId else { return }
+                guard metadataArtworkTrackId == trackId, metadataArtworkRequest == request else { return }
+                guard let image, image.size.width > 1, image.size.height > 1 else {
+                    fetchMetadataArtwork(urls.dropFirst(), for: trackId, request: request)
+                    return
+                }
                 metadataArtworkLoading = false
-                guard let image else { return }
+                metadataArtworkRequest = nil
                 metadataArtworkImage = image
                 metadataArtworkCache[trackId] = image
+                metadataArtworkOrder.removeAll { $0 == trackId }
                 metadataArtworkOrder.append(trackId)
                 while metadataArtworkOrder.count > metadataArtworkCacheLimit {
                     metadataArtworkCache.removeValue(forKey: metadataArtworkOrder.removeFirst())
                 }
-                // 图到了：下一拍就把它画上去（壳里的图只当兜底）。
-                if let page = lastPage, page.window != nil {
-                    _ = layout(in: page)
-                }
+                if let page = lastPage, page.window != nil { _ = layout(in: page) }
             }
         }.resume()
     }
@@ -2079,6 +2093,7 @@ enum NowPlayingIOS27 {
         metadataArtworkTrackId = ""
         metadataArtworkImage = nil
         metadataArtworkLoading = false
+        metadataArtworkRequest = nil
         metadataArtworkAttempts = 0
         artworkShell = nil
         artworkHost = nil

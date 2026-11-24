@@ -66,6 +66,18 @@ enum LyricsArtworkResolver {
         return remembered.url
     }
 
+    static func playerArtworkURLs(for track: SafeTrackMetadata) -> [URL] {
+        let keys = ["image_xlarge_url", "image_xlarge", "image_large_url", "image_large"]
+        let larger = keys.compactMap { key -> URL? in
+            guard let raw = track.metadata[key] else { return nil }
+            return urlFromImageID(raw) ?? URL(string: raw).flatMap {
+                $0.scheme == "https" ? $0 : nil
+            }
+        }
+        var seen = Set<URL>()
+        return (larger + [artworkURL(for: track)].compactMap { $0 }).filter { seen.insert($0).inserted }
+    }
+
     private static func remember(_ url: URL, for trackKey: String) {
         stateQueue.sync { lastResolved = (trackKey, url) }
     }

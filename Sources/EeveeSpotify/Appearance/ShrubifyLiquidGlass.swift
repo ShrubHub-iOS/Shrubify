@@ -78,16 +78,14 @@ enum ShrubifyLiquidGlass {
         return CGFloat(min(max(stored, 0), 1))
     }
 
-    /// The user's accent colour, or Shrubify green when none is set.
+    /// Only an explicitly selected accent colors the glass.
     ///
     /// Read directly rather than through `Theme`: this file is also compiled
     /// into the isolated lyrics-interaction harness, which has no Theme or
     /// settings extension.
-    static var accent: UIColor {
+    static var accent: UIColor? {
         let stored = UserDefaults.standard.object(forKey: "accentColorRGB") as? Int ?? -1
-        guard stored >= 0 else {
-            return UIColor(red: 0.114, green: 0.725, blue: 0.329, alpha: 1)
-        }
+        guard stored >= 0 else { return nil }
         return UIColor(
             red: CGFloat((stored >> 16) & 0xFF) / 255,
             green: CGFloat((stored >> 8) & 0xFF) / 255,
@@ -170,8 +168,9 @@ final class ShrubifyGlassPlate: UIVisualEffectView {
 
     func refresh() {
         let style = ShrubifyLiquidGlass.style
-        let tint: UIColor? = style == .tinted
-            ? ShrubifyLiquidGlass.accent.withAlphaComponent(0.04 + ShrubifyLiquidGlass.intensity * 0.16)
+        let intensity = ShrubifyLiquidGlass.intensity
+        let tint = style == .tinted && intensity > 0
+            ? ShrubifyLiquidGlass.accent?.withAlphaComponent(intensity * 0.20)
             : nil
         let material = Material(enabled: ShrubifyLiquidGlass.isEnabled,
                                 opaque: UIAccessibility.isReduceTransparencyEnabled,

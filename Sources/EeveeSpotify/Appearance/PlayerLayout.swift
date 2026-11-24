@@ -45,6 +45,7 @@ struct PlayerLayout {
 struct TabletPlayerLayout {
     let wide: Bool
     let artwork: CGRect
+    let lyric: CGRect
     let title: CGRect
     let artist: CGRect
     let progress: CGRect
@@ -57,7 +58,7 @@ struct TabletPlayerLayout {
     static func headerHeight(safeTop: CGFloat) -> CGFloat { safeTop + 62 }
 
     // The scroll view starts below the fixed native header.
-    init(size: CGSize, bottom: CGFloat, titleHeight: CGFloat, artistHeight: CGFloat) {
+    init(size: CGSize, bottom: CGFloat, titleHeight: CGFloat, artistHeight: CGFloat, lyricHeight: CGFloat = 44) {
         let margin: CGFloat = size.width >= 700 ? 36 : 24
         let gap: CGFloat = 36
         let verticalPadding: CGFloat = 20
@@ -65,28 +66,33 @@ struct TabletPlayerLayout {
         let availableHeight = max(0, size.height - bottom - verticalPadding * 2)
         wide = size.width >= 760 && size.width > size.height
 
+        let lyricSpace = lyricHeight > 0 ? lyricHeight + 8 : 0
         let controlsHeight = titleHeight + artistHeight + 207
         let controlWidth = min(availableWidth, wide ? 388 : 440)
         let artworkSide: CGFloat
         let controlX: CGFloat
         let controlY: CGFloat
         if wide {
-            artworkSide = max(0, min(480, availableWidth - controlWidth - gap, availableHeight))
+            artworkSide = max(0, min(480, availableWidth - controlWidth - gap, availableHeight - lyricSpace))
             let left = (size.width - artworkSide - gap - controlWidth) / 2
-            let groupHeight = max(artworkSide, controlsHeight)
+            let artworkColumnHeight = artworkSide + lyricSpace
+            let groupHeight = max(artworkColumnHeight, controlsHeight)
             let top = verticalPadding + max(0, (availableHeight - groupHeight) / 2)
-            artwork = CGRect(x: left, y: top + (groupHeight - artworkSide) / 2, width: artworkSide, height: artworkSide)
+            artwork = CGRect(x: left, y: top + (groupHeight - artworkColumnHeight) / 2, width: artworkSide, height: artworkSide)
             controlX = artwork.maxX + gap
             controlY = top + (groupHeight - controlsHeight) / 2
         } else {
-            artworkSide = min(availableWidth, 456, max(156, availableHeight - controlsHeight - 24))
-            let groupHeight = artworkSide + 24 + controlsHeight
+            artworkSide = min(availableWidth, 456, max(96, availableHeight - controlsHeight - lyricSpace - 18))
+            let groupHeight = artworkSide + lyricSpace + 18 + controlsHeight
             let top = verticalPadding + max(0, (availableHeight - groupHeight) / 2)
             artwork = CGRect(x: (size.width - artworkSide) / 2, y: top, width: artworkSide, height: artworkSide)
             controlX = (size.width - controlWidth) / 2
-            controlY = artwork.maxY + 24
+            controlY = artwork.maxY + lyricSpace + 18
         }
 
+        let lyricWidth = wide ? artwork.width : controlWidth
+        lyric = CGRect(x: (wide ? artwork.midX : size.width / 2) - lyricWidth / 2,
+                       y: artwork.maxY + (lyricHeight > 0 ? 8 : 0), width: lyricWidth, height: lyricHeight)
         title = CGRect(x: controlX, y: controlY, width: controlWidth, height: titleHeight)
         artist = CGRect(x: controlX, y: title.maxY, width: controlWidth, height: artistHeight)
         progress = CGRect(x: controlX, y: artist.maxY + 6, width: controlWidth, height: 36)
@@ -96,6 +102,6 @@ struct TabletPlayerLayout {
         let footerWidth = min(controlWidth, 292)
         footer = CGRect(x: controlX + (controlWidth - footerWidth) / 2,
                         y: volume.maxY + 9, width: footerWidth, height: 44)
-        contentHeight = max(size.height, max(artwork.maxY, footer.maxY) + verticalPadding + bottom)
+        contentHeight = max(size.height, max(lyric.maxY, footer.maxY) + verticalPadding + bottom)
     }
 }

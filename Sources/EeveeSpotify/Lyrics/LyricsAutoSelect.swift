@@ -96,14 +96,9 @@ enum LyricsAutoSelect {
     static let fastSourceTimeout: TimeInterval = 3
     static let slowSourceTimeout: TimeInterval = 5
 
-    /// 手里已经有逐行歌词时，**还愿意为逐字多等多久**。
-    ///
-    /// 4 秒是个折中：链路前几跳的失败通常在 1~2 秒内返回，4 秒足够再问两三个源；
-    /// 再长就会踩到「响应太晚，卡片建不出来」那条线（见文件头）。
-    ///
-    /// 同档质量面也复用这一个窗口（不新加预算）：拿到"想要的那一档"但质量面还缺时，
-    /// 最多等到这里为止 —— 到点就交手里那份，与逐行升级逐字共用同一条线。
-    static let upgradeBudget: TimeInterval = 4
+    /// Extra time after finding the first timed result. The total request
+    /// limit still applies, including sources consulted before this result.
+    static let upgradeBudget: TimeInterval = 6
 
     /// 整条链路的上限。Spotify 那次 `color-lyrics` 请求的预算是 18 秒
     /// （`LyricsResponseCache.firstAttemptBudget`），这里留 2 秒余量给序列化与投递。
@@ -266,43 +261,21 @@ enum LyricsAutoSelect {
         return candidate.facets.score > current.facets.score
     }
 
-    /// 可以收工了吗。
-    ///
-    /// 四条停止条件，按"越早越省时间"排：
-    /// 1. 手里已经是「想要的那一档」，且质量面**齐了** → 停（同档后面不可能更好）；
-    ///    质量面没齐、且还在 `upgradeBudget` 之内 → 继续问；
-    /// 2. 手里是逐行、而链路上**再没有能出逐字的源** → 停（没必要为纯文本白等）；
-    /// 3. 手里是逐行、为升级已经等满 `upgradeBudget` → 停；
-    /// 4. 整条链路 `totalBudget` 到点 → 停。
-    ///
-    /// ⚠️ 第 2、3 条**只对逐行生效**。手里还是纯文本时必须一路问到 `totalBudget` ——
-    /// 否则「先答上来的是纯文本、后面才有带时间轴的源」这个正是要修的场景会被提前掐掉。
-    ///
-    /// ⚠️ 第 1 条的后半句是质量面唯一的"多等"来源：它**不新加任何长度**，
-    /// 用的还是 `upgradeBudget`；质量面齐了的答案与改动前**同时**停（一个字节都不多等）。
-    /// 这个窗口与「逐行升级逐字」共用同一个起点：**请求开始**（`elapsed` 由调用方从链路
-    /// 起跑算起），不是"拿到答案之后再等 4 秒" —— 链路前面连问几个慢源时它可能已经过去。
-    ///
-    /// ⚠️ 这里刻意**不**用 `remaining` 去判"还有没有源能补这个面"：调用方传进来的
-    /// `remaining` 是 `chain.dropFirst(index + 1)`，**不含即将要问的那一个源**
-    /// （`CustomLyrics.autoSelectLyrics`）。按能力过滤会正好在"唯一能给逐词罗马字的源
-    /// 就是当前这一个"（默认链路里的酷狗）时提前停住 —— 那是这个功能最要紧的场景。
     static func shouldStop(
         best: LyricsAutoSelectPick?,
         elapsed: TimeInterval,
+        upgradeElapsed: TimeInterval,
         remaining: [LyricsSource]
     ) -> Bool {
-        guard let best else { return elapsed >= totalBudget }
-
+        if elapsed >= totalBudget { return true }
+        guard let best else { return false }
         if best.tier >= wantedTier {
-            return missingFacets(of: best.dto).isEmpty || elapsed >= upgradeBudget
+            return missingFacets(of: best.dto).isEmpty || upgradeElapsed >= upgradeBudget
         }
-
         if best.tier == .line {
-            if !remaining.contains(where: \.canProduceWordTiming) { return true }
-            if elapsed >= upgradeBudget { return true }
+            return !remaining.contains(where: \.canProduceWordTiming) || upgradeElapsed >= upgradeBudget
         }
-        return elapsed >= totalBudget
+        return false
     }
 
     /// 这个源这一次最多等多久（调用方还要再和剩余总预算取小）。

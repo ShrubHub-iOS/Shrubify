@@ -36,6 +36,9 @@ for size in [CGSize(width: 1280, height: 889), CGSize(width: 421, height: 818),
     for titleHeight in [CGFloat(38), 94] {
         let layout = TabletPlayerLayout(size: body, bottom: 21, titleHeight: titleHeight, artistHeight: 29)
         check(layout.artwork.width == layout.artwork.height, "iPad artwork is square")
+        check(layout.lyric.height >= 44 && layout.lyric.minY > layout.artwork.maxY
+            && layout.lyric.midX == layout.artwork.midX, "Live lyric stays directly under the cover")
+        check(layout.lyric.maxY <= layout.contentHeight, "Live lyric stays reachable")
         check(layout.artwork.minX > 0 && layout.artwork.maxX < size.width, "iPad artwork stays inside the pane")
         check(layout.title.width <= 440 && layout.footer.width <= 292, "iPad control groups stay compact")
         check(layout.footer.width >= 220, "Five iPad footer actions retain at least 44 points each")
@@ -47,7 +50,7 @@ for size in [CGSize(width: 1280, height: 889), CGSize(width: 421, height: 818),
         if layout.wide {
             check(layout.artwork.maxX < layout.title.minX, "Wide iPad columns have a clear gutter")
         } else {
-            check(layout.artwork.maxY < layout.title.minY, "Stacked iPad artwork does not cover the title")
+            check(layout.lyric.maxY < layout.title.minY, "Stacked iPad live lyric does not cover the title")
         }
     }
 }

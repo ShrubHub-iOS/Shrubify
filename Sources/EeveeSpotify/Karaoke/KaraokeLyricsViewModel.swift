@@ -79,6 +79,7 @@ final class KaraokeLyricsViewModel: ObservableObject {
     }
 
     private func apply(_ candidate: KaraokeLyricsDto?) {
+        guard candidate != lyrics else { return }
         guard var lyrics = candidate else { self.lyrics = nil; layouts = []; return }
         // The line lookup and layout must use exactly the same sorted sequence.
         lyrics.lines = lyrics.lines.enumerated().sorted {

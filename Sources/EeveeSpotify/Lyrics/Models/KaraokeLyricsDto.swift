@@ -1,6 +1,6 @@
 import Foundation
 
-struct KaraokeSyllableDto {
+struct KaraokeSyllableDto: Equatable {
     var text: String
     var startMs: Int
     var endMs: Int
@@ -28,12 +28,14 @@ enum KaraokeTextDirection {
     case rightToLeft
 }
 
-struct KaraokeLineDto {
+struct KaraokeLineDto: Equatable {
     var syllables: [KaraokeSyllableDto]
     var startMs: Int
     var endMs: Int
+    var originalText: String? = nil
 
-    var plainText: String { syllables.plainText }
+    var hasWordTiming: Bool { syllables.contains { $0.endMs > $0.startMs } }
+    var plainText: String { originalText ?? syllables.plainText }
 
     var words: [[KaraokeSyllableDto]] {
         var result: [[KaraokeSyllableDto]] = []
@@ -81,7 +83,26 @@ struct KaraokeLineDto {
     }
 }
 
-struct KaraokeLyricsDto {
+struct KaraokeLyricsDto: Equatable {
+    var timingLabel: String {
+        let timed = lines.filter(\.hasWordTiming).count
+        if timed == 0 { return "Line sync" }
+        return timed == lines.count ? "Word sync" : "Partial word sync"
+    }
+
+    func activeLineIndex(at position: Int, requiresActiveInterval: Bool = false) -> Int? {
+        var lower = 0
+        var upper = lines.count
+        while lower < upper {
+            let middle = lower + (upper - lower) / 2
+            if lines[middle].startMs <= position { lower = middle + 1 }
+            else { upper = middle }
+        }
+        guard lower > 0 else { return nil }
+        let index = lower - 1
+        return requiresActiveInterval && position >= lines[index].endMs ? nil : index
+    }
+
     var lines: [KaraokeLineDto]
 
     var isRTL: Bool {

@@ -379,9 +379,10 @@ private func loadCustomLyricsForCurrentTrack(_ track: SafeTrackMetadata) throws 
         searchQuery: LyricsSearchQuery,
         options: LyricsOptions
     ) throws -> LyricsAutoSelectPick {
-        let startedAt = Date()
-        let chain = LyricsAutoSelect.chain()
+        let startedAt = ProcessInfo.processInfo.systemUptime
+        let chain = LyricsAutoSelect.chain().filter { $0 != .spicy || UserDefaults.hasSpicyLyricsApiKey }
         var best: LyricsAutoSelectPick?
+        var firstTimedResultAt: TimeInterval?
         var firstError: Error?
 
         writeDebugLog(
@@ -390,42 +391,20 @@ private func loadCustomLyricsForCurrentTrack(_ track: SafeTrackMetadata) throws 
         )
 
         for (index, source) in chain.enumerated() {
-            let remaining = Array(chain.dropFirst(index + 1))
-            let elapsed = Date().timeIntervalSince(startedAt)
+            try LyricsRequestBudget.check()
+            let remaining = Array(chain.dropFirst(index))
+            let elapsed = ProcessInfo.processInfo.systemUptime - startedAt
+            let upgradeElapsed = firstTimedResultAt.map { elapsed - $0 } ?? 0
 
-            if LyricsAutoSelect.shouldStop(best: best, elapsed: elapsed, remaining: remaining) {
-                break
-            }
+            if LyricsAutoSelect.shouldStop(best: best, elapsed: elapsed,
+                                           upgradeElapsed: upgradeElapsed, remaining: remaining) { break }
+            if best?.tier == .line, LyricsAutoSelect.wantsWordTiming, !source.canProduceWordTiming { continue }
 
-            // Spicy Lyrics 没有客户端密钥时那条路是**必然失败**的（仓库自己会抛
-            // `missingSpicyKey`）。这里提前跳过，既不产生网络请求，
-            // 看起来像"这个源没词"的失败记录。
-            if source == .spicy, !UserDefaults.hasSpicyLyricsApiKey {
-                writeDebugLog("[Lyrics] auto select: Spicy Lyrics skipped — no client key")
-                continue
+            var timeout = min(LyricsAutoSelect.timeout(for: source), LyricsAutoSelect.totalBudget - elapsed)
+            if best?.tier == .line || (best?.tier == .word && firstTimedResultAt != nil) {
+                timeout = min(timeout, LyricsAutoSelect.upgradeBudget - upgradeElapsed)
             }
-
-            // 这一跳最多等多久：单源上限、总预算余额、以及（手里已有逐行时的）升级预算，
-            // 三者取最小。少了最后一项，一次慢请求就能把"最多再等 4 秒"变成 9 秒。
-            //
-            // 「同档质量面还没齐」用的是**同一个** `upgradeBudget` 窗口（见
-            // `LyricsAutoSelect.shouldStop`）：不夹这一下，窗口过后起跑的那个源照样会跑满
-            // 自己的单源超时（3~5 秒）—— 与上面那条是同一类超支。
-            var timeout = min(
-                LyricsAutoSelect.timeout(for: source),
-                LyricsAutoSelect.totalBudget - elapsed
-            )
-            if let best, best.tier == .line, LyricsAutoSelect.wantsWordTiming {
-                timeout = min(timeout, LyricsAutoSelect.upgradeBudget - elapsed)
-            } else if let best,
-                      best.tier >= LyricsAutoSelect.wantedTier,
-                      !LyricsAutoSelect.missingFacets(of: best.dto, source: best.source).isEmpty {
-                timeout = min(timeout, LyricsAutoSelect.upgradeBudget - elapsed)
-            }
-            guard timeout > 0 else {
-                writeDebugLog("[Lyrics] auto select: budget spent, stopping before \(source.description)")
-                break
-            }
+            guard timeout > 0 else { break }
 
             writeDebugLog(
                 "[Lyrics] auto select \(index + 1)/\(chain.count): \(source.description)"
@@ -458,12 +437,13 @@ private func loadCustomLyricsForCurrentTrack(_ track: SafeTrackMetadata) throws 
                 // 纯音乐是**结论**，不是"没有词" —— 立刻收工，不必再问后面的源：
                 // 后面的源就算答上来也不会有词，只会白花一次请求。
                 if dto.isInstrumental {
+                    if best != nil { continue }
                     writeDebugLog("[Lyrics] auto select: \(source.description) says the track is instrumental")
                     return LyricsAutoSelectPick(
                         dto: dto,
                         source: source,
                         tier: .untimed,
-                        elapsed: Date().timeIntervalSince(startedAt)
+                        elapsed: ProcessInfo.processInfo.systemUptime - startedAt
                     )
                 }
 
@@ -479,14 +459,25 @@ private func loadCustomLyricsForCurrentTrack(_ track: SafeTrackMetadata) throws 
                         dto: dto,
                         source: source,
                         tier: tier,
-                        elapsed: Date().timeIntervalSince(startedAt)
+                        elapsed: ProcessInfo.processInfo.systemUptime - startedAt
                     )
                     let better = LyricsAutoSelect.isBetter(pick, than: best)
                     writeDebugLog(
                         "[Lyrics] auto select: \(source.description) returned \(dto.lines.count) line(s),"
                             + " \(tier.logName) — \(better ? "kept" : "not better than what we already have")"
                     )
-                    if better { best = pick }
+                    if better {
+                        best = pick
+                        if tier >= .line {
+                            if firstTimedResultAt == nil { firstTimedResultAt = pick.elapsed }
+                            try LyricsRequestBudget.check()
+                            if CurrentSpotifyTrack.identifier == searchQuery.spotifyTrackId {
+                                let offset = LyricsTimingOffset.offsetMs(forTrackId: searchQuery.spotifyTrackId, source: source)
+                                let preview = offset == 0 ? dto : dto.applyingTimingOffset(offset)
+                                publishShrubifyCustomLyrics(preview, trackId: searchQuery.spotifyTrackId)
+                            }
+                        }
+                    }
                 }
             } else if let requestError {
                 // 自动优选模式下**不弹**任何源自己的配置弹窗：用户没有"选中"过其中任何一个，

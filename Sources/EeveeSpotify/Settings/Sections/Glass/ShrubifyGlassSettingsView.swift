@@ -13,7 +13,7 @@ struct ShrubifyGlassSettingsView: View {
             Section(
                 header: Text("Liquid Glass"),
                 footer: Text(UIDevice.current.userInterfaceIdiom == .pad
-                    ? "Applies to the iPad dock, mini-player and player shortcuts."
+                    ? "Applies to the iPad dock, mini-player, player controls and lyrics controls."
                     : "Applies to supported iPhone controls and bars.")
             ) {
                 Toggle("Liquid Glass", isOn: $enabled)
@@ -38,7 +38,7 @@ struct ShrubifyGlassSettingsView: View {
                     .font(.footnote)
                     .foregroundColor(.secondary)
 
-                if style == .tinted { VStack(alignment: .leading, spacing: 4) {
+                if style == .tinted && ShrubifyLiquidGlass.accent != nil { VStack(alignment: .leading, spacing: 4) {
                     HStack {
                         Text("Accent tint strength")
                         Spacer()
