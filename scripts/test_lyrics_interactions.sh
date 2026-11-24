@@ -12,12 +12,15 @@ xcrun simctl list runtimes -j > Outputs/lyrics-interactions/runtimes.json
 xcrun simctl list devicetypes -j > Outputs/lyrics-interactions/device-types.json
 selection=$(python3 - <<'PYSELECT'
 import json
+import os
 from pathlib import Path
 root = Path('Outputs/lyrics-interactions')
 runtimes = json.loads((root / 'runtimes.json').read_text())['runtimes']
 types = json.loads((root / 'device-types.json').read_text())['devicetypes']
-runtime = next((r for r in runtimes if r.get('isAvailable') and r['identifier'].endswith('iOS-26-1')), None)
-if not runtime: raise SystemExit('Install the iOS 26.1 simulator runtime')
+version = os.environ.get('SHRUBIFY_INTERACTION_RUNTIME_VERSION', '26.1')
+runtime_suffix = 'iOS-' + version.replace('.', '-')
+runtime = next((r for r in runtimes if r.get('isAvailable') and r['identifier'].endswith(runtime_suffix)), None)
+if not runtime: raise SystemExit(f'Install the iOS {version} simulator runtime')
 supported = {d['identifier'] for d in runtime.get('supportedDeviceTypes', [])}
 ipads = [d for d in types if d['name'].startswith('iPad') and (not supported or d['identifier'] in supported)]
 if not ipads: raise SystemExit('No compatible iPad simulator type')
