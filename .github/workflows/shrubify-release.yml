@@ -14,6 +14,13 @@ on:
         description: 'Spotify version of the authorized IPA for this build (optional)'
         required: false
         type: string
+      simulator_runner:
+        description: 'Runner for the iPad simulator checks'
+        type: choice
+        options:
+          - macos-15
+          - macos-15-intel
+        default: macos-15
       force_release:
         description: 'Publish another revision even if the same source/Spotify version already exists'
         required: false
@@ -97,7 +104,7 @@ jobs:
     name: Verify lyrics interactions on iPad
     needs: plan
     if: ${{ needs.plan.outputs.build == 'true' }}
-    runs-on: macos-15
+    runs-on: ${{ inputs.simulator_runner || 'macos-15' }}
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
