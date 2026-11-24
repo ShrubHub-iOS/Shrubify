@@ -62,6 +62,7 @@ def main():
     current_version = re.search(r'^Version:\s*(\S+)', (Path(__file__).resolve().parents[1] / 'control').read_text(), re.MULTILINE).group(1)
     a.add_argument('--tweak', default=current_version)
     a.add_argument('--manual-url', default='')
+    a.add_argument('--spotify-version', default='')
     a.add_argument('--catalog-url', default='')
     a.add_argument('--fallback-url', default='')
     a.add_argument('--token', default='')
@@ -69,11 +70,18 @@ def main():
     a.add_argument('--event', default=os.environ.get('GITHUB_EVENT_NAME',''))
     a.add_argument('--public-release', choices=['true','false'], default='false')
     args = a.parse_args()
-    result = fetch_json('https://itunes.apple.com/lookup?id='+SPOTIFY_APP_ID+'&country=us')
-    matches = [x for x in result.get('results', []) if x.get('bundleId') == 'com.spotify.client']
-    if not matches: raise RuntimeError('Spotify App Store lookup returned no verified Spotify application')
-    latest = matches[0]['version']
-    if not re.fullmatch(r'\d+(?:\.\d+){1,3}',latest): raise ValueError('Invalid App Store version')
+    target = args.spotify_version.strip()
+    if target:
+        if args.event != 'workflow_dispatch':
+            a.error('--spotify-version requires a manual workflow run')
+        latest = target
+    else:
+        result = fetch_json('https://itunes.apple.com/lookup?id='+SPOTIFY_APP_ID+'&country=us')
+        matches = [x for x in result.get('results', []) if x.get('bundleId') == 'com.spotify.client']
+        if not matches: raise RuntimeError('Spotify App Store lookup returned no verified Spotify application')
+        latest = matches[0]['version']
+    if not re.fullmatch(r'\d+(?:\.\d+){1,3}', latest):
+        raise ValueError('Invalid Spotify version')
     versions = catalog_versions(json.loads(Path('config/ipa-sources.json').read_text()))
     if args.catalog_url:
         versions.update(catalog_versions(fetch_json(args.catalog_url)))
@@ -82,7 +90,7 @@ def main():
     if url and not url.startswith('https://'):
         raise ValueError('Only HTTPS IPA download URLs are supported')
     # A manual build may use an older Spotify binary; inspect actual Info.plist later.
-    expected = '' if manual else latest
+    expected = '' if manual and not target else latest
     skip_reason = ''
     if args.event != 'workflow_dispatch' and args.public_release != 'true':
         skip_reason = 'Set repository variable ALLOW_PUBLIC_IPA_RELEASE=true to enable scheduled releases.'

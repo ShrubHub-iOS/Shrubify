@@ -10,6 +10,10 @@ on:
         description: 'Direct HTTPS URL of a Spotify IPA you may modify (optional; overrides catalog)'
         required: false
         type: string
+      spotify_version:
+        description: 'Spotify version of the authorized IPA for this build (optional)'
+        required: false
+        type: string
       force_release:
         description: 'Publish another revision even if the same source/Spotify version already exists'
         required: false
@@ -39,7 +43,7 @@ permissions:
   issues: write
 
 concurrency:
-  group: shrubify-release-main
+  group: shrubify-release-${{ github.event_name == 'workflow_dispatch' && startsWith(github.ref_name, 'beta/') && github.ref_name || 'main' }}
   cancel-in-progress: false
 
 jobs:
@@ -61,6 +65,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           MANUAL_IPA: ${{ inputs.ipa_url }}
+          SPOTIFY_TARGET: ${{ inputs.spotify_version }}
           CATALOG_URL: ${{ secrets.SPOTIFY_IPA_CATALOG_URL }}
           FALLBACK_IPA: ${{ secrets.SPOTIFY_IPA_URL }}
           PUBLIC_RELEASE: ${{ vars.ALLOW_PUBLIC_IPA_RELEASE }}
@@ -70,6 +75,7 @@ jobs:
           python3 scripts/plan_release.py \
             --repo "$GITHUB_REPOSITORY" --sha "$SOURCE_SHA" \
             --tweak "$TWEAK_VERSION" \
+            --spotify-version "$SPOTIFY_TARGET" \
             --manual-url "$MANUAL_IPA" --catalog-url "$CATALOG_URL" \
             --fallback-url "$FALLBACK_IPA" \
             --token "$GITHUB_TOKEN" --event "$GITHUB_EVENT_NAME" \
@@ -144,6 +150,7 @@ jobs:
       - name: Resolve authorized IPA URL on this runner (keep secrets out of job outputs)
         env:
           MANUAL_IPA: ${{ inputs.ipa_url }}
+          SPOTIFY_TARGET: ${{ inputs.spotify_version }}
           CATALOG_URL: ${{ secrets.SPOTIFY_IPA_CATALOG_URL }}
           FALLBACK_IPA: ${{ secrets.SPOTIFY_IPA_URL }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -153,6 +160,7 @@ jobs:
           python3 scripts/plan_release.py \
             --repo "$GITHUB_REPOSITORY" --sha "$SOURCE_SHA" \
             --tweak "$TWEAK_VERSION" \
+            --spotify-version "$SPOTIFY_TARGET" \
             --manual-url "$MANUAL_IPA" --catalog-url "$CATALOG_URL" \
             --fallback-url "$FALLBACK_IPA" --token "$GH_TOKEN" \
             --event "$GITHUB_EVENT_NAME" --public-release 'true' \
