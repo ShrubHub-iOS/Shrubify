@@ -37,6 +37,20 @@ struct KaraokeLineDto: Equatable {
     var hasWordTiming: Bool { syllables.contains { $0.endMs > $0.startMs } }
     var plainText: String { originalText ?? syllables.plainText }
 
+    func highlightRange(at position: Int) -> Range<String.Index>? {
+        let text = plainText
+        var cursor = text.startIndex
+        for syllable in syllables {
+            guard let match = text.range(of: syllable.text, options: [.caseInsensitive, .widthInsensitive],
+                                         range: cursor..<text.endIndex) else { continue }
+            if syllable.endMs > syllable.startMs, position >= syllable.startMs, position < syllable.endMs {
+                return match
+            }
+            cursor = match.upperBound
+        }
+        return nil
+    }
+
     var words: [[KaraokeSyllableDto]] {
         var result: [[KaraokeSyllableDto]] = []
         var current: [KaraokeSyllableDto] = []

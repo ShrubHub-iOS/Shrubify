@@ -49,6 +49,8 @@ private func lyricsRepository(for source: LyricsSource) -> LyricsRepository {
     switch source {
     case .genius: return geniusLyricsRepository
     case .lrclib: return LrclibLyricsRepository.shared
+    case .lrcRed: return LrcRedLyricsRepository()
+    case .lyricsPlus: return LyricsPlusRepository()
     case .musixmatch: return MusixmatchLyricsRepository.shared
     case .petit: return petitLyricsRepository
     case .spicy: return SpicyLyricsRepository.shared
@@ -153,6 +155,12 @@ private func loadCustomLyricsForCurrentTrack(_ track: SafeTrackMetadata) throws 
         titleVariants.append(metadataTitle)
     }
 
+    let candidateISRC = (metadata["isrc"] ?? metadata["ISRC"])?.uppercased()
+        .replacingOccurrences(of: "-", with: "").trimmingCharacters(in: .whitespacesAndNewlines)
+    let isrc: String? = candidateISRC.flatMap {
+        $0.range(of: #"^[A-Z]{2}[A-Z0-9]{3}[0-9]{7}$"#, options: .regularExpression) == nil ? nil : $0
+    }
+
     let searchQuery = LyricsSearchQuery(
         title: title,
         primaryArtist: track.artist,
@@ -162,7 +170,8 @@ private func loadCustomLyricsForCurrentTrack(_ track: SafeTrackMetadata) throws 
         // 只靠 `primaryArtist` 会被同曲异名 / 翻唱骗过去。
         artistNames: metadata.keys.filter { $0 == "artist_name" || $0.hasPrefix("artist_name:") }.sorted().compactMap { metadata[$0] },
         titleVariants: titleVariants,
-        albumTitle: (metadataAlbum?.isEmpty == false) ? metadataAlbum : nil
+        albumTitle: (metadataAlbum?.isEmpty == false) ? metadataAlbum : nil,
+        isrc: isrc
     )
 
     let options = UserDefaults.lyricsOptions
@@ -473,7 +482,8 @@ private func loadCustomLyricsForCurrentTrack(_ track: SafeTrackMetadata) throws 
                             try LyricsRequestBudget.check()
                             if CurrentSpotifyTrack.identifier == searchQuery.spotifyTrackId {
                                 let offset = LyricsTimingOffset.offsetMs(forTrackId: searchQuery.spotifyTrackId, source: source)
-                                let preview = offset == 0 ? dto : dto.applyingTimingOffset(offset)
+                                var preview = offset == 0 ? dto : dto.applyingTimingOffset(offset)
+                                if preview.providerName.isEmpty { preview.providerName = source.description }
                                 publishShrubifyCustomLyrics(preview, trackId: searchQuery.spotifyTrackId)
                             }
                         }

@@ -27,6 +27,15 @@ enum LyricsSourceHTTP {
         return URLSession(configuration: configuration)
     }()
 
+    static func getData(_ url: URL, tag: String) throws -> Data {
+        guard let data = send(URLRequest(url: url), headers: ["Accept": "application/json"], tag: tag) else {
+            try LyricsRequestBudget.check()
+            throw LyricsError.unknownError
+        }
+        guard data.count <= 2_000_000 else { throw LyricsError.decodingError }
+        return data
+    }
+
     static func getJSON(
         _ url: URL,
         headers: [String: String] = [:],

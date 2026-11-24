@@ -39,6 +39,32 @@ check(partial.activeLineIndex(at: 499, requiresActiveInterval: true) == nil
     && partial.activeLineIndex(at: 900, requiresActiveInterval: true) == 0
     && partial.activeLineIndex(at: 1500, requiresActiveInterval: true) == nil
     && partial.activeLineIndex(at: 2000, requiresActiveInterval: true) == 1, "Live lyric follows real intervals")
+check(partial.lines[0].highlightRange(at: 500) == nil, "Untimed parts do not become active words")
+if let range = partial.lines[0].highlightRange(at: 1150) {
+    check(partial.lines[0].plainText[range] == "words", "A preview highlights the active provider-timed word")
+} else { fatalError("Expected a timed word") }
+let payload = try JSONDecoder().decode(LyricsPlusPayload.self, from: Data("""
+{
+    "type":"Word",
+    "metadata":{"language":"en"},
+    "processingTime":{"selectedSongMetadata":{"title":"Fixture","artist":"Artist","duration":"182.5"}},
+    "lyrics":[{"time":1000,"duration":900,"text":"Wait up!","syllabus":[
+        {"time":"1050","duration":200,"text":"Wait"},
+        {"time":1500,"duration":300,"text":"up"}
+    ]},{"time":2000,"duration":800,"text":"Partial","syllabus":[{"time":"NaN","text":"Partial"}]}]
+}
+""".utf8))
+let query = LyricsSearchQuery(title: "Fixture", primaryArtist: "Artist", spotifyTrackId: "id", durationMs: 182_500)
+check(payload.matches(query) && payload.isTimed && payload.language == "en", "Accept matching LyricsPlus replies")
+var wrong = query
+wrong.durationMs = 170_000
+check(!payload.matches(wrong), "Reject the wrong recording even when the title and artist match")
+check(payload.lines[0].offsetMs == 1000 && payload.lines[0].endOffsetMs == 1900
+    && payload.lines[0].words?.last?.endMs == 1800, "LyricsPlus milliseconds preserve line and word boundaries")
+check(payload.lines[1].words?.isEmpty == true, "Malformed tokens keep readable line timing")
+let staticPayload = try JSONDecoder().decode(LyricsPlusPayload.self, from: Data(
+    #"{"type":"None","lyrics":[{"time":0,"duration":0,"text":"Plain text"}]}"#.utf8))
+check(!staticPayload.isTimed && staticPayload.lines.first?.offsetMs == nil, "Plain LyricsPlus text stays untimed")
 print("Original custom lyrics adapter: syllables, CJK/RTL, timing, line-only sources and credits passed")
 
 // Tone mapping preserves color while capping every background luminance.

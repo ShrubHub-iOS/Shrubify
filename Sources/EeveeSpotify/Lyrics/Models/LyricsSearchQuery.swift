@@ -29,6 +29,7 @@ struct LyricsSearchQuery: Hashable {
     /// 专辑名（metadata `album_title`）。**只用于候选打分**，不进搜索串 ——
     /// 带着专辑名搜会明显缩小结果集，反而搜不到同曲异名的条目。
     var albumTitle: String? = nil
+    var isrc: String? = nil
 
     /// 参与匹配的歌手集合（主艺人 + 全部合作艺人，去重、去空白）。
     var allArtistNames: [String] {

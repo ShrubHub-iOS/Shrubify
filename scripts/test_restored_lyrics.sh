@@ -8,6 +8,9 @@ swiftc Sources/EeveeSpotify/Lyrics/Models/KaraokeLyricsDto.swift \
   Sources/EeveeSpotify/Lyrics/Models/LyricsLineDto.swift \
   Sources/EeveeSpotify/Lyrics/Models/LyricsBackgroundVocalDto.swift \
   Sources/EeveeSpotify/Lyrics/Models/LyricsContributor.swift \
+  Sources/EeveeSpotify/Lyrics/Models/LyricsPlusPayload.swift \
+  Sources/EeveeSpotify/Lyrics/Models/LyricsSearchQuery.swift \
+  Sources/EeveeSpotify/Lyrics/Models/LyricsMatch.swift \
   Sources/EeveeSpotify/Lyrics/Models/KaraokeLyricsAdapter.swift \
   Sources/EeveeSpotify/Karaoke/KaraokeAnimationCurve.swift \
   Sources/EeveeSpotify/Karaoke/KaraokeReadability.swift \

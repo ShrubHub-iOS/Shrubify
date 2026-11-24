@@ -36,10 +36,12 @@ enum LyricsSource: Int, CaseIterable, CustomStringConvertible {
     case qqMusic
     /// 酷狗：中文曲库，**逐字**（KRC）。
     case kugou
+    case lrcRed
+    case lyricsPlus
 
     static var allCases: [LyricsSource] {
         return [
-            .genius, .lrclib, .amllTtml, .musixmatch, .petit,
+            .genius, .lrclib, .lrcRed, .lyricsPlus, .amllTtml, .musixmatch, .petit,
             .bini, .unison, .spicy, .netease, .qqMusic, .kugou,
             .autoSelect
         ]
@@ -78,6 +80,10 @@ enum LyricsSource: Int, CaseIterable, CustomStringConvertible {
         return "QQ Music"
     case .kugou:
         return "KuGou"
+    case .lrcRed:
+        return "lrc.red"
+    case .lyricsPlus:
+        return "LyricsPlus"
     case .appleMusicOfficialTtml:
         // 这是**提供者署名**（注入 payload 的 `providedBy` / 页脚那一行），不是源选择器的标签。
         //
@@ -112,6 +118,8 @@ enum LyricsSource: Int, CaseIterable, CustomStringConvertible {
         case .unison: return "unison"
         case .qqMusic: return "qqmusic"
         case .kugou: return "kugou"
+        case .lrcRed: return "lrcRed"
+        case .lyricsPlus: return "lyricsPlus"
         }
     }
 
@@ -132,6 +140,8 @@ enum LyricsSource: Int, CaseIterable, CustomStringConvertible {
         case "unison": self = .unison
         case "qqmusic": self = .qqMusic
         case "kugou": self = .kugou
+        case "lrcRed": self = .lrcRed
+        case "lyricsPlus": self = .lyricsPlus
         default: return nil
         }
     }
@@ -163,7 +173,7 @@ enum LyricsSource: Int, CaseIterable, CustomStringConvertible {
         case .amllTtml, .netease, .qqMusic, .kugou:
             return true
         case .genius, .lrclib, .musixmatch, .petit, .notReplaced, .spicy,
-             .autoSelect, .appleMusicOfficialTtml, .bini, .unison:
+             .autoSelect, .appleMusicOfficialTtml, .bini, .unison, .lrcRed, .lyricsPlus:
             return false
         }
     }

@@ -37,6 +37,8 @@ enum LyricsSourceOrder {
     /// 酷狗与网易云更稳，QQ 的搜索更容易落到翻唱 / 同长度版本上）。
     static let defaultOrder: [LyricsSource] = [
         .lrclib,       // 无令牌、带时间轴 —— 先保底
+        .lrcRed,
+        .lyricsPlus,
         .amllTtml,     // amll
         .spicy,        // sl
         .musixmatch,   // mxm

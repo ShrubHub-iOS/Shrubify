@@ -54,6 +54,9 @@ for size in [CGSize(width: 1280, height: 889), CGSize(width: 421, height: 818),
         }
     }
 }
+let fade = TabletPlayerLayout.headerFade(start: 82, height: 800)
+check(fade[1] * 800 == 82 && fade[4] * 800 == 170, "Fade starts below the real header and spans the body")
+check(zip(fade, fade.dropFirst()).allSatisfy { $0 <= $1 }, "Fade locations remain ordered")
 print("Responsive player geometry checks passed")
 
 for width in [CGFloat(320), 414, 847, 1008, 1280] {

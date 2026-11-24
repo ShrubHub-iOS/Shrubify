@@ -57,6 +57,11 @@ struct TabletPlayerLayout {
 
     static func headerHeight(safeTop: CGFloat) -> CGFloat { safeTop + 62 }
 
+    static func headerFade(start: CGFloat, height: CGFloat) -> [CGFloat] {
+        let viewport = max(1, height)
+        return [0, start, start + 18, start + 52, start + 88].map { min(1, max(0, $0 / viewport)) }
+    }
+
     // The scroll view starts below the fixed native header.
     init(size: CGSize, bottom: CGFloat, titleHeight: CGFloat, artistHeight: CGFloat, lyricHeight: CGFloat = 44) {
         let margin: CGFloat = size.width >= 700 ? 36 : 24
@@ -90,9 +95,8 @@ struct TabletPlayerLayout {
             controlY = artwork.maxY + lyricSpace + 18
         }
 
-        let lyricWidth = wide ? artwork.width : controlWidth
-        lyric = CGRect(x: (wide ? artwork.midX : size.width / 2) - lyricWidth / 2,
-                       y: artwork.maxY + (lyricHeight > 0 ? 8 : 0), width: lyricWidth, height: lyricHeight)
+        lyric = CGRect(x: artwork.minX,
+                       y: artwork.maxY + (lyricHeight > 0 ? 8 : 0), width: artwork.width, height: lyricHeight)
         title = CGRect(x: controlX, y: controlY, width: controlWidth, height: titleHeight)
         artist = CGRect(x: controlX, y: title.maxY, width: controlWidth, height: artistHeight)
         progress = CGRect(x: controlX, y: artist.maxY + 6, width: controlWidth, height: 36)

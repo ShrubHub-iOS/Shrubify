@@ -98,6 +98,8 @@ extension EeveeLyricsSettingsView {
         case .unison:          return "unison_description".localized
         case .qqMusic:         return "qqmusic_description".localized
         case .kugou:           return "kugou_description".localized
+        case .lrcRed:          return "[lrc.red](https://lrc.red/api) provides community lyrics with word and line timing."
+        case .lyricsPlus:      return "[LyricsPlus](https://github.com/ibratabian17/LyricsPlus) finds word-timed, line-timed and plain lyrics across providers."
         case .notReplaced, .autoSelect, .appleMusicOfficialTtml:
             return nil
         }
