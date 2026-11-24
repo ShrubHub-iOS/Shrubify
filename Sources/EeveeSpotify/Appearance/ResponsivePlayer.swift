@@ -104,6 +104,7 @@ final class ResponsivePlayerView: UIView {
     private var nativeArtworkSnapshot: HeaderSnapshot?
     private var inlineText: String?
     private var inlineWord: Range<String.Index>?
+    private var inlineHasWordTiming = false
     private var usedWideTypography: Bool?
     private var inlineFont = UIFont.systemFont(ofSize: 19, weight: .semibold)
     private let title = UIButton(type: .system)
@@ -363,6 +364,7 @@ final class ResponsivePlayerView: UIView {
             requestedPreviewTrack = nil
             inlineText = nil
             inlineWord = nil
+            inlineHasWordTiming = false
             inlineLyric.setAttributedTitle(nil, for: .normal)
             if tablet { refreshPreview() }
         }
@@ -487,10 +489,12 @@ final class ResponsivePlayerView: UIView {
         let index = time.flatMap { previewLyrics?.activeLineIndex(at: $0, requiresActiveInterval: true) }
         let line = enabled ? index.flatMap { previewLyrics?.lines[$0] } : nil
         let text = line?.plainText
-        let word = line.flatMap { line in time.flatMap { line.highlightRange(at: $0) } }
-        if inlineText != text || inlineWord != word {
+        let wordTimed = line?.hasWordTiming == true
+        let word = wordTimed ? line.flatMap { line in time.flatMap { line.highlightRange(at: $0) } } : nil
+        if inlineText != text || inlineWord != word || inlineHasWordTiming != wordTimed {
             inlineText = text
             inlineWord = word
+            inlineHasWordTiming = wordTimed
             updateInlineType()
         }
         if inlineLyric.isHidden != (text == nil) { inlineLyric.isHidden = text == nil }
@@ -502,7 +506,7 @@ final class ResponsivePlayerView: UIView {
             return
         }
         let value = NSMutableAttributedString(string: inlineText, attributes: [
-            .font: inlineFont, .foregroundColor: UIColor.white.withAlphaComponent(inlineWord == nil ? 0.94 : 0.65)
+            .font: inlineFont, .foregroundColor: UIColor.white.withAlphaComponent(inlineHasWordTiming ? 0.72 : 0.94)
         ])
         if let inlineWord { value.addAttribute(.foregroundColor, value: UIColor.white, range: NSRange(inlineWord, in: inlineText)) }
         inlineLyric.setAttributedTitle(value, for: .normal)
