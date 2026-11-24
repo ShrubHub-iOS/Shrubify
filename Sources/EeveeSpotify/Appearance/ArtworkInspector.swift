@@ -23,8 +23,8 @@ enum ArtworkInspector {
                   $0.isEnabled && $0.numberOfTapsRequired == 1 && $0.numberOfTouchesRequired == 1
               }),
               let method = class_getInstanceMethod(type(of: cover), action),
-              method_getNumberOfArguments(method) == 2,
-              let returnType = method_copyReturnType(method) else { return false }
+              method_getNumberOfArguments(method) == 2 else { return false }
+        let returnType = method_copyReturnType(method)
         defer { free(returnType) }
         guard String(cString: returnType) == "v" else { return false }
         return UIApplication.shared.sendAction(action, to: cover, from: tap, for: nil)
