@@ -227,8 +227,10 @@ final class ResponsivePlayerView: UIView {
         for (id, symbol, label) in [
             ("shrubify-connect", "airplay.audio", "Audio output"),
             ("QueueButtonNowPlaying", "list.bullet", "Queue"),
-            ("shrubify-save", "plus.circle", "Save track")
+            ("shrubify-save", "plus.circle", "Save track"),
+            ("ShareButtonNowPlayingView", "square.and.arrow.up", "Share")
         ] {
+            if !tablet && id == "ShareButtonNowPlayingView" { continue }
             let button = UIButton(type: .system)
             configure(button, symbol: symbol, label: label) { [weak self] in self?.performNative(id) }
             actions[id] = button; footer.addArrangedSubview(button)
@@ -334,6 +336,7 @@ final class ResponsivePlayerView: UIView {
         }
         for (id, button) in actions {
             let source = native.object(forKey: id as NSString)
+            if tablet { button.isHidden = source == nil }
             button.isEnabled = source.map { (NowPlayingIOS27.nearestControl($0)?.isEnabled ?? true) && $0.isUserInteractionEnabled } ?? false
             button.alpha = button.isEnabled ? 1 : 0.35
             if let label = source?.accessibilityLabel, !label.isEmpty { button.accessibilityLabel = label }
@@ -385,11 +388,19 @@ final class ResponsivePlayerView: UIView {
                 native.setObject(view, forKey: id as NSString)
             }
             let name = NSStringFromClass(type(of: view))
-            if name.contains("ConnectButton"), native.object(forKey: "shrubify-connect") == nil {
+            let id = view.accessibilityIdentifier
+            if (id == "Components.ConnectButtonOutputSwitcher" || name.contains("ConnectButton")),
+               native.object(forKey: "shrubify-connect") == nil {
                 native.setObject(view, forKey: "shrubify-connect")
             }
-            if name.contains("AddToButton"), native.object(forKey: "shrubify-save") == nil {
+            if (id == "Components.UI.AddToButton" || name.contains("AddToButton")),
+               native.object(forKey: "shrubify-save") == nil {
                 native.setObject(view, forKey: "shrubify-save")
+            }
+            if tablet, native.object(forKey: "QueueButtonNowPlaying") == nil,
+               let control = view as? UIControl,
+               name.contains("QueueButton") || control.accessibilityLabel?.caseInsensitiveCompare("Queue") == .orderedSame {
+                native.setObject(control, forKey: "QueueButtonNowPlaying")
             }
         }
         if !tablet { discoverHeader(in: page) }
@@ -435,9 +446,15 @@ final class ResponsivePlayerView: UIView {
 
     private func performNative(_ id: String) {
         guard let source = native.object(forKey: id as NSString), source.window === window else { return }
+        if tablet && id == "shrubify-connect" {
+            NowPlayingIOS27.activateConnect(source)
+            return
+        }
         if let control = NowPlayingIOS27.nearestControl(source), control.isEnabled {
             control.sendActions(for: .touchDown)
-            control.sendActions(for: .touchUpInside)
+            let activation: UIControl.Event = tablet && control.allControlEvents.contains(.primaryActionTriggered)
+                ? .primaryActionTriggered : .touchUpInside
+            control.sendActions(for: activation)
         } else { _ = source.accessibilityActivate() }
     }
 
