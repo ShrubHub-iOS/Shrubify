@@ -98,6 +98,12 @@ final class ShrubifyReplayStore: ObservableObject {
 
     func setEnabled(_ value: Bool) {
         assert(Thread.isMainThread)
+        guard enabled != value else { return }
+        previousStamp = nil
+        previousKey = nil
+        previousPosition = nil
+        currentPlaySeconds = 0
+        countedCurrentPlay = false
         enabled = value
         if value {
             start()
@@ -108,11 +114,6 @@ final class ShrubifyReplayStore: ObservableObject {
             observers.removeAll()
         }
         UserDefaults.standard.set(value, forKey: Self.enabledKey)
-        previousStamp = nil
-        previousKey = nil
-        previousPosition = nil
-        currentPlaySeconds = 0
-        countedCurrentPlay = false
         persist()
     }
 
@@ -226,7 +227,6 @@ final class ShrubifyReplayStore: ObservableObject {
             ?? (artist.lowercased() + "\u{001F}" + title.lowercased())
         var entry = archive.tracks.first(where: { $0.id == key }) ?? ShrubifyTrackRecord(id: key, title: title, artist: artist, seconds: 0, plays: 0, lastPlayed: Date(), spotifyURI: nil)
         if let id = playback.trackID, !id.isEmpty { entry.spotifyURI = "spotify:track:" + id }
-        if !archive.tracks.contains(where: { $0.id == key }) { archive.tracks.append(entry) }
         let snapshot = ShrubifySession(id: UUID(), savedAt: Date(), title: "Saved track · \(title)", tracks: [entry])
         archive.sessions.insert(snapshot, at: 0)
         archive.sessions = Array(archive.sessions.prefix(30))

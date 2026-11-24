@@ -43,6 +43,7 @@ final class InteractionScene: UIResponder, UIWindowSceneDelegate {
 
 final class TabBarGradientView: UIView {}
 final class TabBarItemElementView: UIButton {}
+final class FixtureTabBarView: UIVisualEffectView {}
 
 final class RootController: UIViewController {
     private var closes = 0
@@ -51,7 +52,7 @@ final class RootController: UIViewController {
     private let tabCount = UILabel()
     private let selectionStatus = UILabel()
     private var selections = 0
-    private let barSurface = UIVisualEffectView(effect: UIBlurEffect(style: .systemMaterialDark))
+    private let barSurface = FixtureTabBarView(effect: UIBlurEffect(style: .systemMaterialDark))
     private var barHost: UIView { barSurface.contentView }
     private let content = ContentFixture(frame: .zero)
     private let miniHost = UIView()
@@ -84,7 +85,9 @@ final class RootController: UIViewController {
             // already glassed, so reading the raw key would leave them on.
             let key = NativeTabletGlass.preferenceKey
             UserDefaults.standard.set(!NativeTabletGlass.isOnForCurrentDevice, forKey: key)
-            NativeTabletGlass.reapply(); self?.reportMaterial()
+            NativeTabletGlass.reapply()
+            self?.layoutBars()
+            self?.reportMaterial()
         }, for: .touchUpInside); view.addSubview(toggle)
         view.addSubview(content)
         view.addSubview(barSurface)
@@ -129,6 +132,13 @@ final class RootController: UIViewController {
         }
         // Mirror the two layout hooks. The production API never receives the
         // window, shelf, artwork or a cell; there is no test-only content pass.
+        layoutBars()
+    }
+    private func layoutBars() {
+        // The first pass updates margins. Apply the stack's resulting layout
+        // before sampling the plate, as UIKit does on a following pass.
+        NativeTabletGlass.layout(.tabs, in: barSurface)
+        row.layoutIfNeeded()
         NativeTabletGlass.layout(.tabs, in: barSurface)
         NativeTabletGlass.layout(.miniPlayer, in: miniHost)
     }
@@ -155,10 +165,18 @@ final class RootController: UIViewController {
             return !plate.isUserInteractionEnabled && plate.accessibilityElementsHidden && plateIndex < hostIndex
         }
         let wells = (row.arrangedSubviews + [miniPlay]).reduce(0) { $0 + $1.fixtureGlassCount }
-        let cleared = legacy.alpha == 0 && barSurface.effect == nil && barHost.backgroundColor == .clear && mini.backgroundColor == .clear
+        let cleared = legacy.alpha == 0 && barSurface.effect == nil
+            && (barHost.layer.backgroundColor?.alpha ?? 0) == 0
+            && (mini.layer.backgroundColor?.alpha ?? 0) == 0
         let restored = legacy.alpha == 1 && barSurface.effect is UIBlurEffect && barHost.backgroundColor == .darkGray && mini.backgroundColor == .darkGray
         let backing = cleared ? "cleared" : (restored ? "native" : "partial")
-        materialState.text = "\(tabs.count)/\(minis.count) bars · \(wells) wells · \(nativeFrames == controlFrames && safe ? "intact" : "changed") · \(backing)"
+        let frames = controlFrames
+        let controlsIntact = cleared
+            ? frames.last == nativeFrames.last && row.arrangedSubviews.allSatisfy {
+                $0.frame.width >= 44 && $0.frame.height >= 44 && row.bounds.contains($0.frame)
+            }
+            : frames == nativeFrames
+        materialState.text = "\(tabs.count)/\(minis.count) bars · \(wells) wells · \(controlsIntact && safe ? "intact" : "changed") · \(backing)"
     }
     private func openLyrics() {
         let modal = KaraokeModal.make(onDismiss: { [weak self] in

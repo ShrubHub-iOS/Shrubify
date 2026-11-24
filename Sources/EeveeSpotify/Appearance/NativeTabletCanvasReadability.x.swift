@@ -30,32 +30,33 @@ enum NativeTabletCanvasReadability {
               !UserDefaults.standard.bool(forKey: "ShrubifyStabilityMode"),
               page.window != nil else {
             remove(state)
+            state.lastLookup = 0
             return
         }
 
         if let cell = state.cell, let overlay = state.overlay,
            let video = state.videoRoot,
            overlay.superview === cell, video.superview === cell,
-           cell.window === page.window, !cell.isHidden,
-           cell.alpha > 0.01 {
+           isCanvasCell(cell, in: page), isVisible(cell, in: page),
+           !video.isHidden, video.alpha > 0.01, video.layer.zPosition == 0,
+           let videoIndex = cell.subviews.firstIndex(of: video) {
             let now = ProcessInfo.processInfo.systemUptime
-            if now - state.lastLookup >= 1 {
-                state.lastLookup = now
-                guard videoRoot(in: cell) === video else {
-                    remove(state)
-                    return
+            if now - state.lastLookup < 1 || videoRoot(in: cell) === video {
+                if now - state.lastLookup >= 1 { state.lastLookup = now }
+                if cell.subviews.dropFirst(videoIndex + 1).first !== overlay {
+                    cell.insertSubview(overlay, aboveSubview: video)
                 }
+                resize(overlay, in: cell)
+                return
             }
-            resize(overlay, in: cell)
-            return
         }
+        let hadOverlay = state.overlay != nil
         remove(state)
         let now = ProcessInfo.processInfo.systemUptime
-        guard now - state.lastLookup >= 0.5 else { return }
+        guard hadOverlay || now - state.lastLookup >= 0.5 else { return }
         state.lastLookup = now
 
-        guard let cell = canvasCell(in: page),
-              let video = videoRoot(in: cell) else { return }
+        guard let (cell, video) = canvas(in: page) else { return }
 
         let overlay = UIView(frame: cell.bounds)
         overlay.accessibilityIdentifier = overlayID
@@ -73,11 +74,12 @@ enum NativeTabletCanvasReadability {
         shade.frame = overlay.bounds
         shade.startPoint = CGPoint(x: 0.5, y: 0)
         shade.endPoint = CGPoint(x: 0.5, y: 1)
-        shade.locations = [0, 0.42, 1]
+        shade.locations = [0, 0.30, 0.68, 1]
         shade.colors = [
+            UIColor.black.withAlphaComponent(0.27).cgColor,
             UIColor.black.withAlphaComponent(0.06).cgColor,
-            UIColor.black.withAlphaComponent(0.14).cgColor,
-            UIColor.black.withAlphaComponent(0.30).cgColor,
+            UIColor.black.withAlphaComponent(0.47).cgColor,
+            UIColor.black.withAlphaComponent(0.65).cgColor,
         ]
         overlay.layer.addSublayer(shade)
         cell.insertSubview(overlay, aboveSubview: video)
@@ -104,19 +106,15 @@ enum NativeTabletCanvasReadability {
         state.videoRoot = nil
     }
 
-    private static func canvasCell(in page: UIView) -> UIView? {
+    private static func canvas(in page: UIView) -> (cell: UIView, video: UIView)? {
         var nodes = [page]
         var index = 0
         while index < nodes.count, index < 1400 {
             let view = nodes[index]
             index += 1
             guard !view.isHidden, view.alpha > 0.01 else { continue }
-            if let identifier = view.accessibilityIdentifier,
-               identifier.contains("nowplaying-contentlayer-cell-5"),
-               view.bounds.width > 180, view.bounds.height > 280,
-               view.window === page.window,
-               view.convert(view.bounds, to: page).intersects(page.bounds) {
-                return view
+            if isCanvasCell(view, in: page), let video = videoRoot(in: view) {
+                return (view, video)
             }
             if nodes.count < 1400 {
                 nodes.append(contentsOf: view.subviews.prefix(1400 - nodes.count))
@@ -125,11 +123,29 @@ enum NativeTabletCanvasReadability {
         return nil
     }
 
+    private static func isCanvasCell(_ view: UIView, in page: UIView) -> Bool {
+        guard let identifier = view.accessibilityIdentifier,
+              identifier.contains("nowplaying-contentlayer-cell-5") else { return false }
+        return view.bounds.width > 180 && view.bounds.height > 280
+            && view.window === page.window
+            && view.convert(view.bounds, to: page).intersects(page.bounds)
+    }
+
+    private static func isVisible(_ view: UIView, in page: UIView) -> Bool {
+        var ancestor: UIView? = view
+        while let node = ancestor, !node.isHidden, node.alpha > 0.01 {
+            if node === page { return true }
+            ancestor = node.superview
+        }
+        return false
+    }
+
     /// Find the direct child that actually owns AV playback. This strict
     /// predicate intentionally leaves unfamiliar Spotify versions untouched.
     private static func videoRoot(in cell: UIView) -> UIView? {
         for child in cell.subviews {
-            guard child.bounds.width >= cell.bounds.width * 0.7,
+            guard !child.isHidden, child.alpha > 0.01, child.layer.zPosition == 0,
+                  child.bounds.width >= cell.bounds.width * 0.7,
                   child.bounds.height >= cell.bounds.height * 0.7,
                   !containsControls(in: child) else { continue }
             var nodes = [child]
@@ -154,15 +170,15 @@ enum NativeTabletCanvasReadability {
         while index < nodes.count, index < 100 {
             let view = nodes[index]
             index += 1
-            if view is UILabel || view is UIControl { return true }
-            if nodes.count < 100 {
-                nodes.append(contentsOf: view.subviews.prefix(100 - nodes.count))
-            }
+            if view is UILabel || view is UIControl || view.isAccessibilityElement { return true }
+            guard view.subviews.count <= 100 - nodes.count else { return true }
+            nodes.append(contentsOf: view.subviews)
         }
         return false
     }
 
     private static func hasPlaybackLayer(_ layer: CALayer, depth: Int) -> Bool {
+        guard !layer.isHidden, layer.opacity > 0.01 else { return false }
         let name = NSStringFromClass(type(of: layer))
         if name.contains("AVPlayerLayer") || name.contains("AVSampleBufferDisplayLayer") {
             return true

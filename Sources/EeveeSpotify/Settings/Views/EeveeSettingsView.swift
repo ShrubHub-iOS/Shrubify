@@ -49,7 +49,7 @@ struct EeveeSettingsView: View {
         ]),
         SettingsGroup(key: "settings_group_listening", entries: [
             SettingsEntry(key: "ShrubPanel", icon: "square.grid.2x2.fill", color: .blue) { AnyView(ShrubifyPanelView(embeddedInSettings: true, dismiss: { SettingsNavigator.navigationController?.popViewController(animated: true) })) },
-            SettingsEntry(key: "ShrubQueue", icon: "list.bullet", color: .orange) { AnyView(NavigationView { ShrubifyQueueView() }.navigationViewStyle(StackNavigationViewStyle())) },
+            SettingsEntry(key: "ShrubQueue", icon: "list.bullet", color: .orange) { AnyView(ShrubifyQueueView(usesSettingsNavigation: true)) },
             SettingsEntry(key: "Sleep timer", icon: "moon.zzz.fill", color: .purple) { AnyView(ShrubifySleepTimerView()) },
             SettingsEntry(key: "Shrubify Replay", icon: "chart.bar.xaxis", color: .purple) { AnyView(ShrubifyReplayView(usesSettingsNavigation: true)) },
             SettingsEntry(key: "sponsorblock", icon: "forward.end.fill", color: .red) { AnyView(SponsorBlockSettingsView()) },

@@ -551,10 +551,9 @@ private func loadCustomLyricsForCurrentTrack(_ track: SafeTrackMetadata) throws 
         lastRequestedLyricsSourceDescription = source.description
 
         do {
-            return SourceLyricsResult(
-                dto: try repository.getLyrics(searchQuery, options: options),
-                source: source
-            )
+            let dto = try repository.getLyrics(searchQuery, options: options)
+            guard dto.isInstrumental || !dto.lines.isEmpty else { throw LyricsError.noSuchSong }
+            return SourceLyricsResult(dto: dto, source: source)
         } catch let error {
             // 错误原文要打全：只写一句「failed — falling back to Genius」的话，
             writeDebugLog("[Lyrics] \(source.description) failed: \(error)")
@@ -1050,10 +1049,10 @@ private let urlSessionFallbackLock = NSLock()
 ///
 /// - Parameter original: Spotify 原始响应解析出来的歌词（可能是 200 的官方歌词，
 /// 也可能因为 404 而没有）。它只用来**沿用配色**，内容一律用我们自己的占位。
-/// - Parameter note: 追加说明行，见 `CustomLyrics.makeUnavailableLyrics`。
+/// - Parameter message: A localized status string shown in the native card.
 /// - Returns: 可直接投给 `didReceiveData` 的字节；只有序列化失败这种理论上不会发生的
 /// 情况才返回 nil（那时调用方退回原始响应）。
-func unavailableLyricsBytes(original: Lyrics?, note: String? = nil) -> Data? {
+func unavailableLyricsBytes(original: Lyrics?, message: String = "lyrics_unavailable".localized) -> Data? {
     // Response completion can run while a cancelled provider is still unwinding.
     // Build this envelope from arguments only; do not read its mutable provider
     // attribution, native track, colors or timing state from another thread.
@@ -1061,11 +1060,7 @@ func unavailableLyricsBytes(original: Lyrics?, note: String? = nil) -> Data? {
         payload.data = LyricsData.with { data in
             data.timeSynchronized = true
             data.restriction = .unrestricted
-            var texts = ["lyrics_unavailable".localized]
-            if let note, !note.isEmpty { texts.append(note) }
-            data.lines = texts.enumerated().map { index, text in
-                LyricsLine.with { $0.content = text; $0.offsetMs = Int32(index * 1000) }
-            }
+            data.lines = [LyricsLine.with { $0.content = message }]
         }
         payload.colors = original?.colors ?? LyricsColors.with {
             $0.backgroundColor = 0xFF12_1212
@@ -1161,44 +1156,20 @@ func getLyricsDataForCurrentTrack(_ originalPath: String, originalLyrics: Lyrics
     currentLyricsLookupState = .loading
     do {
         lyrics = try loadCustomLyricsForCurrentTrack(track)
-    } catch let error {
-        // 这一首没能用上我们的歌词 → 决定**这次 HTTP 响应交什么出去**。
-        //
-        // 两种错误必须原样放行（它们跟"屏幕上这首歌有没有词"无关）：
-        // · `.invalidSource` = 禁用歌词替换，要看官方歌词；
-        // · `.noSuchSong` 等真·取词失败：交给下面的占位逻辑（「隐藏 Spotify 官方歌词」
-        // 开着就顶掉官方歌词，关着就放行官方歌词）。
-        //
-        // ⚠️ `.trackMismatch` / `.noCurrentTrack` 以前也是"原样放行"，结果是这次请求
-        // **一个字节都不投递**：Spotify 侧等不到歌词数据 → 不创建 NPV 歌词卡片 →
-        // 连全屏歌词入口都没有（这就是"有些歌完全没有歌词模块"最重的那条路径）。
-        // 现在它们也和其它失败一样，一定给出一份可解析的占位，保证卡片建得起来。
-        let lyricsError = error as? LyricsError
-        let shouldDropResponse = lyricsError == .invalidSource
-        // 切歌竞态单独加一句说明："未找到歌词"时能立刻分清这不是词库的问题。
-        let placeholderNote: String? = lyricsError == .trackMismatch ? "track_mismatch".localized : nil
-
-        if !shouldDropResponse {
-            if lyricsError != .trackMismatch { resetWordByWordLyrics() }
-            // 别让 Spotify 把它自己的官方歌词顶上来 —— 用我们自己的占位替换掉。
-            //
-            // `note` 是**失败原因**那一行：切歌竞态（`trackMismatch`）要说清"不是词库没词"，
-            // 否则用户只看到「未找到歌词」就会去换来源。这个分支在
-            // `isOfficialLyricsHidden` 恒为真时是**唯一**走得到的失败出口，所以说明必须挂
-            // 在这里（挂在下面那个"放行官方歌词"的分支上就永远不会显示）。
-            if let placeholder = unavailableLyricsPayload(original: originalLyrics, note: placeholderNote) {
-                writeDebugLog("[Lyrics] official lyrics hidden — serving our placeholder")
-                return try placeholder.serializedBytes()
-            }
-            // 兜底：「隐藏官方歌词」关着时上面返回 nil（继续用官方歌词），但 trackMismatch /
-            // noCurrentTrack 连"官方歌词属于哪一首"都不确定，同样不能空手而归。
-            if lyricsError == .trackMismatch || lyricsError == .noCurrentTrack {
-                writeDebugLog("[Lyrics] \(lyricsError!) — serving fallback so the card is created")
-                if let data = unavailableLyricsBytes(original: originalLyrics, note: placeholderNote) {
-                    return data
-                }
-            }
+    } catch {
+        let failure = error as? LyricsError
+        if failure == .noSuchSong,
+           originalLyrics?.data.lines.isEmpty != false,
+           let placeholder = unavailableLyricsPayload(original: originalLyrics) {
+            resetWordByWordLyrics()
+            return try placeholder.serializedBytes()
         }
+        if failure != .trackMismatch && failure != .invalidSource,
+           LyricsRequestBudget.cancellation?.isCancelled != true {
+            resetWordByWordLyrics(lookupFailed: false)
+        }
+        // The transport gives each caller its own original Spotify response
+        // on a transient failure, including when it joined a shared lookup.
         throw error
     }
 

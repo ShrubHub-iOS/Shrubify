@@ -35,7 +35,7 @@ struct ShrubifyStudioView: View {
                 }
             }
             Section(header: Text("App appearance")) {
-                studioLink(title: "Liquid Glass", subtitle: "Material, style and intensity on every surface", icon: "circle.hexagongrid.fill", color: .indigo) { ShrubifyGlassSettingsView() }
+                studioLink(title: "Liquid Glass", subtitle: "Material and style for supported surfaces", icon: "circle.hexagongrid.fill", color: .indigo) { ShrubifyGlassSettingsView() }
                 studioLink(title: "Theme and colors", icon: "drop.fill", color: .teal) { EeveeUISettingsView() }
                 studioLink(title: "appIcon".localized, icon: "app.badge.fill", color: .pink) { EeveeAppIconPickerView() }
             }

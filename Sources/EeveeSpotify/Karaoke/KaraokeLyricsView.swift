@@ -7,9 +7,9 @@ struct KaraokeLyricsView: View {
     @StateObject private var model: KaraokeLyricsViewModel
     @State private var options = UserDefaults.karaokeOptions
 
-    init(trackId: String?, lyrics: KaraokeLyricsDto, onDismiss: @escaping () -> Void) {
+    init(trackId: String?, lyrics: KaraokeLyricsDto?, onDismiss: @escaping () -> Void) {
         self.onDismiss = onDismiss
-        _model = StateObject(wrappedValue: KaraokeLyricsViewModel(trackId: trackId, lyrics: lyrics, onNoLyrics: onDismiss))
+        _model = StateObject(wrappedValue: KaraokeLyricsViewModel(trackId: trackId, lyrics: lyrics))
     }
 
     var body: some View {
@@ -34,7 +34,7 @@ struct KaraokeLyricsView: View {
                             Text("Trying your sources in order").foregroundColor(.white.opacity(0.86))
                         } else {
                             Image(systemName: "text.quote").font(.largeTitle)
-                            Text("Timed lyrics unavailable").font(.headline)
+                            Text("Could not load timed lyrics").font(.headline)
                             Button("Try again") { model.retryLyrics() }
                                 .buttonStyle(.bordered)
                         }
@@ -42,7 +42,6 @@ struct KaraokeLyricsView: View {
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .padding(24)
-                    .padding(16)
                 }
                 KaraokePlaybackControls(playback: model.playback, seek: { model.seek(to: $0) }, toggle: { model.togglePlayback() })
                     .disabled(model.playback.trackID != nil && model.playback.trackID != model.trackId)
@@ -56,6 +55,7 @@ struct KaraokeLyricsView: View {
             var saved = UserDefaults.karaokeOptions
             saved.timingOffsetMs = offset
             UserDefaults.karaokeOptions = saved
+            KaraokeLyricsStore.shared.notify()
         }
     }
 
@@ -155,22 +155,23 @@ private struct KaraokeScrollingLines: View {
                 Spacer().frame(height: 24)
 
                 ForEach(0..<min(layouts.count, lyrics.lines.count), id: \.self) { index in
-                    KaraokeLineView(
-                        layout: layouts[index],
-                        currentMs: currentMs,
-                        isActiveLine: index == activeLineIndex,
-                        alignment: alignment,
-                        fontSize: CGFloat(options.resolvedFontSize)
-                    )
-                    .contentShape(Rectangle())
-                    .onTapGesture {
+                    Button {
                         guard lyrics.lines.indices.contains(index) else { return }
                         let succeeded = seek(ShrubifyBetaSupport.seekPosition(lineMs: lyrics.lines[index].startMs, delayMs: options.timingOffsetMs))
                         seekUnavailable = !succeeded
                         if succeeded { proxy.scrollTo(index, anchor: .center) }
+                    } label: {
+                        KaraokeLineView(
+                            layout: layouts[index],
+                            currentMs: currentMs,
+                            isActiveLine: index == activeLineIndex,
+                            alignment: alignment,
+                            fontSize: CGFloat(options.resolvedFontSize)
+                        )
+                        .contentShape(Rectangle())
                     }
+                    .buttonStyle(.plain)
                     .accessibilityLabel(lyrics.lines[index].plainText)
-                    .accessibilityAddTraits(.isButton)
                     .accessibilityHint("Jump to this lyric")
                     .id(index)
                     .scaleEffect(x: 1, y: flip)

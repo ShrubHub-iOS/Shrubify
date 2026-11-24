@@ -20,7 +20,9 @@ update_available = "업데이트 가능";
 do_not_patch_premium = "프리미엄으로 패치 안 함";
 patching_description = "트윅은 사용자 데이터를 로드하기 위한 요청을 가로채고, 역직렬화하고, 실시간으로 매개 변수를 수정합니다.
 
-활성화된 프리미엄 구독이 있다면, 프리미엄으로 패치 안 함을 켤 수 있습니다. 조정은 데이터를 패치하거나 프리미엄 서버 측 기능의 사용을 제한하지 않습니다. 변경 후 앱을 다시 시작해야 합니다.";
+활성화된 프리미엄 구독이 있다면, 프리미엄으로 패치 안 함을 켤 수 있습니다. 조정은 데이터를 패치하거나 프리미엄 서버 측 기능의 사용을 제한하지 않습니다.
+
+%@";
 
 overwrite_configuration = "구성 덮어쓰기";
 overwrite_configuration_description = "원격 구성을 덤프된 프리미엄으로 교체하세요. 광고 표시와 같은 몇 가지 문제를 해결할 수 있지만, 보장되지는 않습니다.";
@@ -341,7 +343,7 @@ glass_lyrics_view = "사용자 지정 가사 보기";
 experiments = "Experiments";
 sponsorblock = "SponsorBlock (BETA)";
 appIcon = "App Icon";
-restart_is_required_description = "App restart is required after changing.";
+restart_is_required_description = "변경 후 앱을 다시 시작해야 합니다.";
 true_shuffle = "True Shuffle";
 true_shuffle_dec = "Blocks Spotify's free-tier Smart Shuffle from mixing recommended tracks into your queue. Shuffle stays inside the playlist. ";
 do_not_replace_lyrics = "Do Not Replace Lyrics";

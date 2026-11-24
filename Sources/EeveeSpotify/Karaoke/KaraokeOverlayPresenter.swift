@@ -27,11 +27,8 @@ final class KaraokeOverlayPresenter {
             writeDebugLog("[Karaoke] present() skipped: requires iOS 15+")
             return
         }
-        guard let trackId = currentTrackId(),
-              let lyrics = KaraokeLyricsStore.shared.lyrics(forTrackId: trackId) else {
-            writeDebugLog("[Karaoke] present() called but no karaoke (Syllable) data available for current track")
-            return
-        }
+        guard let trackId = currentTrackId() else { return }
+        let lyrics = KaraokeLyricsStore.shared.lyrics(forTrackId: trackId)
 
         onMainThreadSync {
             let id = UUID()
@@ -55,13 +52,9 @@ final class KaraokeOverlayPresenter {
         }
     }
 
-    /// True if karaoke data exists for the current track — callers (e.g.
-    /// whatever decides whether to show a "Karaoke" button at all) should
-    /// check this rather than always presenting and risking a no-op.
-    static func isAvailableForCurrentTrack() -> Bool {
+    static func canOpenForCurrentTrack() -> Bool {
         guard UserDefaults.karaokeOptions.enabled, UserDefaults.shouldReplaceLyrics else { return false }
-        guard let trackId = currentTrackId() else { return false }
-        return KaraokeLyricsStore.shared.lyrics(forTrackId: trackId) != nil
+        return currentTrackId() != nil
     }
 
     static func currentTrackId() -> String? {

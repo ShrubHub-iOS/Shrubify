@@ -20,7 +20,9 @@ update_available = "Налична е актуализация";
 do_not_patch_premium = "Не пачвай Premium";
 patching_description = "Туикът прехваща заявките за зареждане на потребителски данни, десериализира ги и променя параметрите в реално време.
 
-Ако имате активен Premium абонамент, можете да включите 'Не пачвай Premium'. Туикът няма да пачва данните или да ограничава използването на Premium сървърните функции. Приложението трябва да се рестартира след промяната.";
+Ако имате активен Premium абонамент, можете да включите 'Не пачвай Premium'. Туикът няма да пачва данните или да ограничава използването на Premium сървърните функции.
+
+%@";
 
 overwrite_configuration = "Презаписване на конфигурацията";
 overwrite_configuration_description = "Заменете дистанционната конфигурация с изхвърлената Premium конфигурация. Това може да реши някои проблеми, като появяващи се реклами, но не е гарантирано.";
@@ -342,7 +344,7 @@ glass_lyrics_view = "Персонален изглед на текстовете
 experiments = "Experiments";
 sponsorblock = "SponsorBlock (BETA)";
 appIcon = "App Icon";
-restart_is_required_description = "App restart is required after changing.";
+restart_is_required_description = "Приложението трябва да се рестартира след промяната.";
 true_shuffle = "True Shuffle";
 true_shuffle_dec = "Blocks Spotify's free-tier Smart Shuffle from mixing recommended tracks into your queue. Shuffle stays inside the playlist. ";
 do_not_replace_lyrics = "Do Not Replace Lyrics";

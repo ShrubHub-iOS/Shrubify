@@ -101,7 +101,6 @@ def main():
         'needs_ipa': 'true' if not url else 'false',
         'latest_version': latest,
         'expected_version': expected,
-        'ipa_url': url if not skip_reason else '',
         'reason': skip_reason or 'A matching IPA is available; preparing the build.'
     }
     if args.url_file and url:

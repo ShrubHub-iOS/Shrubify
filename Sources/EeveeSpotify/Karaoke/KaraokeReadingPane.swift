@@ -65,7 +65,7 @@ struct KaraokeReadingPane<Lines: View>: View {
     @ViewBuilder private func observeBrowsing<V: View>(_ scroll: V) -> some View {
         if #available(iOS 18.0, *) {
             scroll.onScrollPhaseChange { _, phase in
-                if phase == .interacting || phase == .decelerating { follows = false }
+                if phase == .interacting { follows = false }
             }
         } else {
             // Observe, rather than consume, the native scroll gesture on iOS 17.

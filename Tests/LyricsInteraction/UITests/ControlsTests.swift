@@ -24,7 +24,7 @@ final class ControlsTests: XCTestCase {
             reset.coordinate(withNormalizedOffset: CGVector(dx: 0.15, dy: 0.5)).tap()
             XCTAssertEqual(value.label, "0")
             // Keep the existing production play and slider controls functional.
-            app.buttons["Play"].tap()
+            app.buttons["Play"].coordinate(withNormalizedOffset: CGVector(dx: 0.15, dy: 0.5)).tap()
             XCTAssertTrue(app.buttons["Pause"].exists)
             let slider = app.sliders["Song position"]
             slider.coordinate(withNormalizedOffset: CGVector(dx: 1.0 / 3.0, dy: 0.5))
@@ -117,7 +117,11 @@ final class ControlsTests: XCTestCase {
         }
         let shelf = app.collectionViews["native-shelf"]
         let last = app.buttons["track-15"]
-        for _ in 0..<8 where !last.isHittable { shelf.swipeLeft() }
+        for _ in 0..<8 {
+            if last.exists && shelf.frame.contains(last.frame) { break }
+            shelf.swipeLeft()
+        }
+        XCTAssertTrue(waitUntilInside(last, in: shelf))
         XCTAssertTrue(last.isHittable); last.tap()
         XCTAssertEqual(action.label, "track 15")
         XCTAssertEqual(state.label, "0 effects · intact · reused")

@@ -20,7 +20,9 @@ update_available = "Es het es Update verfüegbar!";
 do_not_patch_premium = "Duen Premium nid pätche";
 patching_description = "De tweak fangt Afraage ab, entserialisiert sie und verändert d'Parameter in Echtziit.
 
-Wänn du es aktivi Premium-Abonnement hesch, chasch du s \'Duen Premium nid pätche\' aktiviere. De tweak wird d'Date nid pätche oder d'Benutzig vo Premium-Serverfunktione nid iischränke. Es isch nötig, d'App neu z'starte, nachdem du das gändert hesch.";
+Wänn du es aktivi Premium-Abonnement hesch, chasch du s \'Duen Premium nid pätche\' aktiviere. De tweak wird d'Date nid pätche oder d'Benutzig vo Premium-Serverfunktione nid iischränke.
+
+%@";
 
 overwrite_configuration = "Überschriib d'Konfiguration";
 overwrite_configuration_description = "Ersetz d'fernkonfiguration mit em dumpete Premium. Es chönnt es paar Problem löse, wie z.B. Werbig, aber es isch nid garantiert.";
@@ -343,7 +345,7 @@ glass_lyrics_view = "Eigene Songtext-Ansicht";
 experiments = "Experiments";
 sponsorblock = "SponsorBlock (BETA)";
 appIcon = "App Icon";
-restart_is_required_description = "App restart is required after changing.";
+restart_is_required_description = "Es isch nötig, d'App neu z'starte, nachdem du das gändert hesch.";
 true_shuffle = "True Shuffle";
 true_shuffle_dec = "Blocks Spotify's free-tier Smart Shuffle from mixing recommended tracks into your queue. Shuffle stays inside the playlist. ";
 do_not_replace_lyrics = "Do Not Replace Lyrics";

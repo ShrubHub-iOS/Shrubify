@@ -358,13 +358,17 @@ jobs:
           source-sha: ${GITHUB_SHA}
           EOF
           RELEASE_FLAGS=()
-          if [[ "$TWEAK_VERSION" == *"~beta"* ]]; then RELEASE_FLAGS+=(--prerelease --latest=false); fi
+          DISPLAY_VERSION="$TWEAK_VERSION"
+          if [[ "$TWEAK_VERSION" == *"~beta"* ]]; then
+            RELEASE_FLAGS+=(--prerelease --latest=false)
+            DISPLAY_VERSION="${TWEAK_VERSION/~beta/ beta }"
+          fi
           gh release create "$RELEASE_TAG" "$IPA_PATH" "$DEB_PATH" "${RELEASE_FLAGS[@]}" \
-            --title "Shrubify ${TWEAK_VERSION} · Spotify ${SPOTIFY_VERSION}" \
+            --title "Shrubify ${DISPLAY_VERSION} · Spotify ${SPOTIFY_VERSION}" \
             --notes-file "$RUNNER_TEMP/shrubify-notes.md" \
             --target "$GITHUB_SHA"
       - name: Regenerate AltStore repo.json from published releases
-        if: ${{ vars.ALLOW_PUBLIC_IPA_RELEASE == 'true' }}
+        if: ${{ vars.ALLOW_PUBLIC_IPA_RELEASE == 'true' && !contains(steps.metadata.outputs.tweak_version, '~beta') }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |

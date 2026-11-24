@@ -6,25 +6,31 @@ struct KaraokePlaybackControls: View {
     let seek: (Int) -> Bool
     let toggle: () -> Bool
     @State private var scrubbing = false
-    @State private var scrubSeconds: Double = 0
+    @State private var scrubSeconds: Double?
     @State private var unavailable = false
 
     private var duration: Double { Double(playback.durationMs) / 1000 }
     private var position: Double {
-        let value = max(0, scrubbing ? scrubSeconds : Double(playback.positionMs) / 1000)
+        let value = max(0, scrubSeconds ?? Double(playback.positionMs) / 1000)
         return duration > 0 ? min(value, duration) : value
     }
 
     var body: some View {
         VStack(spacing: 6) {
-            Slider(value: Binding(get: { min(position, max(1, duration)) }, set: { scrubSeconds = $0 }), in: 0...max(1, duration), onEditingChanged: { editing in
-                if editing {
-                    scrubbing = true
-                } else {
-                    scrubbing = false
-                    unavailable = !seek(Int(min(Double(Int.max / 2), max(0, scrubSeconds) * 1000)))
+            Slider(
+                value: Binding(get: { min(position, max(0.001, duration)) }, set: { value in
+                    if scrubbing { scrubSeconds = value }
+                    else { commitSeek(to: value) }
+                }),
+                in: 0...max(0.001, duration),
+                onEditingChanged: { editing in
+                    scrubbing = editing
+                    if !editing, let value = scrubSeconds {
+                        scrubSeconds = nil
+                        commitSeek(to: value)
+                    }
                 }
-            })
+            )
             .disabled(playback.durationMs <= 0)
             .accessibilityLabel("Song position")
             HStack {
@@ -36,6 +42,7 @@ struct KaraokePlaybackControls: View {
                     Image(systemName: playback.isPlaying ? "pause.fill" : "play.fill")
                         .font(.system(size: 24, weight: .semibold))
                         .frame(minWidth: 48, minHeight: 48)
+                        .contentShape(Rectangle())
                 }
                 .accessibilityLabel(playback.isPlaying ? "Pause" : "Play")
                 .disabled(!playback.isPlaybackStateKnown)
@@ -44,9 +51,8 @@ struct KaraokePlaybackControls: View {
             }
             .font(.system(.caption, design: .monospaced))
         }
-        .onAppear { scrubSeconds = Double(playback.positionMs) / 1000 }
-        .onChange(of: playback.positionMs) { value in
-            if !scrubbing { scrubSeconds = Double(value) / 1000 }
+        .onChange(of: playback.trackID) { _ in
+            scrubSeconds = nil
         }
         .foregroundColor(.white)
         .accentColor(.white)
@@ -59,6 +65,12 @@ struct KaraokePlaybackControls: View {
         .alert(isPresented: $unavailable) {
             Alert(title: Text("Playback control unavailable"), message: Text("Spotify did not accept this command. Try its main player controls."), dismissButton: .default(Text("OK")))
         }
+    }
+
+    private func commitSeek(to seconds: Double) {
+        guard duration > 0 else { return }
+        let target = min(duration, max(0, seconds)) * 1000
+        unavailable = !seek(Int(min(Double(Int.max / 2), target.rounded())))
     }
 
     private func time(_ seconds: Double) -> String {

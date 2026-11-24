@@ -20,10 +20,11 @@ enum LyricsLineSplitting {
     /// "a\nb\n" → ["a", "b"] （与旧的 `dropLast` 一致）
     /// "a\nb" → ["a", "b"] （旧的 `dropLast` 会把 "b" 吃掉）
     static func splitDroppingTrailingNewline(_ raw: String) -> [String] {
-        var lines = raw.components(separatedBy: "\n")
+        // Split on the LF scalar even when CRLF is a single grapheme cluster.
+        var lines = raw.unicodeScalars.split(separator: "\n", omittingEmptySubsequences: false)
         if lines.last?.isEmpty == true {
             lines.removeLast()
         }
-        return lines
+        return lines.map { String($0) }
     }
 }

@@ -3,18 +3,13 @@ import UIKit
 
 struct EeveePatchingSettingsView: View {
     @State var patchType = UserDefaults.patchType
-    @State var overwriteConfiguration = UserDefaults.overwriteConfiguration
     @State var trueShuffleEnabled = UserDefaults.trueShuffleEnabled
 
     var body: some View {
         List {
             Section(
-                footer: patchType == .disabled
-                    ? nil
-                    : Text(
-                        "patching_description"
-                            .localizeWithFormat("restart_is_required_description".localized)
-                    )
+                footer: Text("patching_description"
+                    .localizeWithFormat("restart_is_required_description".localized))
             ) {
                 Toggle(
                     "do_not_patch_premium".localized,
@@ -30,11 +25,6 @@ struct EeveePatchingSettingsView: View {
                 OfflineHelper.resetData()
             }
             
-            .onChange(of: overwriteConfiguration) { overwriteConfiguration in
-                UserDefaults.overwriteConfiguration = overwriteConfiguration
-                OfflineHelper.resetData()
-            }
-
             .onChange(of: trueShuffleEnabled) { isEnabled in
                 UserDefaults.trueShuffleEnabled = isEnabled
             }

@@ -46,8 +46,7 @@ private struct KaraokeFlowLayoutImpl: Layout {
     /// within the available width instead of starting it flush at the
     /// leading edge.
     private struct Row {
-        var indices: [Int] = []
-        var sizes: [CGSize] = []
+        var items: [(index: Int, width: CGFloat, proposal: ProposedViewSize)] = []
         var width: CGFloat = 0
         var height: CGFloat = 0
     }
@@ -58,19 +57,22 @@ private struct KaraokeFlowLayoutImpl: Layout {
         var x: CGFloat = 0
 
         for (index, subview) in subviews.enumerated() {
-            let size = subview.sizeThatFits(.unspecified)
+            let ideal = subview.sizeThatFits(.unspecified)
+            // A single long word needs a width proposal even on an empty row.
+            let proposal: ProposedViewSize = ideal.width > maxWidth
+                ? ProposedViewSize(width: maxWidth, height: nil) : .unspecified
+            let size = ideal.width > maxWidth ? subview.sizeThatFits(proposal) : ideal
             if x > 0 && x + size.width > maxWidth {
                 rows.append(current)
                 current = Row()
                 x = 0
             }
-            current.indices.append(index)
-            current.sizes.append(size)
+            current.items.append((index, size.width, proposal))
             current.width = x + size.width
             current.height = max(current.height, size.height)
             x += size.width + spacing
         }
-        if !current.indices.isEmpty {
+        if !current.items.isEmpty {
             rows.append(current)
         }
         return rows
@@ -104,10 +106,9 @@ private struct KaraokeFlowLayoutImpl: Layout {
                 x = bounds.minX + (bounds.width - row.width) / 2
             }
 
-            for (offset, index) in row.indices.enumerated() {
-                let size = row.sizes[offset]
-                subviews[index].place(at: CGPoint(x: x, y: y), proposal: .unspecified)
-                x += size.width + spacing
+            for item in row.items {
+                subviews[item.index].place(at: CGPoint(x: x, y: y), proposal: item.proposal)
+                x += item.width + spacing
             }
             y += row.height + spacing
         }

@@ -52,16 +52,10 @@ enum KaraokeFooterButton {
             button.accessibilityIdentifier = "shrubify-custom-lyrics-button"
             button.backgroundColor = .clear
             button.addAction(UIAction { _ in KaraokeOverlayPresenter.present() }, for: .primaryActionTriggered)
-            let plate = ShrubifyLiquidGlass.makePlate(radius: 22, interactive: true)
-            plate.frame = button.bounds
-            plate.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-            plate.isUserInteractionEnabled = false
-            plate.accessibilityElementsHidden = true
-            button.insertSubview(plate, at: 0)
             objc_setAssociatedObject(root, &key, button, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
         }
 
-        let available = KaraokeOverlayPresenter.isAvailableForCurrentTrack()
+        let available = KaraokeOverlayPresenter.canOpenForCurrentTrack()
         button.isHidden = !available
         guard available else { return }
         if attachToFooterRow(button, in: root) { return }

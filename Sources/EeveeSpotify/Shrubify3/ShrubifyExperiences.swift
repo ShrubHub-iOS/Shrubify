@@ -161,6 +161,7 @@ struct ShrubifyReplayView: View {
 }
 
 struct ShrubifyQueueView: View {
+    var usesSettingsNavigation = false
     @ObservedObject private var history = ShrubifyReplayStore.shared
     @State private var message: String?
     @State private var query = ""
@@ -201,16 +202,16 @@ struct ShrubifyQueueView: View {
                     Text("No snapshots match your search.").foregroundColor(.secondary)
                 }
                 ForEach(matchingSessions) { session in
-                    NavigationLink(destination: ShrubifySessionView(session: session)) {
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text(session.title).fontWeight(.medium)
-                            HStack(spacing: 4) {
-                                Text("\(session.tracks.count) songs ·")
-                                Text(session.savedAt, style: .date)
-                            }
-                                .font(.footnote).foregroundColor(.secondary)
+                    if usesSettingsNavigation {
+                        Button {
+                            SettingsNavigator.push(ShrubifySessionView(session: session), title: "Listening snapshot")
+                        } label: {
+                            snapshotLabel(session)
                         }
-                        .padding(.vertical, 3)
+                    } else {
+                        NavigationLink(destination: ShrubifySessionView(session: session)) {
+                            snapshotLabel(session)
+                        }
                     }
                 }
                 .onDelete { offsets in
@@ -221,6 +222,18 @@ struct ShrubifyQueueView: View {
             SpacerView()
         }
         .eeveeSettingsStyle()
+    }
+
+    private func snapshotLabel(_ session: ShrubifySession) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(session.title).fontWeight(.medium).foregroundColor(.primary)
+            HStack(spacing: 4) {
+                Text("\(session.tracks.count) songs ·")
+                Text(session.savedAt, style: .date)
+            }
+            .font(.footnote).foregroundColor(.secondary)
+        }
+        .padding(.vertical, 3)
     }
 
     private func openSpotifyQueue() {
@@ -301,12 +314,8 @@ struct ShrubifyPanelView: View {
                 Section(header: Text("This listening session")) {
                     KaraokeLaunchButton()
                     if showQueue {
-                        if embeddedInSettings {
-                            SettingsLink(title: "ShrubQueue", subtitle: "Queue and snapshots", icon: "list.bullet", color: .orange) {
-                                NavigationView { ShrubifyQueueView() }.navigationViewStyle(StackNavigationViewStyle())
-                            }
-                        } else {
-                            NavigationLink(destination: ShrubifyQueueView()) { SettingsLabel(title: "ShrubQueue", subtitle: "Queue and snapshots", icon: "list.bullet", color: .orange) }
+                        panelLink(title: "ShrubQueue", subtitle: "Queue and snapshots", icon: "list.bullet", color: .orange) {
+                            ShrubifyQueueView(usesSettingsNavigation: embeddedInSettings)
                         }
                     }
                     panelLink(title: "Sleep timer", subtitle: "Stop playback after a countdown", icon: "moon.zzz.fill", color: .purple) { ShrubifySleepTimerView() }

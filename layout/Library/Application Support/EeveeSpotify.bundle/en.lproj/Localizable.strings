@@ -14,7 +14,7 @@
 "update_available" = "Update Available";
 "restart_is_required_description" = "App restart is required after changing.";
 "do_not_patch_premium" = "Do Not Patch Premium";
-"patching_description" = "Shrubify intercepts requests to load user data, deserializes it, and modifies the parameters in real-time.\n\nIf you have an active Premium subscription, you can turn on Do Not Patch Premium. The tweak won't patch the data or restrict the use of Premium server-sided features.\n\nA restart is required after changing.";
+"patching_description" = "Shrubify intercepts requests to load user data, deserializes it, and modifies the parameters in real-time.\n\nIf you have an active Premium subscription, you can turn on Do Not Patch Premium. The tweak won't patch the data or restrict the use of Premium server-sided features.\n\n%@";
 "overwrite_configuration" = "Overwrite Configuration";
 "overwrite_configuration_description" = "Replace the remote configuration with the dumped Premium one. It isn't guaranteed to work, but it can solve problems such as ads appearing. A stale configuration can also cause unexpected problems - for example some features stop working, or Spotify crashes.";
 "true_shuffle" = "True Shuffle";
@@ -508,6 +508,7 @@
 "japanese_romanization" = "Romanize Japanese Lyrics";
 "korean_romanization" = "Romanize Korean Lyrics";
 "lyrics_unavailable" = "No lyrics found";
+"lyrics_lookup_retry" = "Could not load lyrics. Try again.";
 "lyrics_looking_up" = "Looking for lyrics…";
 "lyrics_no_timeline" = "These lyrics have no timing";
 "track_mismatch" = "The track changed while lyrics were loading. Play it again to fetch lyrics.";

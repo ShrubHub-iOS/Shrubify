@@ -10,18 +10,15 @@ final class KaraokeLyricsViewModel: ObservableObject {
     @Published private(set) var lyrics: KaraokeLyricsDto?
     @Published private(set) var layouts: [KaraokeLineLayout] = []
 
-    private let onNoLyrics: () -> Void
     private var observer: NSObjectProtocol?
     private var lifecycleObservers: [NSObjectProtocol] = []
     private var playbackTimer: Timer?
     private var visible = false
     @Published private(set) var loading = false
-    @Published private(set) var lyricsUnavailable = false
     private var requestedTrack: String?
 
-    init(trackId: String?, lyrics: KaraokeLyricsDto, onNoLyrics: @escaping () -> Void) {
+    init(trackId: String?, lyrics: KaraokeLyricsDto?) {
         self.trackId = trackId
-        self.onNoLyrics = onNoLyrics
         apply(lyrics)
         observer = NotificationCenter.default.addObserver(
             forName: .eeveeKaraokeLyricsChanged, object: nil, queue: .main
@@ -46,6 +43,7 @@ final class KaraokeLyricsViewModel: ObservableObject {
         visible = true
         guard UIApplication.shared.applicationState == .active else { return }
         refreshPlayback()
+        if lyrics == nil { fetchMissingLyrics() }
         guard playbackTimer == nil else { return }
         let timer = Timer(timeInterval: ProcessInfo.processInfo.isLowPowerModeEnabled ? 0.1 : 1.0 / 30.0, repeats: true) { [weak self] _ in self?.refreshPlayback() }
         timer.tolerance = 0.005
@@ -104,7 +102,6 @@ final class KaraokeLyricsViewModel: ObservableObject {
         if playing != trackId {
             requestedTrack = nil
             loading = false
-            lyricsUnavailable = false
             trackId = playing
             apply(stored)
         } else if let stored {
@@ -123,7 +120,6 @@ final class KaraokeLyricsViewModel: ObservableObject {
 
     func retryLyrics() {
         requestedTrack = nil
-        lyricsUnavailable = false
         fetchMissingLyrics(force: true)
     }
 
@@ -135,7 +131,6 @@ final class KaraokeLyricsViewModel: ObservableObject {
             guard let self, self.trackId == trackId else { return }
             self.loading = false
             self.apply(KaraokeLyricsStore.shared.lyrics(forTrackId: trackId))
-            self.lyricsUnavailable = self.lyrics == nil
         }
     }
 }

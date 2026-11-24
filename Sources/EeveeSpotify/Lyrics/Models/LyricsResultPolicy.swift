@@ -5,4 +5,8 @@ enum LyricsResultPolicy {
         guard let requested, !requested.isEmpty else { return false }
         return requested == current
     }
+
+    static func shouldKeepActiveLookup(active: String, incoming: String, playing: String?) -> Bool {
+        active != incoming && incoming != playing
+    }
 }
