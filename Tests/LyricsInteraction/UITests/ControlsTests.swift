@@ -146,19 +146,29 @@ final class ControlsTests: XCTestCase {
         XCTAssertEqual(state.label, "1/1 bars · 0 wells · intact · cleared") // glass ships on
         XCTAssertEqual(app.staticTexts["selection-state"].label, "Tab 0 native-selected · 0 overlays")
         XCTAssertEqual(app.staticTexts["optical-selection"].label, "Lens under tab 0")
+        let first = app.buttons["TabBar.Item.fixture-0"].frame
+        let last = app.buttons["TabBar.Item.fixture-4"].frame
         let tile = app.buttons["TabBar.Item.fixture-2"].frame
-        let sample = CGPoint(x: tile.minX + 14, y: tile.midY - 18)
-        let outsideCapsule = CGPoint(x: app.frame.minX + 65, y: tile.midY)
-        XCTAssertGreaterThan(redMinusBlue(at: outsideCapsule, in: app) ?? 0, 35,
-                             "A stock rectangle covers the content outside the capsule")
-        guard let red = redMinusBlue(at: sample, in: app) else {
-            return XCTFail("Could not sample the glass over the red backdrop")
-        }
+        // Use the controls to locate the capsule. Sample its center and both
+        // sides in the same frame, well within the old full-width backing.
+        let probes = [
+            ("inside the glass", CGPoint(x: tile.minX + 14, y: tile.midY - 18)),
+            ("left of the capsule", CGPoint(x: first.minX - 44, y: tile.midY - 18)),
+            ("right of the capsule", CGPoint(x: last.maxX + 44, y: tile.midY - 18)),
+        ]
+        let window = app.frame
+        let redFrame = app.screenshot().image
         app.buttons["swap-dock-backdrop"].tap()
-        guard let blue = redMinusBlue(at: sample, in: app) else {
-            return XCTFail("Could not sample the glass over the blue backdrop")
+        let blueFrame = app.screenshot().image
+        for (location, point) in probes {
+            guard let red = redMinusBlue(at: point, bounds: window, snapshot: redFrame),
+                  let blue = redMinusBlue(at: point, bounds: window, snapshot: blueFrame) else {
+                XCTFail("Could not sample \(location) at \(point) in \(window)")
+                continue
+            }
+            XCTAssertGreaterThan(red - blue, 16,
+                                 "Dock covers the changing page \(location): \(red) → \(blue) at \(point)")
         }
-        XCTAssertGreaterThan(red - blue, 16, "Dock still samples a fixed backing")
         app.buttons["TabBar.Item.fixture-2"].tap()
         XCTAssertEqual(app.staticTexts["selection-state"].label, "Tab 2 native-selected · 0 overlays")
         XCTAssertEqual(app.staticTexts["optical-selection"].label, "Lens under tab 2")
@@ -179,10 +189,9 @@ final class ControlsTests: XCTestCase {
     }
 
     @MainActor
-    private func redMinusBlue(at point: CGPoint, in app: XCUIApplication) -> Int? {
-        let bounds = app.frame
+    private func redMinusBlue(at point: CGPoint, bounds: CGRect, snapshot: UIImage) -> Int? {
         guard bounds.width > 0, bounds.height > 0, bounds.contains(point),
-              let image = app.screenshot().image.cgImage else { return nil }
+              let image = snapshot.cgImage else { return nil }
         let x = (point.x - bounds.minX) * CGFloat(image.width) / bounds.width
         let y = (point.y - bounds.minY) * CGFloat(image.height) / bounds.height
         guard let area = image.cropping(to: CGRect(x: x - 3, y: y - 3, width: 6, height: 6)),
