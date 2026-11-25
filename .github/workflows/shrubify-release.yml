@@ -21,6 +21,7 @@ on:
           - macos-15
           - macos-15-intel
           - macos-26
+          - macos-26-intel
         default: macos-15
       force_release:
         description: 'Publish another revision even if the same source/Spotify version already exists'
@@ -111,10 +112,10 @@ jobs:
       - uses: actions/checkout@v4
       - uses: maxim-lobanov/setup-xcode@v1
         with:
-          xcode-version: ${{ inputs.simulator_runner == 'macos-26' && '26.3' || '26.1.1' }}
+          xcode-version: ${{ startsWith(inputs.simulator_runner, 'macos-26') && '26.3' || '26.1.1' }}
       - name: Tap production lyrics controls and verify native materials
         env:
-          SHRUBIFY_INTERACTION_RUNTIME_VERSION: ${{ inputs.simulator_runner == 'macos-26' && '26.2' || '26.1' }}
+          SHRUBIFY_INTERACTION_RUNTIME_VERSION: ${{ startsWith(inputs.simulator_runner, 'macos-26') && '26.2' || '26.1' }}
         run: bash scripts/test_lyrics_interactions.sh
       - name: Upload interaction results and screenshots
         if: ${{ always() }}
