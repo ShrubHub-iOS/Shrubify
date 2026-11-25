@@ -12,7 +12,8 @@ final class ControlsTests: XCTestCase {
         XCTAssertEqual(preview.label, "First lyric")
         let frame = preview.frame
         app.buttons["Advance lyric"].tap()
-        XCTAssertEqual(preview.label, "Next lyric")
+        let lyricChanged = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label == %@", "Next lyric"), object: preview)
+        XCTAssertEqual(XCTWaiter.wait(for: [lyricChanged], timeout: 5), .completed)
         XCTAssertEqual(preview.frame, frame)
         preview.tap()
         XCTAssertEqual(app.staticTexts["live-preview-status"].label, "Lyrics opened")
