@@ -650,7 +650,7 @@ enum NativeTabletGlass {
         while index < nodes.count {
             let view = nodes[index]
             index += 1
-            guard !view.isHidden, (bar == .miniPlayer || view.alpha > 0.5) else { continue }
+            guard !view.isHidden, view.alpha > 0.5 else { continue }
             if (view is UILabel || view is UIImageView), view.bounds.width <= 128, view.bounds.height <= 64 {
                 let bounds = view.convert(view.bounds, to: parent)
                 if bounds.width > 1, bounds.height > 1 { footprint = footprint.union(bounds) }
@@ -740,7 +740,7 @@ enum NativeTabletGlass {
         var miniCandidate: UIView?
         while index < nodes.count {
             let view = nodes[index]; index += 1
-            guard !view.isHidden, view.alpha > 0.5 else { continue }
+            guard !view.isHidden, (bar == .miniPlayer || view.alpha > 0.5) else { continue }
             if matches(view, bar) {
                 if bar == .tabs || view.accessibilityIdentifier == "SPTNowPlayingBar" { return view }
                 if miniCandidate == nil { miniCandidate = view }
