@@ -5,6 +5,10 @@ import CoreGraphics
 
 /// Decorative geometry only: never changes Spotify's own frames or hit regions.
 enum NativeGlassGeometry {
+    static func selectionFrame(centerX: CGFloat, width: CGFloat, in bounds: CGRect) -> CGRect? {
+        let frame = CGRect(x: centerX - width / 2, y: bounds.minY + 3, width: width, height: bounds.height - 6)
+        return width > 16 && frame.height > 16 && bounds.contains(frame) ? frame : nil
+    }
     static func miniRadius(for size: CGSize) -> CGFloat { min(22, size.width / 2, size.height / 2) }
     static func centeredContent(_ content: CGRect, in bounds: CGRect) -> CGRect? {
         guard bounds.contains(content) else { return nil }

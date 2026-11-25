@@ -1,6 +1,6 @@
-# Shrubify 4.2.5~beta8 setup and releases
+# Shrubify 4.2.5~beta9 setup and releases
 
-The iPad beta uses one system glass effect per recognized bottom bar and restores Spotify's own backing when the glass is disabled. Native playback remains available in both iPad layouts. Custom lyrics can open while their source is loading. Read the [beta notes](RELEASE-4.2.5~beta8.md), [testing checklist](TESTING.md) and [integration notes](docs/EVOLVED-INTEGRATION.md).
+The iPad beta uses one system glass effect per recognized bottom bar and restores Spotify's own backing when the glass is disabled. Native playback remains available in both iPad layouts. Custom lyrics can open while their source is loading. Read the [beta notes](RELEASE-4.2.5~beta9.md), [testing checklist](TESTING.md) and [integration notes](docs/EVOLVED-INTEGRATION.md).
 
 The tweak keeps the internal `EeveeSpotify.dylib` and `EeveeSpotify.bundle` identifiers for compatibility. The package is `com.shrubify.spotify`; branded IPAs use `com.shrubify.client`. The Shrubify version comes from `control`, which generates the in-app version at build time. Spotify’s app version is a separate value.
 

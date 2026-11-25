@@ -629,30 +629,32 @@ enum NativeTabletGlass {
     private static func visibleTabContent(_ items: [UIView], in row: UIView) -> CGRect? {
         var footprint = CGRect.null
         for item in items {
-            var glyphs = CGRect.null
-            var nodes = [item]
-            var index = 0
-            while index < nodes.count {
-                let view = nodes[index]
-                index += 1
-                guard !view.isHidden, view.alpha > 0.01 else { continue }
-                if (view is UILabel || view is UIImageView), view.bounds.width <= 128, view.bounds.height <= 64 {
-                    let bounds = view.convert(view.bounds, to: row)
-                    if bounds.width > 1, bounds.height > 1 { glyphs = glyphs.union(bounds) }
-                }
-                if nodes.count < 32 { nodes.append(contentsOf: view.subviews.prefix(32 - nodes.count)) }
-            }
-            guard !glyphs.isNull else { return nil }
+            guard let glyphs = tabGlyphs(item, in: row) else { return nil }
             footprint = footprint.union(glyphs)
         }
         return footprint.insetBy(dx: -10, dy: -6).intersection(row.bounds)
     }
 
+    private static func tabGlyphs(_ item: UIView, in parent: UIView) -> CGRect? {
+        var footprint = CGRect.null
+        var nodes = [item]
+        var index = 0
+        while index < nodes.count {
+            let view = nodes[index]
+            index += 1
+            guard !view.isHidden, view.alpha > 0.5 else { continue }
+            if (view is UILabel || view is UIImageView), view.bounds.width <= 128, view.bounds.height <= 64 {
+                let bounds = view.convert(view.bounds, to: parent)
+                if bounds.width > 1, bounds.height > 1 { footprint = footprint.union(bounds) }
+            }
+            nodes.append(contentsOf: view.subviews.prefix(32 - nodes.count))
+        }
+        return footprint.isNull ? nil : footprint
+    }
+
     private static func placeSelection(in plate: UIVisualEffectView, tabs: [UIView], state: State) {
-        // A partially animated row is not a new selection. Keep the previous
-        // lens until Spotify finishes laying out all of the tabs.
-        guard tabs.allSatisfy({ !$0.isHidden && $0.alpha > 0.5 }) else { return }
-        let selected = tabs.filter { tab in
+        let visible = tabs.filter { !$0.isHidden && $0.alpha > 0.5 }
+        let selected = visible.filter { tab in
             var nodes = [tab]
             var index = 0
             while index < nodes.count {
@@ -668,8 +670,9 @@ enum NativeTabletGlass {
             state.selection?.isHidden = true
             return
         }
-        let item = tab.convert(tab.bounds, to: plate.contentView).intersection(plate.bounds)
-        guard !item.isNull, item.width > 16, item.height > 16 else {
+        let center = tabGlyphs(tab, in: plate.contentView)?.midX ?? tab.convert(tab.bounds, to: plate.contentView).midX
+        let width = min(78, plate.bounds.width / CGFloat(max(visible.count, 1))) - 6
+        guard let item = NativeGlassGeometry.selectionFrame(centerX: center, width: width, in: plate.bounds) else {
             state.selection?.isHidden = true
             return
         }
@@ -684,7 +687,7 @@ enum NativeTabletGlass {
             state.selection = indicator
         }
         indicator.isHidden = false
-        indicator.frame = item.insetBy(dx: 3, dy: 3)
+        indicator.frame = item
         indicator.layer.cornerRadius = min(indicator.bounds.height, indicator.bounds.width) / 2
     }
 

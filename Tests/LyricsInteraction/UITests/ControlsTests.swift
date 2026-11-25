@@ -19,6 +19,26 @@ final class ControlsTests: XCTestCase {
     }
 
     @MainActor
+    func testFullscreenReturnsTheSameInteractivePlayer() {
+        let app = XCUIApplication()
+        app.launchArguments.append("inline-lyric-fixture")
+        app.launch()
+        let button = app.buttons["fixture-player-fullscreen"]
+        XCTAssertTrue(button.waitForExistence(timeout: 10))
+        app.buttons["Advance lyric"].tap()
+        for _ in 0..<2 {
+            button.tap()
+            XCTAssertEqual(button.label, "Exit fullscreen")
+            XCTAssertEqual(app.buttons["shrubify.player.current-lyric"].label, "Next lyric")
+            button.tap()
+            XCTAssertEqual(button.label, "Enter fullscreen")
+            XCTAssertEqual(app.buttons["shrubify.player.current-lyric"].label, "Next lyric")
+        }
+        app.buttons["shrubify.player.current-lyric"].tap()
+        XCTAssertEqual(app.staticTexts["live-preview-status"].label, "Lyrics opened")
+    }
+
+    @MainActor
     func testTimingAndDismissalAtButtonEdgesDuringLiveUpdates() {
         let app = XCUIApplication(); app.launch()
         for cycle in 1...3 {

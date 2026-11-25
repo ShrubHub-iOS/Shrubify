@@ -37,6 +37,7 @@ app_files = [
     'Sources/EeveeSpotify/Appearance/NativeTabletGlass.swift',
     'Sources/EeveeSpotify/Appearance/NativeGlassGeometry.swift',
     'Sources/EeveeSpotify/Appearance/PlayerLyricPreview.swift',
+    'Sources/EeveeSpotify/Appearance/PlayerFullscreenPresentation.swift',
     'Sources/EeveeSpotify/Lyrics/LyricsChromeVisibility.swift',
 ]
 app_refs, app_phase = sources(app_files, 'app-')

@@ -489,7 +489,7 @@ final class LyricsBackdropImageCache {
         if let image = localBlurs.object(forKey: artwork) { completion(image); return }
         guard let original = artwork.cgImage else { completion(nil); return }
         blurQueue.async { [self] in
-            let image = makeBlurredImage(from: CIImage(cgImage: original))
+            let image = makeBlurredImage(from: CIImage(cgImage: original), radius: 7)
             if let image { localBlurs.setObject(image, forKey: artwork) }
             DispatchQueue.main.async { completion(image) }
         }
@@ -542,14 +542,14 @@ final class LyricsBackdropImageCache {
         return makeBlurredImage(from: source)
     }
 
-    private func makeBlurredImage(from source: CIImage) -> UIImage? {
+    private func makeBlurredImage(from source: CIImage, radius: CGFloat? = nil) -> UIImage? {
         guard let downscaled = downscale(source, maxSide: downscaleMaxSide) else { return nil }
 
         let extent = downscaled.extent
         let clamped = downscaled.clampedToExtent()
         guard let filter = CIFilter(name: "CIGaussianBlur") else { return nil }
         filter.setValue(clamped, forKey: kCIInputImageKey)
-        filter.setValue(blurRadius, forKey: kCIInputRadiusKey)
+        filter.setValue(radius ?? blurRadius, forKey: kCIInputRadiusKey)
         guard let output = filter.outputImage?.cropped(to: extent),
               let cgImage = context.createCGImage(output, from: extent) else {
             return nil

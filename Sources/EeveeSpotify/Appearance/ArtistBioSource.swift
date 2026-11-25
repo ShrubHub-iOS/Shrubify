@@ -41,6 +41,34 @@ enum ArtistBioSource {
         return URLSession(configuration: configuration)
     }()
 
+    private static let musicBrainzSession: URLSession = {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.httpAdditionalHeaders = ["User-Agent": "Shrubify/4.2.5 (https://github.com/ShrubHub-iOS/Shrubify)"]
+        configuration.timeoutIntervalForRequest = 8
+        return URLSession(configuration: configuration)
+    }()
+
+    static func exactWikipediaBio(for artist: String, completion: @escaping (String?, URL?) -> Void) {
+        guard var url = URLComponents(string: "https://\(wikipediaHost())/w/api.php") else { completion(nil, nil); return }
+        url.queryItems = ["action": "query", "prop": "extracts|info", "exintro": "1", "explaintext": "1",
+                          "inprop": "url", "titles": artist, "format": "json"].map { URLQueryItem(name: $0.key, value: $0.value) }
+            .sorted { $0.name < $1.name }
+        guard let request = url.url else { completion(nil, nil); return }
+        fetchJSON(request, using: wikipediaSession, tag: "Wikipedia artist") { payload in
+            let query = payload?["query"] as? [String: Any]
+            let pages = query?["pages"] as? [String: [String: Any]]
+            guard let page = pages?.values.first, LyricsMatch.key(page["title"] as? String) == LyricsMatch.key(artist),
+                  let extract = page["extract"] as? String, let link = page["fullurl"] as? String,
+                  let source = URL(string: link), source.host == wikipediaHost(), source.scheme == "https" else {
+                completion(nil, nil); return
+            }
+            let text = extract.components(separatedBy: "\n").first?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            let instrument = text.lowercased().range(of: #"\b(singer|rapper|musician|band|songwriter|recording artist|music producer|dj)\b|歌手|说唱|樂團|音楽|バンド|ラッパー"#,
+                                                      options: .regularExpression) != nil
+            completion(instrument ? text : nil, instrument ? source : nil)
+        }
+    }
+
     /// 用哪个语言的维基（按 app 语言挑 zh / ja / en，其余落 en）→ **完整的主机名**。
     ///
     /// ⚠️⚠️**不是，它是坏的**。
@@ -135,7 +163,9 @@ enum ArtistBioSource {
                     artistID = id
                     break
                 }
-                if fallbackID == nil, let primary = result["primary_artist"] as? [String: Any] {
+                if fallbackID == nil, let primary = result["primary_artist"] as? [String: Any],
+                   let primaryName = primary["name"] as? String,
+                   LyricsMatch.key(primaryName) == LyricsMatch.key(name) {
                     fallbackID = primary["id"] as? Int
                 }
             }
@@ -156,6 +186,90 @@ enum ArtistBioSource {
                     .trimmingCharacters(in: .whitespacesAndNewlines)
                 writeDebugLog("[ArtistBio] genius artist \(id) → description \(plain?.count ?? 0) char")
                 completion((plain?.isEmpty ?? true) ? nil : plain)
+            }
+        }
+    }
+
+    struct SongCredits {
+        let writers: [String]
+        let producers: [String]
+        let featured: [String]
+
+        var hasCredits: Bool { !writers.isEmpty || !producers.isEmpty || !featured.isEmpty }
+    }
+
+    static func musicBrainzCredits(isrc: String?, title: String, artist: String,
+                                   completion: @escaping (SongCredits?) -> Void) {
+        guard let isrc = isrc?.uppercased(), isrc.range(of: #"^[A-Z]{2}[A-Z0-9]{3}[0-9]{7}$"#, options: .regularExpression) != nil,
+              let request = URL(string: "https://musicbrainz.org/ws/2/isrc/\(isrc)?fmt=json&inc=artist-credits+releases") else {
+            completion(nil); return
+        }
+        fetchJSON(request, using: musicBrainzSession, tag: "recording credits search") { payload in
+            let recordings = (payload?["recordings"] as? [[String: Any]] ?? []).filter { row in
+                let names = row["artist-credit"] as? [[String: Any]] ?? []
+                return LyricsMatch.key(row["title"] as? String) == LyricsMatch.key(title)
+                    && names.contains { LyricsMatch.key($0["name"] as? String) == LyricsMatch.key(artist) }
+            }.sorted {
+                ($0["releases"] as? [[String: Any]] ?? []).count > ($1["releases"] as? [[String: Any]] ?? []).count
+            }
+            guard let id = recordings.first?["id"] as? String, UUID(uuidString: id) != nil,
+                  let url = URL(string: "https://musicbrainz.org/ws/2/recording/\(id)?fmt=json&inc=artist-rels+work-rels+work-level-rels") else {
+                completion(nil); return
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+                fetchJSON(url, using: musicBrainzSession, tag: "recording credits detail") { payload in
+                    let relations = payload?["relations"] as? [[String: Any]] ?? []
+                    let work = relations.flatMap { ($0["work"] as? [String: Any])?["relations"] as? [[String: Any]] ?? [] }
+                    func names(_ categories: Set<String>) -> [String] {
+                        var seen = Set<String>()
+                        return (relations + work).compactMap { relation -> String? in
+                            guard let kind = relation["type"] as? String, categories.contains(kind),
+                                  let person = relation["artist"] as? [String: Any],
+                                  let name = person["name"] as? String, !name.isEmpty, seen.insert(name).inserted else { return nil }
+                            return name
+                        }
+                    }
+                    let credits = SongCredits(writers: names(["writer", "lyricist", "composer"]),
+                                              producers: names(["producer"]), featured: [])
+                    completion(credits.hasCredits ? credits : nil)
+                }
+            }
+        }
+    }
+
+    static func geniusCredits(title: String, artist: String, album: String?, completion: @escaping (SongCredits?) -> Void) {
+        let titleKey = LyricsMatch.key(title)
+        let artistKey = LyricsMatch.key(artist)
+        guard !titleKey.isEmpty, !artistKey.isEmpty,
+              var request = URLComponents(string: "https://api.genius.com/search/song") else { completion(nil); return }
+        request.queryItems = [URLQueryItem(name: "q", value: "\(title) \(artist)")]
+        guard let url = request.url else { completion(nil); return }
+        func matches(_ song: [String: Any]) -> Bool {
+            let primary = song["primary_artist"] as? [String: Any]
+            return LyricsMatch.key(song["title"] as? String) == titleKey
+                && LyricsMatch.key(primary?["name"] as? String) == artistKey
+        }
+        fetchJSON(url, tag: "credits search") { payload in
+            let response = payload?["response"] as? [String: Any]
+            let sections = response?["sections"] as? [[String: Any]] ?? []
+            let songs = sections.flatMap { $0["hits"] as? [[String: Any]] ?? [] }
+                .compactMap { $0["result"] as? [String: Any] }.filter(matches)
+            let ids = Set(songs.compactMap { $0["id"] as? Int })
+            guard ids.count == 1, let id = ids.first, id > 0,
+                  let detail = URL(string: "https://api.genius.com/songs/\(id)") else { completion(nil); return }
+            fetchJSON(detail, tag: "credits detail") { payload in
+                let response = payload?["response"] as? [String: Any]
+                guard let song = response?["song"] as? [String: Any], matches(song) else { completion(nil); return }
+                if let album, let sourceAlbum = (song["album"] as? [String: Any])?["name"] as? String,
+                   !LyricsMatch.titlesMatch(sourceAlbum, album) { completion(nil); return }
+                func names(_ key: String) -> [String] {
+                    let people = song[key] as? [[String: Any]] ?? []
+                    var seen = Set<String>()
+                    return people.compactMap { $0["name"] as? String }.filter { !$0.isEmpty && seen.insert($0).inserted }
+                }
+                let credits = SongCredits(writers: names("writer_artists"), producers: names("producer_artists"),
+                                          featured: names("featured_artists"))
+                completion(credits.hasCredits ? credits : nil)
             }
         }
     }

@@ -43,17 +43,21 @@ final class InteractionScene: UIResponder, UIWindowSceneDelegate {
 }
 
 final class InlineLyricController: UIViewController {
+    private let player = UIView()
     private let lyric = PlayerLyricPreview(frame: CGRect(x: 48, y: 88, width: 350, height: 56))
     private let status = UILabel(frame: CGRect(x: 48, y: 220, width: 350, height: 44))
+    private weak var fullscreen: PlayerFullscreenPresentation?
 
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = .black
+        player.frame = CGRect(x: 0, y: 0, width: 400, height: 300)
+        view.addSubview(player)
         lyric.display("First lyric", timed: false, animated: false)
         lyric.addAction(UIAction { [weak self] _ in self?.status.text = "Lyrics opened" }, for: .touchUpInside)
-        view.addSubview(lyric)
+        player.addSubview(lyric)
         status.accessibilityIdentifier = "live-preview-status"
-        view.addSubview(status)
+        player.addSubview(status)
         let next = UIButton(type: .system)
         next.frame = CGRect(x: 48, y: 148, width: 200, height: 52)
         next.setTitle("Advance lyric", for: .normal)
@@ -61,7 +65,22 @@ final class InlineLyricController: UIViewController {
             let line = "Next lyric"
             self?.lyric.display(line, timed: true, word: line.range(of: "Next"), opacity: 0.68)
         }, for: .touchUpInside)
-        view.addSubview(next)
+        player.addSubview(next)
+        let expand = UIButton(type: .system)
+        expand.frame = CGRect(x: 48, y: 30, width: 200, height: 52)
+        expand.setTitle("Enter fullscreen", for: .normal)
+        expand.accessibilityIdentifier = "fixture-player-fullscreen"
+        expand.addAction(UIAction { [weak self, weak expand] _ in
+            guard let self, let expand else { return }
+            if let fullscreen { fullscreen.exit(); return }
+            let full = PlayerFullscreenPresentation(player: player, origin: view) {
+                expand.setTitle("Enter fullscreen", for: .normal)
+            }
+            fullscreen = full
+            expand.setTitle("Exit fullscreen", for: .normal)
+            present(full, animated: false)
+        }, for: .touchUpInside)
+        player.addSubview(expand)
     }
 }
 
@@ -171,6 +190,7 @@ final class RootController: UIViewController {
             dockStayedCentered = before != nil && before == plate?.frame
             first.isHidden = false
             row.layoutIfNeeded()
+            layoutBars()
             reportMaterial()
         }, for: .touchUpInside)
         mini.addSubview(miniPlay)

@@ -92,3 +92,8 @@ let mini = CGRect(x: 0, y: 0, width: 386, height: 76)
 check(NativeGlassGeometry.frame(bounds: mini, content: mini, miniPlayer: true) == mini
     && NativeGlassGeometry.miniRadius(for: mini.size) == 22,
       "Mini-player glass and the content clipping share the whole rounded footprint")
+let plate = CGRect(x: 0, y: 0, width: 446, height: 59)
+check(NativeGlassGeometry.selectionFrame(centerX: 49, width: 72, in: plate)?.midX == 49,
+      "Glass highlight stays centered under the selected tab")
+check(NativeGlassGeometry.selectionFrame(centerX: 6, width: 72, in: plate) == nil,
+      "Partially clipped selection highlights must not draw a crescent at the edge")

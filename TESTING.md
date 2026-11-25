@@ -1,9 +1,10 @@
-# Shrubify 4.2.5~beta8 testing checklist
+# Shrubify 4.2.5~beta9 testing checklist
 
-## 4.2.5 beta 8 on iPad
+## 4.2.5 beta 9 on iPad
 
 - Open fullscreen from the sidebar, tap the close button, and repeat. Test on a bright Canvas track, after opening and closing settings, and across rotation. Confirm that the header stays readable and no duplicate artwork comes through.
-- Swipe up past the playback controls or tap Artist info and credits. Spotify's native player should take over for the rest of the visit. Check the artist section and credits when the track has them.
+- Swipe up past playback controls to the About the artist and Song credits sections. Swipe back to playback and toggle fullscreen twice. Confirm the current track, artwork, lyrics and controls stay in Shrubify's player and stale credits never appear after a skip.
+- Check that the tab selection sits behind the active label and icon. A tab at an unsettled edge should have no clipped selection shape.
 - Scroll bright tiles behind the mini-player. Check that the cover corners and the progress rail stay inside the same rounded surface. Start playback on Home and check the selection lens as the tab layout changes.
 
 - Watch a verse switch between one and two lines. The lyric should keep the same top edge, fade in by itself, and maintain word timing. Check Reduce Motion, backward scrubbing, and tapping to open the full view.
