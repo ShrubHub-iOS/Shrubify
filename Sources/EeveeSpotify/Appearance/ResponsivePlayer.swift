@@ -103,6 +103,7 @@ final class ResponsivePlayerView: UIView {
     private let inlineLabel = UILabel()
     private weak var nativeCover: UIView?
     private weak var nativeCoverCell: UIView?
+    private weak var canvasCover: UIView?
     private weak var lastNativeImage: UIImage?
     private weak var staleNativeImage: UIImage?
     private var previewLyrics: KaraokeLyricsDto?
@@ -417,8 +418,8 @@ final class ResponsivePlayerView: UIView {
             artwork.image = cached
             background.image = NowPlayingIOS27.backdrop(from: cached)
         }
-        if tablet, let source = nativeCover ?? nativeCoverCell,
-           let nativeImage = ArtworkInspector.nativeImage(in: source) {
+        if tablet, let nativeImage = [nativeCover, nativeCoverCell, canvasCover].lazy
+            .compactMap({ $0.flatMap { ArtworkInspector.nativeImage(in: $0) } }).first {
             lastNativeImage = nativeImage
             if artwork.image == nil, info?.identifier == currentID, nativeImage !== staleNativeImage {
                 artwork.image = nativeImage
@@ -615,7 +616,7 @@ final class ResponsivePlayerView: UIView {
         lastDiscovery = now
         native.removeAllObjects()
         let previousCover = nativeCover
-        if tablet { nativeCover = nil; nativeCoverCell = nil }
+        if tablet { nativeCover = nil; nativeCoverCell = nil; canvasCover = nil }
         savedAccessibility.removeAll { $0.view == nil }
         var queue = [page]; var index = 0
         var standaloneHeaders: [UIView] = []
@@ -626,6 +627,11 @@ final class ResponsivePlayerView: UIView {
             if view === self { continue }
             queue.append(contentsOf: view.subviews)
             let rect = view.convert(view.bounds, to: page)
+            // Spotify intentionally hides this cover while Canvas plays. Its
+            // current bitmap can still back the player in the narrow pane.
+            if tablet, canvasCover == nil, rect.intersects(page.bounds), ArtworkInspector.isCanvasCover(view) {
+                canvasCover = view
+            }
             guard !view.isHidden, rect.intersects(page.bounds),
                   !tablet || onPlayerPage(view, page: page, includeSuppressedArtwork: true) else { continue }
             if tablet, nativeCover == nil, ArtworkInspector.isNativeCover(view) {
@@ -1010,7 +1016,7 @@ final class ResponsivePlayerView: UIView {
     }
 
     private func hideDuplicateArtwork() {
-        let child = nativeCover.flatMap { NowPlayingLyricsPlate.sameSizeChild(of: $0) } ?? nativeCoverCell
+        let child = nativeCover.flatMap { NowPlayingLyricsPlate.sameSizeChild(of: $0) } ?? nativeCoverCell ?? canvasCover
         guard let child, child.bounds.width > 0, child.bounds.height > 0 else { restoreNativeArtwork(); return }
         if nativeArtworkSnapshot?.view !== child {
             restoreNativeArtwork()

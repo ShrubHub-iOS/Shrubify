@@ -19,6 +19,19 @@ enum ArtworkInspector {
         return name.contains("NowPlaying_ContentLayersImpl") && name.hasSuffix("CoverArtCellImpl")
     }
 
+    static func isCanvasCover(_ view: UIView) -> Bool {
+        guard view.accessibilityIdentifier == NowPlayingLyricsPlate.coverImageIdentifier,
+              view.bounds.width >= 160, view.bounds.height >= 160 else { return false }
+        var parent = view.superview
+        for _ in 0..<8 {
+            guard let current = parent else { break }
+            if current.accessibilityIdentifier?.contains("nowplaying-contentlayer-cell-5") == true
+                || NSStringFromClass(type(of: current)).hasSuffix("CanvasNowPlayingCell") { return true }
+            parent = current.superview
+        }
+        return false
+    }
+
     static func nativeImage(in cover: UIView) -> UIImage? {
         var nodes = [cover]
         var index = 0
@@ -26,7 +39,8 @@ enum ArtworkInspector {
             let view = nodes[index]
             index += 1
             let name = NSStringFromClass(type(of: view))
-            guard !view.isHidden, !name.localizedCaseInsensitiveContains("placeholder"),
+            guard view === cover || !view.isHidden else { continue }
+            guard !name.localizedCaseInsensitiveContains("placeholder"),
                   view.accessibilityIdentifier?.localizedCaseInsensitiveContains("placeholder") != true else { continue }
             if let image = (view as? UIImageView)?.image, usableImage(image) { return image }
             nodes.append(contentsOf: view.subviews.prefix(64 - nodes.count))
