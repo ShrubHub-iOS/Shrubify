@@ -1,6 +1,8 @@
-# Shrubify 4.2.5~beta6 testing checklist
+# Shrubify 4.2.5~beta7 testing checklist
 
-## 4.2.5 beta 6 on iPad
+## 4.2.5 beta 7 on iPad
+
+- Watch the live lyric through a verse with timed words. Confirm the line fades smoothly, the emphasis follows the words, and Reduce Motion removes the dissolve. Scrub back and tap the lyric to open the full view.
 
 - Start a track from an album before opening Now Playing. Confirm every tab remains visible and tappable and the right mini-player shows glass across artwork color changes. Open the split player first, confirm the cover appears, then expand immediately. Watch the native header and background on first open and after returning from fullscreen.
 - Play through several word-timed lyric lines without touching the player. Short gaps should retain the previous line at steady contrast, long instrumental gaps should clear it, and skips should never display the preceding track's lyric.
@@ -20,7 +22,7 @@
 ## Selective native glass acceptance
 
 - Switching among Home, Premium, Library and Search repeatedly must not reintroduce old bar backings. Native background, opacity and blur snapshots are captured once per view and restored in reverse order when glass is disabled.
-- Native glass is inserted as a sibling below the known Spotify bar host, never as an arranged tab item. The material frame must remain within the compact tab-content geometry.
+- The dock's glass sits under its known Spotify host. The mini-player's glass sits inside its bar behind the controls and uses the more legible Regular material on the Clear setting.
 
 - Clear and Regular use distinct UIKit glass styles; unconfigured appearance defaults to Clear. Tinted alone uses accent tint. No synthetic rim or specular layer.
 - Enabling glass clears only known native bar backings, including layer-level colors and opaque drawing flags, and fully restores them on disabling; decorative views containing real controls/artwork must never be hidden.

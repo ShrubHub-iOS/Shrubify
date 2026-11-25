@@ -3,6 +3,22 @@ import UIKit
 
 final class ControlsTests: XCTestCase {
     @MainActor
+    func testInlineLyricKeepsItsTapTargetAsTheLineChanges() {
+        let app = XCUIApplication()
+        app.launchArguments.append("inline-lyric-fixture")
+        app.launch()
+        let preview = app.buttons["shrubify.player.current-lyric"]
+        XCTAssertTrue(preview.waitForExistence(timeout: 10))
+        XCTAssertEqual(preview.label, "First lyric")
+        let frame = preview.frame
+        app.buttons["Advance lyric"].tap()
+        XCTAssertEqual(preview.label, "Next lyric")
+        XCTAssertEqual(preview.frame, frame)
+        preview.tap()
+        XCTAssertEqual(app.staticTexts["live-preview-status"].label, "Lyrics opened")
+    }
+
+    @MainActor
     func testTimingAndDismissalAtButtonEdgesDuringLiveUpdates() {
         let app = XCUIApplication(); app.launch()
         for cycle in 1...3 {

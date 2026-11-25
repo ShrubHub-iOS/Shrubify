@@ -57,9 +57,9 @@ struct TabletPlayerLayout {
 
     static func headerHeight(safeTop: CGFloat) -> CGFloat { safeTop + 62 }
 
-    static func headerFade(start: CGFloat, height: CGFloat) -> [CGFloat] {
+    static func headerFade(end: CGFloat, height: CGFloat) -> [CGFloat] {
         let viewport = max(1, height)
-        return [0, start, start + 18, start + 52, start + 88].map { min(1, max(0, $0 / viewport)) }
+        return [0, end - 4, end].map { min(1, max(0, $0 / viewport)) }
     }
 
     // The scroll view starts below the fixed native header.

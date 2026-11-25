@@ -42,8 +42,8 @@ enum NativeTabletGlass {
         private let blurs = NSHashTable<UIVisualEffectView>.weakObjects()
         private let hidden = NSHashTable<UIView>.weakObjects()
 #if canImport(EeveeSpotifyC)
-        private weak var attemptedMiniFill: UIView?
-        private var miniFill: MiniFill?
+        private let attemptedMiniFills = NSHashTable<UIView>.weakObjects()
+        private var miniFills: [MiniFill] = []
 #endif
         init(_ bar: Bar) { self.bar = bar }
 
@@ -54,7 +54,7 @@ enum NativeTabletGlass {
 
         func clearColor(_ view: UIView) {
 #if canImport(EeveeSpotifyC)
-            if miniFill?.view === view { return }
+            if miniFills.contains(where: { $0.view === view }) { return }
 #endif
             guard Self.hasFill(view) else { return }
             if !colors.contains(view) {
@@ -112,10 +112,12 @@ enum NativeTabletGlass {
 #if canImport(EeveeSpotifyC)
             // Spotify writes the artwork color after layout as well as within
             // it. Reuse the existing per-layer interceptor on the actual bar.
-            guard view.accessibilityIdentifier == "SPTNowPlayingBar", attemptedMiniFill !== view else { return }
-            attemptedMiniFill = view
+            guard let id = view.accessibilityIdentifier, id == "SPTNowPlayingBar" || id == "now-playing-bar-content",
+                  !attemptedMiniFills.contains(view) else { return }
+            attemptedMiniFills.add(view)
+            miniFills.removeAll { $0.view == nil }
             let fill = MiniFill(view)
-            if EeveeInterceptBackground(view, { fill.latest = $0 }) { miniFill = fill }
+            if EeveeInterceptBackground(view, { fill.latest = $0 }) { miniFills.append(fill) }
 #endif
         }
 
@@ -128,12 +130,13 @@ enum NativeTabletGlass {
             NativeTabletGlass.releaseWrapper(for: self)
             restoreBacking.reversed().forEach { $0() }; restoreBacking.removeAll()
 #if canImport(EeveeSpotifyC)
-            if let fill = miniFill, let view = fill.view {
+            for fill in miniFills {
+                guard let view = fill.view else { continue }
                 EeveeRestoreBackground(view)
                 view.backgroundColor = fill.latest
             }
-            miniFill = nil
-            attemptedMiniFill = nil
+            miniFills.removeAll()
+            attemptedMiniFills.removeAllObjects()
 #endif
             colors.removeAllObjects(); opacity.removeAllObjects()
             blurs.removeAllObjects(); hidden.removeAllObjects()
@@ -341,6 +344,11 @@ enum NativeTabletGlass {
         else { state = State(bar); state.fallback = fallback; bars.setObject(state, forKey: host) }
         if !fallback { state.fallback = false }
         if let miniOwner { state.miniOwner = miniOwner }
+#if canImport(EeveeSpotifyC)
+        if bar == .miniPlayer, let source = state.owner ?? miniOwner ?? findOwner(in: host, bar: .miniPlayer) {
+            ResponsivePlayer.rememberMiniArtwork(in: source)
+        }
+#endif
         if bar == .tabs, let root = navigationRoot ?? Self.navigationRoot(for: host),
            host.isDescendant(of: root) { state.navigationRoot = root }
         // Remember the bar so Studio can apply a change immediately. When off,
@@ -389,16 +397,20 @@ enum NativeTabletGlass {
         let tabCount: Int?
         let tabs: [UIView]
         if state.bar == .tabs, let row = owner as? UIStackView {
-            let items = row.arrangedSubviews.filter { !$0.isHidden }
-            guard (2...6).contains(items.count), items.allSatisfy({ $0.bounds.width > 1 }) else {
+            let items = row.arrangedSubviews
+            guard (2...6).contains(items.count) else {
                 deferTabGeometry(in: host, state: state, canRetry: canRetryGeometry)
                 return
             }
             let footprint = items.reduce(CGRect.null) { $0.union($1.convert($1.bounds, to: owner)) }
-            if owner.bounds.contains(footprint), footprint.width <= CGFloat(items.count) * 82 + 40 {
-                content = footprint
-            } else if let visibleContent = visibleTabContent(items, in: owner) {
-                content = visibleContent
+            if let margins = state.compactRow?.appliedMargins {
+                content = owner.bounds.insetBy(dx: margins.leading, dy: 0)
+            } else if let centered = NativeGlassGeometry.centeredContent(footprint, in: owner.bounds),
+                      centered.width <= CGFloat(items.count) * 82 + 40 {
+                content = centered
+            } else if let measured = visibleTabContent(items, in: owner),
+                      let centered = NativeGlassGeometry.centeredContent(measured, in: owner.bounds) {
+                content = centered
             } else {
                 deferTabGeometry(in: host, state: state, canRetry: canRetryGeometry)
                 return
@@ -435,11 +447,10 @@ enum NativeTabletGlass {
             if view === host { break }
             ancestor = view.superview
         }
-        // Render below Spotify's entire native bar host, not inside its
-        // internal UIStackView. This lets Liquid Glass sample the real page
-        // rather than the host's opaque, prefrosted backdrop.
+        // The dock sits above the page and below its wrapper. The mini-player
+        // has its own paint stack, so keep material inside the bar under its controls.
         let anchor = glassAnchor(for: host, in: state.navigationRoot)
-        let container = anchor.superview ?? owner
+        let container = state.bar == .miniPlayer ? owner : (anchor.superview ?? owner)
         let converted = owner.convert(frame, to: container)
         guard converted.minX.isFinite, converted.minY.isFinite,
               converted.width.isFinite, converted.height.isFinite,
@@ -451,6 +462,8 @@ enum NativeTabletGlass {
                 if let sibling = insertionSibling, let index = container.subviews.firstIndex(of: plate),
                    container.subviews.dropFirst(index + 1).first !== sibling {
                     container.insertSubview(plate, belowSubview: sibling)
+                } else if state.bar == .miniPlayer, container.subviews.first !== plate {
+                    container.insertSubview(plate, at: 0)
                 }
                 // Native Spotify backings may be repainted after navigation.
                 // Clearing these views is idempotent and does not append
@@ -462,7 +475,9 @@ enum NativeTabletGlass {
             // A replaced bar must not retain the old glass or opaque backings.
             state.removeMaterial()
         }
-        let plate = ShrubifyLiquidGlass.makePlate(radius: nil, interactive: false)
+        let plate = ShrubifyLiquidGlass.makePlate(radius: nil, interactive: false,
+                                                  prefersReadableGlass: state.bar == .miniPlayer)
+        if state.bar == .miniPlayer { plate.overrideUserInterfaceStyle = .dark }
         plate.accessibilityIdentifier = "shrubify.native.glass.material"
         plate.isUserInteractionEnabled = false
         plate.accessibilityElementsHidden = true
@@ -512,18 +527,18 @@ enum NativeTabletGlass {
     /// Only the known native Spotify dock is eligible, and only when UIKit
     /// already owns equal-width arranged items. Unknown layouts stay untouched.
     private static func compactIfSupported(_ row: UIStackView, host: UIView, state: State) {
-        // Alpha is animated when Spotify attaches/detaches its Now Playing
-        // bar. Sizing from that animated value shifts every native tab.
-        let visible = row.arrangedSubviews.filter { !$0.isHidden }
+        // Spotify temporarily hides Home while attaching Now Playing. Keep
+        // the dock anchored to its full set of slots through that animation.
+        let tabCount = row.arrangedSubviews.count
         let hostName = NSStringFromClass(type(of: host))
         guard (hostName.contains("TabBarView") || hostName.contains("TabBarCompactView")),
               row.axis == .horizontal,
               row.distribution == .fillEqually,
               !row.traitCollection.preferredContentSizeCategory.isAccessibilityCategory,
-              (2...6).contains(visible.count) else {
+              (2...6).contains(tabCount) else {
             state.compactRow?.restore(); state.compactRow = nil; return
         }
-        let inset = NativeGlassGeometry.compactHorizontalInset(width: row.bounds.width, count: visible.count)
+        let inset = NativeGlassGeometry.compactHorizontalInset(width: row.bounds.width, count: tabCount)
         guard inset > 12 else { state.compactRow?.restore(); state.compactRow = nil; return }
         if state.compactRow?.row !== row {
             state.compactRow?.restore()
@@ -535,7 +550,7 @@ enum NativeTabletGlass {
         margins.leading = symmetricInset
         margins.trailing = symmetricInset
         // Do not compress hit targets in unusual layouts with large margins.
-        guard row.bounds.width - margins.leading - margins.trailing >= CGFloat(visible.count) * 44 else {
+        guard row.bounds.width - margins.leading - margins.trailing >= CGFloat(tabCount) * 44 else {
             geometry.restore(); state.compactRow = nil; return
         }
         if row.directionalLayoutMargins != margins { row.directionalLayoutMargins = margins }
@@ -571,31 +586,20 @@ enum NativeTabletGlass {
     private static func placeSelection(in plate: UIVisualEffectView, tabs: [UIView], state: State) {
         // A partially animated row is not a new selection. Keep the previous
         // lens until Spotify finishes laying out all of the tabs.
-        guard tabs.allSatisfy({ $0.alpha > 0.5 }) else { return }
-        let signals = tabs.map { tab -> (UIView, Bool, Bool) in
+        guard tabs.allSatisfy({ !$0.isHidden && $0.alpha > 0.5 }) else { return }
+        let selected = tabs.filter { tab in
             var nodes = [tab]
-            var explicit = false
-            var bright = false
             var index = 0
             while index < nodes.count {
                 let node = nodes[index]
                 index += 1
                 guard !node.isHidden, node.alpha > 0.01 else { continue }
-                explicit = explicit || node.accessibilityTraits.contains(.selected) || (node as? UIControl)?.isSelected == true
-                if let label = node as? UILabel, let title = label.text, !title.isEmpty,
-                   let color = label.textColor {
-                    var white: CGFloat = 0
-                    var alpha: CGFloat = 0
-                    let resolved = color.resolvedColor(with: label.traitCollection)
-                    bright = bright || (resolved.getWhite(&white, alpha: &alpha) && white >= 0.90 && alpha > 0.95)
-                }
+                if node.accessibilityTraits.contains(.selected) || (node as? UIControl)?.isSelected == true { return true }
                 if nodes.count < 28 { nodes.append(contentsOf: node.subviews.prefix(28 - nodes.count)) }
             }
-            return (tab, explicit, bright)
+            return false
         }
-        let explicit = signals.filter { $0.1 }
-        let candidates = explicit.isEmpty ? signals.filter { $0.2 } : explicit
-        guard candidates.count == 1, let tab = candidates.first?.0 else {
+        guard selected.count == 1, let tab = selected.first else {
             state.selection?.isHidden = true
             return
         }
@@ -680,6 +684,7 @@ enum NativeTabletGlass {
                       rect.height >= owner.bounds.height * 0.67,
                       rect.height <= 110, !(view is UIControl || view is UIImageView || view is UIScrollView)
                 else { continue }
+                state.suppressMiniFill(view)
                 state.clearColor(view)
                 state.clearOpacity(view)
                 if let effect = view as? UIVisualEffectView { state.clearBlur(effect) }

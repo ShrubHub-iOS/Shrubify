@@ -54,8 +54,8 @@ for size in [CGSize(width: 1280, height: 889), CGSize(width: 421, height: 818),
         }
     }
 }
-let fade = TabletPlayerLayout.headerFade(start: 82, height: 800)
-check(fade[1] * 800 == 82 && fade[4] * 800 == 170, "Fade starts below the real header and spans the body")
+let fade = TabletPlayerLayout.headerFade(end: 82, height: 800)
+check(fade[1] * 800 == 78 && fade[2] * 800 == 82, "The native body must be covered by the end of the header")
 check(zip(fade, fade.dropFirst()).allSatisfy { $0 <= $1 }, "Fade locations remain ordered")
 print("Responsive player geometry checks passed")
 
@@ -81,3 +81,8 @@ for width in [CGFloat(320), 414, 847, 1008, 1280] {
     }
 }
 print("Adaptive native dock geometry checks passed")
+
+let dock = CGRect(x: 0, y: 0, width: 760, height: 76)
+let shifted = CGRect(x: 242, y: 0, width: 350, height: 76)
+let centered = NativeGlassGeometry.centeredContent(shifted, in: dock)!
+check(centered.midX == dock.midX && centered.contains(shifted), "A temporary off-center tab footprint must not move the glass center")

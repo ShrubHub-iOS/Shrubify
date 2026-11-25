@@ -101,9 +101,11 @@ enum ShrubifyLiquidGlass {
     static func makePlate(
         radius: CGFloat? = nil,
         interactive: Bool = false,
-        boost: CGFloat = 1
+        boost: CGFloat = 1,
+        prefersReadableGlass: Bool = false
     ) -> ShrubifyGlassPlate {
-        ShrubifyGlassPlate(radius: radius, interactive: interactive, boost: boost)
+        ShrubifyGlassPlate(radius: radius, interactive: interactive, boost: boost,
+                           prefersReadableGlass: prefersReadableGlass)
     }
 
     /// Call after changing any key above so mounted surfaces update immediately.
@@ -128,9 +130,12 @@ final class ShrubifyGlassPlate: UIVisualEffectView {
         let tint: UIColor?
     }
 
-    init(radius: CGFloat?, interactive: Bool, boost: CGFloat = 1) {
+    private let prefersReadableGlass: Bool
+
+    init(radius: CGFloat?, interactive: Bool, boost: CGFloat = 1, prefersReadableGlass: Bool = false) {
         self.radius = radius
         self.interactive = interactive
+        self.prefersReadableGlass = prefersReadableGlass
         super.init(effect: nil)
         isUserInteractionEnabled = false
         accessibilityElementsHidden = true
@@ -167,7 +172,8 @@ final class ShrubifyGlassPlate: UIVisualEffectView {
     }
 
     func refresh() {
-        let style = ShrubifyLiquidGlass.style
+        let preference = ShrubifyLiquidGlass.style
+        let style = prefersReadableGlass && preference == .clear ? .regular : preference
         let intensity = ShrubifyLiquidGlass.intensity
         let tint = style == .tinted && intensity > 0
             ? ShrubifyLiquidGlass.accent?.withAlphaComponent(intensity * 0.20)

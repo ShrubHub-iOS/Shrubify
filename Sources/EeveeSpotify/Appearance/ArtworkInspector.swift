@@ -4,6 +4,8 @@ import UIKit
 
 @MainActor
 enum ArtworkInspector {
+    private static let rejectedImages = NSHashTable<UIImage>.weakObjects()
+    private static let checkedImages = NSHashTable<UIImage>.weakObjects()
     private static let coverClass = NSClassFromString(
         "_TtC35CreativeWorkCommons_CoverArtTiltKit16CoverArtTiltView"
     )
@@ -42,7 +44,7 @@ enum ArtworkInspector {
             guard view === cover || !view.isHidden else { continue }
             guard !name.localizedCaseInsensitiveContains("placeholder"),
                   view.accessibilityIdentifier?.localizedCaseInsensitiveContains("placeholder") != true else { continue }
-            if let image = (view as? UIImageView)?.image, usableImage(image) { return image }
+            if let image = (view as? UIImageView)?.image, usableFallback(image) { return image }
             nodes.append(contentsOf: view.subviews.prefix(64 - nodes.count))
         }
         return nil
@@ -50,6 +52,71 @@ enum ArtworkInspector {
 
     static func usableImage(_ image: UIImage) -> Bool {
         !image.isSymbolImage && NowPlayingLyricsPlate.isUsableArtwork(image)
+    }
+
+    static func usableFallback(_ image: UIImage, thumbnail: Bool = false) -> Bool {
+        guard !image.isSymbolImage,
+              thumbnail ? min(image.size.width, image.size.height) * image.scale >= 48 : usableImage(image)
+        else { return false }
+        if !checkedImages.contains(image) {
+            checkedImages.add(image)
+            if looksLikePlaceholder(image) { rejectedImages.add(image) }
+        }
+        return !rejectedImages.contains(image)
+    }
+
+    static func miniImage(in bar: UIView, title: String) -> UIImage? {
+        guard bar.accessibilityIdentifier == "SPTNowPlayingBar", !title.isEmpty else { return nil }
+        var nodes = [bar]
+        var index = 0
+        var artwork: UIImage?
+        var titleMatches = false
+        while index < nodes.count {
+            let view = nodes[index]
+            index += 1
+            guard !view.isHidden, view.alpha > 0.1 else { continue }
+            let label = (view as? UILabel)?.text ?? view.accessibilityLabel ?? ""
+            if label == title || label.hasPrefix(title + ", ") || label.hasPrefix(title + "\n") {
+                titleMatches = true
+            }
+            if artwork == nil, let value = (view as? UIImageView)?.image {
+                let rect = view.convert(view.bounds, to: bar)
+                if (30...85).contains(rect.width), abs(rect.width - rect.height) < 2,
+                   rect.minX >= 0, rect.maxX <= 100, usableFallback(value, thumbnail: true) {
+                    artwork = value
+                }
+            }
+            if let artwork, titleMatches { return artwork }
+            nodes.append(contentsOf: view.subviews.prefix(120 - nodes.count))
+        }
+        return nil
+    }
+
+    private static func looksLikePlaceholder(_ image: UIImage) -> Bool {
+        guard let bitmap = image.cgImage else { return false }
+        let side = 24
+        var pixels = [UInt8](repeating: 0, count: side * side * 4)
+        return pixels.withUnsafeMutableBytes { bytes in
+            guard let context = CGContext(data: bytes.baseAddress, width: side, height: side, bitsPerComponent: 8,
+                                          bytesPerRow: side * 4, space: CGColorSpaceCreateDeviceRGB(),
+                                          bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return false }
+            context.draw(bitmap, in: CGRect(x: 0, y: 0, width: side, height: side))
+            var dark = 0
+            var bright = 0
+            for y in 0..<side {
+                for x in 0..<side {
+                    let offset = (y * side + x) * 4
+                    let red = Int(bytes[offset]), green = Int(bytes[offset + 1]), blue = Int(bytes[offset + 2])
+                    guard max(red, green, blue) - min(red, green, blue) < 10 else { return false }
+                    if (19...44).contains(red) { dark += 1 }
+                    if red >= 113 {
+                        guard (4...19).contains(x), (4...19).contains(y) else { return false }
+                        bright += 1
+                    }
+                }
+            }
+            return dark >= 430 && (12...108).contains(bright)
+        }
     }
 
     /// Spotify 9.2.0 exposes handleTap as a no-argument Objective-C

@@ -54,6 +54,11 @@ check(partial.lines[0].highlightRange(at: 500) == nil, "Untimed parts do not bec
 if let range = partial.lines[0].highlightRange(at: 1150) {
     check(partial.lines[0].plainText[range] == "words", "A preview highlights the active provider-timed word")
 } else { fatalError("Expected a timed word") }
+let emphasis = partial.lines[0].highlight(at: 700)!
+check(emphasis.opacity(at: 600) == 0 && emphasis.opacity(at: 700) == 1 && emphasis.opacity(at: 800) == 0,
+      "Timed emphasis eases in and out within the real word duration")
+check(emphasis.opacity(at: 630) > 0 && emphasis.opacity(at: 630) < 1,
+      "Display refreshes between word boundaries must render intermediate emphasis")
 let payload = try JSONDecoder().decode(LyricsPlusPayload.self, from: Data("""
 {
     "type":"Word",

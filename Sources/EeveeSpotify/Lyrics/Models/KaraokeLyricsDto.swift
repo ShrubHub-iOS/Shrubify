@@ -29,6 +29,19 @@ enum KaraokeTextDirection {
 }
 
 struct KaraokeLineDto: Equatable {
+    struct Highlight: Equatable {
+        let range: Range<String.Index>
+        let start: Int
+        let end: Int
+
+        func opacity(at position: Int) -> Double {
+            let ramp = min(80, max(1, (end - start) / 3))
+            let attack = Double(position - start) / Double(ramp)
+            let release = Double(end - position) / Double(ramp)
+            let progress = max(0, min(1, attack, release))
+            return progress * progress * (3 - 2 * progress)
+        }
+    }
     var syllables: [KaraokeSyllableDto]
     var startMs: Int
     var endMs: Int
@@ -38,13 +51,17 @@ struct KaraokeLineDto: Equatable {
     var plainText: String { originalText ?? syllables.plainText }
 
     func highlightRange(at position: Int) -> Range<String.Index>? {
+        highlight(at: position)?.range
+    }
+
+    func highlight(at position: Int) -> Highlight? {
         let text = plainText
         var cursor = text.startIndex
         for syllable in syllables {
             guard let match = text.range(of: syllable.text, options: [.caseInsensitive, .widthInsensitive],
                                          range: cursor..<text.endIndex) else { continue }
             if syllable.endMs > syllable.startMs, position >= syllable.startMs, position < syllable.endMs {
-                return match
+                return Highlight(range: match, start: syllable.startMs, end: syllable.endMs)
             }
             cursor = match.upperBound
         }

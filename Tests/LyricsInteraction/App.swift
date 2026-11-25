@@ -36,8 +36,32 @@ final class InteractionScene: UIResponder, UIWindowSceneDelegate {
         guard let scene = scene as? UIWindowScene else { return }
         let window = UIWindow(windowScene: scene)
         window.overrideUserInterfaceStyle = .dark
-        window.rootViewController = RootController()
+        window.rootViewController = ProcessInfo.processInfo.arguments.contains("inline-lyric-fixture")
+            ? InlineLyricController() : RootController()
         window.makeKeyAndVisible(); self.window = window
+    }
+}
+
+final class InlineLyricController: UIViewController {
+    private let lyric = PlayerLyricPreview(frame: CGRect(x: 48, y: 88, width: 350, height: 56))
+    private let status = UILabel(frame: CGRect(x: 48, y: 220, width: 350, height: 44))
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        view.backgroundColor = .black
+        lyric.display("First lyric", timed: false, animated: false)
+        lyric.addAction(UIAction { [weak self] _ in self?.status.text = "Lyrics opened" }, for: .touchUpInside)
+        view.addSubview(lyric)
+        status.accessibilityIdentifier = "live-preview-status"
+        view.addSubview(status)
+        let next = UIButton(type: .system)
+        next.frame = CGRect(x: 48, y: 148, width: 200, height: 52)
+        next.setTitle("Advance lyric", for: .normal)
+        next.addAction(UIAction { [weak self] _ in
+            let line = "Next lyric"
+            self?.lyric.display(line, timed: true, word: line.range(of: "Next"), opacity: 0.68)
+        }, for: .touchUpInside)
+        view.addSubview(next)
     }
 }
 
@@ -77,6 +101,7 @@ final class RootController: UIViewController {
     private var nativeFrames: [CGRect] = []
     private var nativeMargins: NSDirectionalEdgeInsets = .zero
     private var nativeMarginsRelative = false
+    private var dockStayedCentered = true
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -135,9 +160,13 @@ final class RootController: UIViewController {
             guard let self, let first = row.arrangedSubviews.first else { return }
             miniPlay.setTitle("Pause", for: .normal)
             mini.backgroundColor = .systemRed
-            first.alpha = 0
+            let plate = view.subviews.first { $0.accessibilityIdentifier == "shrubify.native.glass.material" }
+            let before = plate?.frame
+            first.isHidden = true
             layoutBars()
-            first.alpha = 1
+            dockStayedCentered = before != nil && before == plate?.frame
+            first.isHidden = false
+            row.layoutIfNeeded()
             reportMaterial()
         }, for: .touchUpInside)
         mini.addSubview(miniPlay)
@@ -208,10 +237,10 @@ final class RootController: UIViewController {
         if let selected = row.arrangedSubviews.firstIndex(where: { ($0 as? UIControl)?.isSelected == true }) {
             selectionStatus.text = "Tab \(selected) native-selected · \(extra.count) overlays"
         } else { selectionStatus.text = "No selected tab · \(extra.count) overlays" }
-        let glasses = (view.subviews + miniHost.subviews).compactMap { $0 as? UIVisualEffectView }
+        let glasses = (view.subviews + mini.subviews).compactMap { $0 as? UIVisualEffectView }
             .filter { $0.accessibilityIdentifier == "shrubify.native.glass.material" && $0.effect is UIGlassEffect }
         let tabs = glasses.filter { $0.superview === view && abs($0.frame.midY - dockWrapper.frame.midY) < 30 }
-        let minis = glasses.filter { $0.superview === miniHost && abs($0.frame.midY - mini.frame.midY) < 30 }
+        let minis = glasses.filter { $0.superview === mini && mini.bounds.contains($0.frame) }
         if let plate = tabs.first, let marker = plate.contentView.subviews.first(where: {
             $0.accessibilityIdentifier == "shrubify.native.selection" && !$0.isHidden
         }), plate.contentView.bounds.contains(marker.frame),
@@ -224,7 +253,7 @@ final class RootController: UIViewController {
         }
         let safe = (tabs + minis).allSatisfy { plate in
             guard let parent = plate.superview, let plateIndex = parent.subviews.firstIndex(of: plate) else { return false }
-            let host: UIView = tabs.contains(where: { $0 === plate }) ? dockWrapper : mini
+            let host: UIView = tabs.contains(where: { $0 === plate }) ? dockWrapper : miniPlay
             guard let hostIndex = parent.subviews.firstIndex(of: host) else { return false }
             return !plate.isUserInteractionEnabled && plate.accessibilityElementsHidden && plateIndex < hostIndex
         }
@@ -253,7 +282,7 @@ final class RootController: UIViewController {
                 && row.directionalLayoutMargins.leading == nativeMargins.leading
                 && row.directionalLayoutMargins.trailing == nativeMargins.trailing
                 && row.isLayoutMarginsRelativeArrangement == nativeMarginsRelative
-        materialState.text = "\(tabs.count)/\(minis.count) bars · \(wells) wells · \(controlsIntact && safe ? "intact" : "changed") · \(backing)"
+        materialState.text = "\(tabs.count)/\(minis.count) bars · \(wells) wells · \(controlsIntact && safe && dockStayedCentered ? "intact" : "changed") · \(backing)"
         materialState.accessibilityValue = controlsIntact ? nil
             : "Frames \(frames) vs \(nativeFrames), margins \(row.directionalLayoutMargins) vs \(nativeMargins), relative \(row.isLayoutMarginsRelativeArrangement) vs \(nativeMarginsRelative)"
     }
