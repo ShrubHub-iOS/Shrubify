@@ -67,8 +67,12 @@ final class ControlsTests: XCTestCase {
             app.buttons["Play"].coordinate(withNormalizedOffset: CGVector(dx: 0.15, dy: 0.5)).tap()
             XCTAssertTrue(app.buttons["Pause"].exists)
             let slider = app.sliders["Song position"]
+            // Keep the touch at its destination long enough for hosted simulators
+            // to deliver the final drag update before the slider commits its seek.
             slider.coordinate(withNormalizedOffset: CGVector(dx: 1.0 / 3.0, dy: 0.5))
-                .press(forDuration: 0.2, thenDragTo: slider.coordinate(withNormalizedOffset: CGVector(dx: 0.8, dy: 0.5)))
+                .press(forDuration: 0.2,
+                       thenDragTo: slider.coordinate(withNormalizedOffset: CGVector(dx: 0.8, dy: 0.5)),
+                       withVelocity: .slow, thenHoldForDuration: 0.4)
             let seek = Int(app.staticTexts["seek-value"].label.filter { $0.isNumber }) ?? 0
             XCTAssertGreaterThan(seek, 100_000); XCTAssertLessThan(seek, 160_000)
             let capture = XCTAttachment(screenshot: app.screenshot()); capture.name = "lyrics-controls-cycle-\(cycle)"; capture.lifetime = .keepAlways; add(capture)
