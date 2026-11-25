@@ -5,6 +5,7 @@ import CoreGraphics
 
 /// Decorative geometry only: never changes Spotify's own frames or hit regions.
 enum NativeGlassGeometry {
+    static func miniRadius(for size: CGSize) -> CGFloat { min(22, size.width / 2, size.height / 2) }
     static func centeredContent(_ content: CGRect, in bounds: CGRect) -> CGRect? {
         guard bounds.contains(content) else { return nil }
         let half = max(bounds.midX - content.minX, content.maxX - bounds.midX)
@@ -38,11 +39,11 @@ enum NativeGlassGeometry {
         }
         let verticalInset = max(5, (content.height - 60) / 2)
         let proposed = miniPlayer
-            ? content.insetBy(dx: 3, dy: 3)
+            ? content
             : content.insetBy(dx: -6, dy: verticalInset)
         let clipped = proposed.intersection(bounds)
         guard !clipped.isNull, clipped.width >= 40, clipped.height >= 20,
-              clipped.width <= limit, clipped.height <= 88 else { return nil }
+              clipped.width <= limit, clipped.height <= (miniPlayer ? 110 : 88) else { return nil }
         return clipped
     }
 }

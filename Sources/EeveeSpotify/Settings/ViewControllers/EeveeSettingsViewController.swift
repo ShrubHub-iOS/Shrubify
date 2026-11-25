@@ -59,19 +59,23 @@ enum ShrubifySettingsPresenter {
         previousWindow = scene.windows.first(where: \.isKeyWindow)
         let host = UIViewController()
         host.view.backgroundColor = .clear
-        let settingsWindow = UIWindow(windowScene: scene)
+        let settingsWindow = SettingsPresentationWindow(windowScene: scene)
         settingsWindow.windowLevel = .normal + 1
         settingsWindow.backgroundColor = .clear
         settingsWindow.rootViewController = host
         window = settingsWindow
         settingsWindow.makeKeyAndVisible()
 
-        let navigation = UINavigationController()
+        let navigation = SettingsPresentationNavigation()
+        navigation.onDismiss = { [weak settingsWindow] in
+            guard let settingsWindow, window === settingsWindow else { return }
+            finish()
+        }
         let root = EeveeSettingsViewController(presenter.view.bounds,
             settingsView: AnyView(EeveeSettingsView(navigationController: navigation)), navigationTitle: "Shrubify")
         root.navigationItem.rightBarButtonItem = UIBarButtonItem(systemItem: .done,
             primaryAction: UIAction { [weak navigation] _ in
-                navigation?.dismiss(animated: true, completion: { finish() })
+                navigation?.dismiss(animated: true)
             })
         navigation.setViewControllers([root], animated: false)
         navigation.modalPresentationStyle = .pageSheet
@@ -80,12 +84,30 @@ enum ShrubifySettingsPresenter {
     }
 
     fileprivate static func finish() {
+        guard window != nil else { return }
         window?.isHidden = true
         window?.rootViewController = nil
         window = nil
         SettingsNavigator.navigationController = nil
         previousWindow?.makeKey()
         previousWindow = nil
+    }
+}
+
+private final class SettingsPresentationWindow: UIWindow {
+    override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
+        guard rootViewController?.presentedViewController != nil else { return nil }
+        return super.hitTest(point, with: event)
+    }
+}
+
+private final class SettingsPresentationNavigation: UINavigationController {
+    var onDismiss: (() -> Void)?
+
+    override func viewDidDisappear(_ animated: Bool) {
+        super.viewDidDisappear(animated)
+        guard isBeingDismissed || presentingViewController == nil, let onDismiss else { return }
+        DispatchQueue.main.async { onDismiss() }
     }
 }
 

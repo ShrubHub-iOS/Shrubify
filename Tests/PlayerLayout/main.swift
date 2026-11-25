@@ -54,9 +54,11 @@ for size in [CGSize(width: 1280, height: 889), CGSize(width: 421, height: 818),
         }
     }
 }
-let fade = TabletPlayerLayout.headerFade(end: 82, height: 800)
-check(fade[1] * 800 == 78 && fade[2] * 800 == 82, "The native body must be covered by the end of the header")
-check(zip(fade, fade.dropFirst()).allSatisfy { $0 <= $1 }, "Fade locations remain ordered")
+for safeTop in [CGFloat(0), 24, 52] {
+    let exit = TabletPlayerLayout.closeFrame(safeTop: safeTop)
+    check(exit.width >= 44 && exit.height >= 44 && exit.minY >= safeTop
+        && exit.maxY < TabletPlayerLayout.headerHeight(safeTop: safeTop), "The fullscreen exit stays inside the safe header")
+}
 print("Responsive player geometry checks passed")
 
 for width in [CGFloat(320), 414, 847, 1008, 1280] {
@@ -86,3 +88,7 @@ let dock = CGRect(x: 0, y: 0, width: 760, height: 76)
 let shifted = CGRect(x: 242, y: 0, width: 350, height: 76)
 let centered = NativeGlassGeometry.centeredContent(shifted, in: dock)!
 check(centered.midX == dock.midX && centered.contains(shifted), "A temporary off-center tab footprint must not move the glass center")
+let mini = CGRect(x: 0, y: 0, width: 386, height: 76)
+check(NativeGlassGeometry.frame(bounds: mini, content: mini, miniPlayer: true) == mini
+    && NativeGlassGeometry.miniRadius(for: mini.size) == 22,
+      "Mini-player glass and the content clipping share the whole rounded footprint")

@@ -8,7 +8,9 @@ import EeveeSpotifyC
 @MainActor
 enum ResponsivePlayer {
     private static var key: UInt8 = 0
+    private static var nativeModeKey: UInt8 = 0
     private static let views = NSHashTable<ResponsivePlayerView>.weakObjects()
+    private static let mountingPages = NSHashTable<UIView>.weakObjects()
     fileprivate static let tabletArtwork: NSCache<NSString, UIImage> = {
         let cache = NSCache<NSString, UIImage>()
         cache.countLimit = 8
@@ -44,10 +46,14 @@ enum ResponsivePlayer {
 
     @discardableResult
     static func applyTablet(in page: UIView) -> Bool {
-        guard tabletEnabled, page.window != nil, page.bounds.width >= 280, page.bounds.height >= 380 else {
+        guard tabletEnabled, objc_getAssociatedObject(page, &nativeModeKey) == nil,
+              page.window != nil, page.bounds.width >= 280, page.bounds.height >= 380 else {
             remove(from: page)
             return false
         }
+        guard !mountingPages.contains(page) else { return ownsVisiblePlayer(page) }
+        mountingPages.add(page)
+        defer { mountingPages.remove(page) }
         let trackID = KaraokeOverlayPresenter.currentTrackId() ?? ""
         if !trackID.isEmpty { NowPlayingIOS27.refreshMetadataArtwork(trackId: trackID) }
         mount(in: page, image: NowPlayingIOS27.metadataArtworkImage,
@@ -57,6 +63,16 @@ enum ResponsivePlayer {
 
     static func remove(from page: UIView) {
         (objc_getAssociatedObject(page, &key) as? ResponsivePlayerView)?.removePlayer()
+    }
+
+    static func yieldToSpotify(in page: UIView) {
+        objc_setAssociatedObject(page, &nativeModeKey, NSNumber(value: true), .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+        remove(from: page)
+    }
+
+    static func pageDidDisappear(_ page: UIView) {
+        remove(from: page)
+        objc_setAssociatedObject(page, &nativeModeKey, nil, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
     }
 
     private static func mount(in page: UIView, image: UIImage?, trackID: String, tablet: Bool) {
@@ -71,7 +87,8 @@ enum ResponsivePlayer {
         }
         if view.frame != page.bounds { view.frame = page.bounds }
         view.refresh(image: image, trackID: trackID)
-        if page.subviews.last !== view { page.bringSubviewToFront(view) }
+        if tablet { view.keepAboveNativeBody(in: page) }
+        else if page.subviews.last !== view { page.bringSubviewToFront(view) }
     }
 
     static func reconcile() -> Bool {
@@ -104,13 +121,11 @@ enum ResponsivePlayer {
 }
 
 @MainActor
-final class ResponsivePlayerView: UIView {
+final class ResponsivePlayerView: UIView, UIScrollViewDelegate {
     weak var page: UIView?
     fileprivate let tablet: Bool
     private let scroll = UIScrollView()
     private let backdrop = UIView()
-    private let headerBlend = CAGradientLayer()
-    private var sharedHeaderBottom: CGFloat = 0
     private let background = UIImageView()
     private let shade = UIView()
     private let artworkShade = CAGradientLayer()
@@ -129,13 +144,16 @@ final class ResponsivePlayerView: UIView {
     private var lastPlaybackState: Bool?
     private var lastArtworkRetry: TimeInterval = 0
     private weak var consideredArtwork: UIImage?
-    private var nativeArtworkSnapshot: HeaderSnapshot?
     private var usedWideTypography: Bool?
     private var inlineFont = UIFont.systemFont(ofSize: 19, weight: .semibold)
     private let title = UIButton(type: .system)
     private let artist = UIButton(type: .system)
     private let close = UIButton(type: .system)
     private let menu = UIButton(type: .system)
+    private let pane = UIButton(type: .system)
+    private let headerTitle = UILabel()
+    private let trackDetails = UIButton(type: .system)
+    private weak var nativeList: UIScrollView?
     private let progress = UISlider()
     private let elapsed = UILabel()
     private let remaining = UILabel()
@@ -165,23 +183,6 @@ final class ResponsivePlayerView: UIView {
         init(_ view: UIView) { self.view = view; alpha = view.alpha }
     }
     private var headerSnapshots: [HeaderSnapshot] = []
-    @MainActor private final class HeaderLayerSnapshot {
-        weak var view: UIView?
-        let original: CGFloat
-        let raised: CGFloat
-
-        init(_ view: UIView, above player: UIView) {
-            self.view = view
-            original = view.layer.zPosition
-            raised = max(original, player.layer.zPosition + 1)
-            view.layer.zPosition = raised
-        }
-
-        func restore() {
-            if let view, view.layer.zPosition == raised { view.layer.zPosition = original }
-        }
-    }
-    private var nativeHeaderLayers: [HeaderLayerSnapshot] = []
     private var headerHeight: CGFloat { TabletPlayerLayout.headerHeight(safeTop: safeAreaInsets.top) }
     private var lastDiscovery: TimeInterval = 0
     private var lastTabletRefresh: TimeInterval = 0
@@ -205,7 +206,8 @@ final class ResponsivePlayerView: UIView {
         super.init(frame: page.bounds)
         accessibilityIdentifier = "shrubify-responsive-player"
         autoresizingMask = [.flexibleWidth, .flexibleHeight]
-        isOpaque = false
+        isOpaque = tablet
+        if tablet { clipsToBounds = true }
         backdrop.backgroundColor = .black
         backdrop.isUserInteractionEnabled = false
         background.contentMode = .scaleAspectFill
@@ -215,15 +217,12 @@ final class ResponsivePlayerView: UIView {
         shade.backgroundColor = tablet ? .clear : UIColor.black.withAlphaComponent(0.5)
         shade.isUserInteractionEnabled = false
         if tablet {
-            artworkShade.colors = [UIColor.black.withAlphaComponent(0.04).cgColor,
-                                   UIColor.black.withAlphaComponent(0.28).cgColor,
-                                   UIColor.black.withAlphaComponent(0.80).cgColor]
+            artworkShade.colors = [UIColor.black.withAlphaComponent(0.27).cgColor,
+                                   UIColor.black.withAlphaComponent(0.34).cgColor,
+                                   UIColor.black.withAlphaComponent(0.68).cgColor]
             artworkShade.locations = [0, 0.46, 1]
             shade.layer.addSublayer(artworkShade)
-            // Fallback for Spotify versions that put part of the header in
-            // the same branch as their body instead of a separate view.
-            headerBlend.colors = [UIColor.clear.cgColor, UIColor.clear.cgColor, UIColor.black.cgColor]
-            backdrop.layer.mask = headerBlend
+            scroll.delegate = self
             isHidden = true
         }
         backdrop.addSubview(background)
@@ -251,9 +250,34 @@ final class ResponsivePlayerView: UIView {
                     onMainThreadSync { self?.refreshPreview() }
             })
         }
-        configure(close, symbol: "chevron.down", label: "Close player") { [weak self] in self?.performNative("now-playing-minimize-button") }
-        configure(menu, symbol: "ellipsis", label: "More options") { [weak self] in self?.performNative("Context menu") }
-        if !tablet { scroll.addSubview(close); scroll.addSubview(menu) }
+        configure(close, symbol: "chevron.down", label: "Close player") { [weak self] in
+            guard let self else { return }
+            if tablet { leaveTabletPlayer() } else { performNative("now-playing-minimize-button") }
+        }
+        configure(menu, symbol: "ellipsis", label: "More options") { [weak self] in
+            guard let self else { return }
+            if tablet, activeNative("Context menu") == nil, let page {
+                ResponsivePlayer.yieldToSpotify(in: page)
+            } else { performNative("Context menu") }
+        }
+        if tablet {
+            close.accessibilityIdentifier = "shrubify.player.close"
+            configure(pane, symbol: "sidebar.right", label: "Change player view") { [weak self] in
+                self?.performNative("shrubify-player-pane")
+            }
+            for view in [close, pane, headerTitle, menu] { addSubview(view) }
+            headerTitle.font = .preferredFont(forTextStyle: .subheadline)
+            headerTitle.adjustsFontForContentSizeCategory = true
+            headerTitle.textColor = .white
+            headerTitle.textAlignment = .center
+            headerTitle.isAccessibilityElement = true
+            headerTitle.accessibilityTraits = .header
+            trackDetails.setTitle("Artist info and credits", for: .normal)
+            trackDetails.setTitleColor(.white, for: .normal)
+            trackDetails.titleLabel?.font = .preferredFont(forTextStyle: .headline)
+            trackDetails.addAction(UIAction { [weak self] _ in self?.openTrackDetails() }, for: .touchUpInside)
+            scroll.addSubview(trackDetails)
+        } else { scroll.addSubview(close); scroll.addSubview(menu) }
         title.setTitleColor(.white, for: .normal)
         if tablet { title.setTitleColor(.white, for: .disabled) }
         artist.setTitleColor(UIColor.white.withAlphaComponent(0.75), for: .normal)
@@ -411,9 +435,11 @@ final class ResponsivePlayerView: UIView {
             consideredArtwork = image
             let existingWidth = artwork.image.map { $0.size.width * $0.scale } ?? 0
             if !tablet || (ArtworkInspector.usableImage(image) && image.size.width * image.scale >= existingWidth) {
-                artwork.image = image
-                background.image = NowPlayingIOS27.backdrop(from: image)
-                if tablet { artworkButton.isEnabled = true }
+                if tablet { upgradeTabletArtwork(image) }
+                else {
+                    artwork.image = image
+                    background.image = NowPlayingIOS27.backdrop(from: image)
+                }
             }
         }
         discoverNative(in: page)
@@ -441,6 +467,10 @@ final class ResponsivePlayerView: UIView {
             ResponsivePlayer.tabletArtwork.setObject(cover, forKey: artworkKey)
         }
         if let info {
+            if tablet {
+                headerTitle.text = (native.object(forKey: NowPlayingIOS27.navTitleIdentifier as NSString) as? UILabel)?.text
+                    ?? info.metadata["album_title"] ?? info.title
+            }
             title.setTitle(info.title, for: .normal)
             artist.setTitle(info.artist, for: .normal)
             title.accessibilityLabel = info.title
@@ -461,17 +491,12 @@ final class ResponsivePlayerView: UIView {
         for snapshot in headerSnapshots { snapshot.view?.alpha = ready ? 0 : snapshot.alpha }
         for snapshot in savedAccessibility { snapshot.view?.accessibilityElementsHidden = ready || snapshot.wasHidden }
         guard ready else {
-            restoreNativeArtwork()
-            if tablet { NativeTabletCanvasReadability.restoreVideo(in: page) }
             if !tablet { displayLink?.isPaused = true }
             return
         }
         displayLink?.isPaused = false
         if tablet {
             artworkButton.isEnabled = artwork.image != nil
-            hideDuplicateArtwork()
-            if backdrop.layer.mask != nil { NativeTabletCanvasReadability.suppressVideo(in: page) }
-            else { NativeTabletCanvasReadability.restoreVideo(in: page) }
             if isHidden {
                 setNeedsLayout()
                 layoutIfNeeded()
@@ -499,7 +524,8 @@ final class ResponsivePlayerView: UIView {
                 button.tintColor = button.isSelected ? .systemGreen : .white
             }
         }
-        close.isEnabled = native.object(forKey: "now-playing-minimize-button") != nil
+        close.isEnabled = tablet || native.object(forKey: "now-playing-minimize-button") != nil
+        if tablet { pane.isHidden = activeNative("shrubify-player-pane") == nil }
         let disabled = NgzhwmSettingsViewModel.isLyricsFeatureDisabled
         if tablet {
             lyricsButton.isEnabled = !disabled && (KaraokeOverlayPresenter.canOpenForCurrentTrack()
@@ -512,7 +538,7 @@ final class ResponsivePlayerView: UIView {
             lyrics.isHidden = true
             if #available(iOS 26.0, *) { lyricsHost?.detach() }
         }
-        menu.isHidden = native.object(forKey: "Context menu") == nil
+        menu.isHidden = !tablet && native.object(forKey: "Context menu") == nil
         updateLyrics()
         if !tablet { setNeedsLayout() }
     }
@@ -521,7 +547,10 @@ final class ResponsivePlayerView: UIView {
         let existing = artwork.image.map { $0.size.width * $0.scale } ?? 0
         guard candidate.size.width * candidate.scale > existing else { return }
         artwork.image = candidate
-        background.image = NowPlayingIOS27.backdrop(from: candidate)
+        LyricsBackdropImageCache.shared.blurArtwork(candidate) { [weak self] blurred in
+            guard let self, artwork.image === candidate else { return }
+            background.image = blurred
+        }
     }
 
     private func refreshPlayback() {
@@ -587,16 +616,18 @@ final class ResponsivePlayerView: UIView {
     private func activeNative(_ id: String) -> UIView? {
         guard let source = native.object(forKey: id as NSString) else { return nil }
         guard tablet else { return source }
+        if id == "shrubify-player-pane" || id == NowPlayingIOS27.contextMenuIdentifier
+            || id == NowPlayingLyricsPlate.minimizeButtonIdentifier {
+            return source.window === window && !source.isHidden && source.alpha > 0.01 ? source : nil
+        }
         guard let page, source.window === page.window, source.isDescendant(of: page), onPlayerPage(source, page: page) else { return nil }
         return source
     }
 
-    private func onPlayerPage(_ source: UIView, page: UIView, includeSuppressedArtwork: Bool = false) -> Bool {
+    private func onPlayerPage(_ source: UIView, page: UIView) -> Bool {
         var node: UIView? = source
         while let view = node, view !== page {
-            guard !view.isHidden,
-                  view.alpha > 0.01 || (includeSuppressedArtwork && view === nativeArtworkSnapshot?.view)
-            else { return false }
+            guard !view.isHidden, view.alpha > 0.01 else { return false }
             node = view.superview
         }
         return source.convert(source.bounds, to: page).intersects(page.bounds)
@@ -611,9 +642,8 @@ final class ResponsivePlayerView: UIView {
         if tablet { nativeCover = nil; nativeCoverCell = nil; canvasCover = nil }
         savedAccessibility.removeAll { $0.view == nil }
         var queue = [page]; var index = 0
-        var standaloneHeaders: [UIView] = []
-        var sharedHeaderBottom: CGFloat = 0
-        let ids = Set(actions.keys).union(["now-playing-minimize-button", "Context menu", "SPTNowPlayingSliderV2"])
+        let ids = Set(actions.keys).union(["now-playing-minimize-button", "Context menu", "SPTNowPlayingSliderV2",
+                                          NowPlayingIOS27.navTitleIdentifier])
         while index < queue.count, index < 3000 {
             let view = queue[index]; index += 1
             if view === self { continue }
@@ -625,7 +655,7 @@ final class ResponsivePlayerView: UIView {
                 canvasCover = view
             }
             guard !view.isHidden, rect.intersects(page.bounds),
-                  !tablet || onPlayerPage(view, page: page, includeSuppressedArtwork: true) else { continue }
+                  !tablet || onPlayerPage(view, page: page) else { continue }
             if tablet, nativeCover == nil, ArtworkInspector.isNativeCover(view) {
                 nativeCover = view
             }
@@ -645,16 +675,6 @@ final class ResponsivePlayerView: UIView {
             }
             let name = NSStringFromClass(type(of: view))
             let id = view.accessibilityIdentifier
-            if tablet, view !== page, rect.midY < headerHeight + 8,
-               (name.hasSuffix("NowPlayingScrollHeader") || id == NowPlayingIOS27.contextMenuIdentifier
-                || id == NowPlayingLyricsPlate.minimizeButtonIdentifier || id == NowPlayingIOS27.navTitleIdentifier) {
-                var branch = view
-                while let parent = branch.superview, parent !== page { branch = parent }
-                let frame = branch.convert(branch.bounds, to: page)
-                if frame.minY >= -12, frame.maxY <= headerHeight + 18 {
-                    if !standaloneHeaders.contains(where: { $0 === branch }) { standaloneHeaders.append(branch) }
-                } else { sharedHeaderBottom = max(sharedHeaderBottom, min(rect.maxY, headerHeight)) }
-            }
             if (id == "Components.ConnectButtonOutputSwitcher" || name.contains("ConnectButton")),
                native.object(forKey: "shrubify-connect") == nil {
                 native.setObject(view, forKey: "shrubify-connect")
@@ -670,10 +690,10 @@ final class ResponsivePlayerView: UIView {
             }
         }
         if tablet {
-            updateTabletHeader(standaloneHeaders, sharedBottom: sharedHeaderBottom)
+            nativeList = NowPlayingOneScreen.findList(in: page)
             if previousCover !== nativeCover { setNeedsLayout() }
         }
-        if !tablet { discoverHeader(in: page) }
+        discoverHeader(in: page)
         for child in page.subviews where child !== self && !tablet {
             if !savedAccessibility.contains(where: { $0.view === child }) {
                 savedAccessibility.append(AccessibilitySnapshot(child))
@@ -682,26 +702,8 @@ final class ResponsivePlayerView: UIView {
         }
     }
 
-    private func updateTabletHeader(_ branches: [UIView], sharedBottom: CGFloat) {
-        CATransaction.begin()
-        CATransaction.setDisableActions(true)
-        defer { CATransaction.commit() }
-        nativeHeaderLayers.removeAll { snapshot in
-            guard branches.contains(where: { $0 === snapshot.view }) else { snapshot.restore(); return true }
-            return false
-        }
-        for view in branches {
-            if !nativeHeaderLayers.contains(where: { $0.view === view }) {
-                nativeHeaderLayers.append(HeaderLayerSnapshot(view, above: self))
-            }
-        }
-        if sharedHeaderBottom != sharedBottom { sharedHeaderBottom = sharedBottom; setNeedsLayout() }
-        let mask = sharedBottom > 0 ? headerBlend : nil
-        if backdrop.layer.mask !== mask { backdrop.layer.mask = mask; setNeedsLayout() }
-    }
-
     // iPad can host the native header as a sibling of the scroll controller.
-    // Hide only its recognized buttons, preserving their actions and restoration.
+    // Find those actions without moving or hiding the system views.
     private func discoverHeader(in page: UIView) {
         var root = page
         for _ in 0..<3 {
@@ -719,14 +721,20 @@ final class ResponsivePlayerView: UIView {
             let rect = view.convert(view.bounds, to: root)
             guard rect.intersects(band) else { continue }
             queue.append(contentsOf: view.subviews)
-            guard let id = view.accessibilityIdentifier,
-                  ["Context menu", "now-playing-minimize-button"].contains(id),
+            let identifier = view.accessibilityIdentifier
+            if tablet, identifier == NowPlayingIOS27.navTitleIdentifier, view is UILabel {
+                native.setObject(view, forKey: NowPlayingIOS27.navTitleIdentifier as NSString)
+            }
+            let name = NSStringFromClass(type(of: view))
+            let id = tablet && name.hasSuffix("FullscreenButtonElementUI") ? "shrubify-player-pane" : identifier
+            guard let id, ["Context menu", "now-playing-minimize-button", "shrubify-player-pane"].contains(id),
+                  (!tablet || (!view.isHidden && view.alpha > 0.01 && view.window === page.window)),
                   let control = NowPlayingIOS27.nearestControl(view) else { continue }
             let controlRect = control.convert(control.bounds, to: root)
             guard controlRect.width <= 96, controlRect.height <= 96,
                   controlRect.width >= 16, controlRect.height >= 16 else { continue }
             if native.object(forKey: id as NSString) == nil { native.setObject(view, forKey: id as NSString) }
-            if !headerSnapshots.contains(where: { $0.view === control }) {
+            if !tablet, !headerSnapshots.contains(where: { $0.view === control }) {
                 headerSnapshots.append(HeaderSnapshot(control))
             }
         }
@@ -741,12 +749,69 @@ final class ResponsivePlayerView: UIView {
             NowPlayingIOS27.activateConnect(source)
             return
         }
+        _ = activate(source)
+    }
+
+    private func activate(_ source: UIView) -> Bool {
         if let control = NowPlayingIOS27.nearestControl(source), control.isEnabled {
             control.sendActions(for: .touchDown)
             let activation: UIControl.Event = tablet && control.allControlEvents.contains(.primaryActionTriggered)
                 ? .primaryActionTriggered : .touchUpInside
             control.sendActions(for: activation)
-        } else { _ = source.accessibilityActivate() }
+            return true
+        }
+        return source.accessibilityActivate()
+    }
+
+    private func leaveTabletPlayer() {
+        guard let page else { return }
+        lastDiscovery = 0
+        discoverNative(in: page)
+        let nearlyFullscreen = bounds.width >= (window?.bounds.width ?? bounds.width) * 0.85
+        let source = (nearlyFullscreen ? activeNative("shrubify-player-pane") : nil)
+            ?? activeNative(NowPlayingLyricsPlate.minimizeButtonIdentifier)
+        var modal = WindowHelper.shared.viewController(for: page)
+        while let current = modal, current.presentingViewController == nil { modal = current.parent }
+        ResponsivePlayer.yieldToSpotify(in: page)
+        if let source, source.window === page.window, activate(source) { return }
+        if let modal {
+            let name = NSStringFromClass(type(of: modal))
+            if name.contains("NowPlaying") || name.contains("NPV") { modal.dismiss(animated: true) }
+        }
+    }
+
+    override func accessibilityPerformEscape() -> Bool {
+        guard tablet else { return super.accessibilityPerformEscape() }
+        leaveTabletPlayer()
+        return true
+    }
+
+    private func openTrackDetails() {
+        guard let page, page.window != nil else { return }
+        let list = nativeList ?? NowPlayingOneScreen.findList(in: page)
+        ResponsivePlayer.yieldToSpotify(in: page)
+        guard let list, list.window === page.window else { return }
+        list.layoutIfNeeded()
+        let top = -list.adjustedContentInset.top
+        let bottom = max(top, list.contentSize.height - list.bounds.height + list.adjustedContentInset.bottom)
+        let next = min(bottom, max(list.contentOffset.y, top + list.bounds.height * 0.78))
+        list.setContentOffset(CGPoint(x: list.contentOffset.x, y: next), animated: false)
+    }
+
+    func scrollViewDidEndDragging(_ scrollView: UIScrollView, willDecelerate decelerate: Bool) {
+        guard tablet, scrollView === scroll, nativeList != nil,
+              scrollView.contentOffset.y >= max(32, trackDetails.frame.minY - scrollView.bounds.height + 18)
+        else { return }
+        DispatchQueue.main.async { [weak self] in self?.openTrackDetails() }
+    }
+
+    fileprivate func keepAboveNativeBody(in page: UIView) {
+        guard var branch = (nativeList as UIView?) ?? activeNative("SPTNowPlayingPlayButton") else { return }
+        while let parent = branch.superview, parent !== page { branch = parent }
+        guard branch !== self, branch.superview === page,
+              let bodyIndex = page.subviews.firstIndex(of: branch),
+              let playerIndex = page.subviews.firstIndex(of: self), playerIndex < bodyIndex else { return }
+        page.insertSubview(self, aboveSubview: branch)
     }
 
     private func openMetadata(_ key: String) {
@@ -843,7 +908,7 @@ final class ResponsivePlayerView: UIView {
                     requestedPreviewTrack = trackID
                     prefetchLyricsIfNeeded(trackId: trackID)
                 }
-                if superview === page, page.subviews.last !== self, !isHidden { page.bringSubviewToFront(self) }
+                if !isHidden { keepAboveNativeBody(in: page) }
             }
             if !isHidden { updatePlayback(KaraokePlaybackTracker.shared.snapshot()) }
             return
@@ -855,11 +920,7 @@ final class ResponsivePlayerView: UIView {
 
     override func didMoveToWindow() {
         super.didMoveToWindow()
-        if tablet, window == nil, let page {
-            restoreNativeArtwork()
-            NativeTabletCanvasReadability.restoreVideo(in: page)
-            nativeHeaderLayers.forEach { $0.restore() }
-            nativeHeaderLayers.removeAll()
+        if tablet, window == nil {
             lastDiscovery = 0
             isHidden = true
         }
@@ -898,8 +959,8 @@ final class ResponsivePlayerView: UIView {
     }
 
     override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
-        if tablet && point.y < headerHeight { return nil }
-        return super.hitTest(point, with: event)
+        let hit = super.hitTest(point, with: event)
+        return tablet && hit === self ? nil : hit
     }
 
     override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
@@ -972,11 +1033,13 @@ final class ResponsivePlayerView: UIView {
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         artworkShade.frame = shade.bounds
-        headerBlend.frame = backdrop.bounds
-        headerBlend.locations = TabletPlayerLayout.headerFade(end: min(top, sharedHeaderBottom), height: bounds.height).map {
-            NSNumber(value: Double($0))
-        }
         CATransaction.commit()
+
+        close.frame = TabletPlayerLayout.closeFrame(safeTop: safeAreaInsets.top)
+        let headerY = close.frame.minY
+        pane.frame = CGRect(x: close.frame.maxX + 2, y: headerY, width: 48, height: 48)
+        menu.frame = CGRect(x: bounds.width - 60, y: headerY, width: 48, height: 48)
+        headerTitle.frame = CGRect(x: 112, y: headerY, width: max(0, bounds.width - 224), height: 48)
 
         artwork.frame = layout.artwork
         artworkButton.frame = layout.artwork
@@ -998,49 +1061,29 @@ final class ResponsivePlayerView: UIView {
         footerGlass?.frame = layout.footer
         credit.frame = CGRect(x: layout.footer.minX, y: layout.footer.maxY + 4, width: layout.footer.width, height: 20)
         let heightWithCredit = showingLyrics ? credit.frame.maxY + safeAreaInsets.bottom + 8 : 0
-        scroll.contentSize = CGSize(width: scroll.bounds.width, height: max(layout.contentHeight, heightWithCredit))
+        let bottom = max(layout.contentHeight, heightWithCredit)
+        trackDetails.frame = CGRect(x: 20, y: bottom + 12, width: max(0, scroll.bounds.width - 40), height: 52)
+        scroll.contentSize = CGSize(width: scroll.bounds.width, height: trackDetails.frame.maxY + safeAreaInsets.bottom + 16)
     }
 
     private func openArtwork() {
         guard let image = artwork.image else { return }
-        restoreNativeArtwork()
         if let nativeCover, let page, onPlayerPage(nativeCover, page: page),
            ArtworkInspector.openNative(from: nativeCover) { return }
         if #available(iOS 15.0, *) { ArtworkInspector.present(image, from: self) }
     }
 
-    private func hideDuplicateArtwork() {
-        let child = nativeCover.flatMap { NowPlayingLyricsPlate.sameSizeChild(of: $0) } ?? nativeCoverCell ?? canvasCover
-        guard let child, child.bounds.width > 0, child.bounds.height > 0 else { restoreNativeArtwork(); return }
-        if nativeArtworkSnapshot?.view !== child {
-            restoreNativeArtwork()
-            nativeArtworkSnapshot = HeaderSnapshot(child)
-        }
-        if child.alpha > 0 { child.alpha = 0 }
-    }
-
-    private func restoreNativeArtwork() {
-        if let snapshot = nativeArtworkSnapshot, let view = snapshot.view, view.alpha == 0 {
-            view.alpha = snapshot.alpha
-        }
-        nativeArtworkSnapshot = nil
-    }
-
     func removePlayer() {
         displayLink?.invalidate(); displayLink = nil
-        restoreNativeArtwork()
         if #available(iOS 26.0, *) { lyricsHost?.detach(); lyricsHost = nil }
         for snapshot in savedAccessibility { snapshot.view?.accessibilityElementsHidden = snapshot.wasHidden }
         savedAccessibility.removeAll()
         for snapshot in headerSnapshots { snapshot.view?.alpha = snapshot.alpha }
         headerSnapshots.removeAll()
-        for snapshot in nativeHeaderLayers { snapshot.restore() }
-        nativeHeaderLayers.removeAll()
         for observer in observers { NotificationCenter.default.removeObserver(observer) }
         observers.removeAll()
         removeFromSuperview()
         if let page {
-            if tablet { NativeTabletCanvasReadability.restoreVideo(in: page) }
             ResponsivePlayer.released(page)
         }
     }

@@ -466,6 +466,8 @@ final class LyricsBackdropImageCache {
     private let cache = NSCache<NSURL, UIImage>()
     private let session: URLSession
     private let context = CIContext(options: [.useSoftwareRenderer: false])
+    private let localBlurs = NSCache<UIImage, UIImage>()
+    private let blurQueue = DispatchQueue(label: "com.shrubify.artwork.blur", qos: .userInitiated)
     /// 同一 URL 并发请求合并。
     private var inFlight: [URL: [(UIImage?) -> Void]] = [:]
     private let lock = NSLock()
@@ -476,10 +478,21 @@ final class LyricsBackdropImageCache {
         configuration.timeoutIntervalForResource = 20
         session = URLSession(configuration: configuration)
         cache.countLimit = 12
+        localBlurs.countLimit = 8
     }
 
     func blurredImage(for url: URL) -> UIImage? {
         cache.object(forKey: url as NSURL)
+    }
+
+    func blurArtwork(_ artwork: UIImage, completion: @escaping (UIImage?) -> Void) {
+        if let image = localBlurs.object(forKey: artwork) { completion(image); return }
+        guard let original = artwork.cgImage else { completion(nil); return }
+        blurQueue.async { [self] in
+            let image = makeBlurredImage(from: CIImage(cgImage: original))
+            if let image { localBlurs.setObject(image, forKey: artwork) }
+            DispatchQueue.main.async { completion(image) }
+        }
     }
 
     /// 回调在主线程；失败时为 nil。
@@ -525,10 +538,12 @@ final class LyricsBackdropImageCache {
 
     /// 缩图 → 模糊 → 裁回原尺寸（模糊会外扩，不裁会带一圈透明边）。
     private func makeBlurredImage(from data: Data) -> UIImage? {
-        guard let source = CIImage(data: data),
-              let downscaled = downscale(source, maxSide: downscaleMaxSide) else {
-            return nil
-        }
+        guard let source = CIImage(data: data) else { return nil }
+        return makeBlurredImage(from: source)
+    }
+
+    private func makeBlurredImage(from source: CIImage) -> UIImage? {
+        guard let downscaled = downscale(source, maxSide: downscaleMaxSide) else { return nil }
 
         let extent = downscaled.extent
         let clamped = downscaled.clampedToExtent()

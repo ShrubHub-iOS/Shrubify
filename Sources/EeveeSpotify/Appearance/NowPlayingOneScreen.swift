@@ -306,7 +306,7 @@ enum NowPlayingOneScreen {
     }
 
     /// 从听歌页根视图往下按 `accessibilityIdentifier` 找那张列表（有界广度优先）。
-    private static func findList(in root: UIView) -> UIScrollView? {
+    static func findList(in root: UIView) -> UIScrollView? {
         var visited = 0
         var queue: [UIView] = [root]
 

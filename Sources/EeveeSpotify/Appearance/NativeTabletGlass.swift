@@ -15,6 +15,7 @@ enum NativeTabletGlass {
     private static var accessibilityObserver: NSObjectProtocol?
     private static var glassObserver: NSObjectProtocol?
     private static var enabled = false
+    private static var applyingLayout = false
     static let miniWrapperClass = "_TtC22NowPlaying_BarPageImplP33_CCC0D2EEA6D4725EECD8965E8C38C86D20TouchPassthroughView"
 
     @MainActor private final class SharedBacking {
@@ -41,6 +42,11 @@ enum NativeTabletGlass {
         private let opacity = NSHashTable<UIView>.weakObjects()
         private let blurs = NSHashTable<UIVisualEffectView>.weakObjects()
         private let hidden = NSHashTable<UIView>.weakObjects()
+        private weak var roundedMini: UIView?
+        private var restoreMiniCorners: (() -> Void)?
+        private weak var miniProgress: UIView?
+        private var originalProgressTransform: CGAffineTransform?
+        private var appliedProgressTransform: CGAffineTransform?
 #if canImport(EeveeSpotifyC)
         private let attemptedMiniFills = NSHashTable<UIView>.weakObjects()
         private var miniFills: [MiniFill] = []
@@ -121,10 +127,56 @@ enum NativeTabletGlass {
 #endif
         }
 
+        func containMiniContent(in view: UIView) {
+            if roundedMini !== view {
+                restoreMiniCorners?()
+                roundedMini = view
+                let radius = view.layer.cornerRadius
+                let curve = view.layer.cornerCurve
+                let clipped = view.clipsToBounds
+                restoreMiniCorners = { [weak view] in
+                    view?.layer.cornerRadius = radius
+                    view?.layer.cornerCurve = curve
+                    view?.clipsToBounds = clipped
+                }
+            }
+            let radius = NativeGlassGeometry.miniRadius(for: view.bounds.size)
+            if view.layer.cornerRadius != radius { view.layer.cornerRadius = radius }
+            if view.layer.cornerCurve != .continuous { view.layer.cornerCurve = .continuous }
+            if !view.clipsToBounds { view.clipsToBounds = true }
+        }
+
+        func insetMiniProgress(_ rail: UIView) {
+            if miniProgress !== rail {
+                restoreProgress()
+                miniProgress = rail
+                originalProgressTransform = rail.transform
+            }
+            guard let originalProgressTransform, originalProgressTransform.isIdentity, rail.bounds.width > 64,
+                  rail.transform.isIdentity || rail.transform == appliedProgressTransform else { return }
+            let wideEnough = (rail.bounds.width - 34) / rail.bounds.width
+            let transform = CGAffineTransform(translationX: 0, y: -4).scaledBy(x: wideEnough, y: 1)
+            if rail.transform != transform { rail.transform = transform }
+            appliedProgressTransform = transform
+        }
+
+        private func restoreProgress() {
+            if let rail = miniProgress, let originalProgressTransform, rail.transform == appliedProgressTransform {
+                rail.transform = originalProgressTransform
+            }
+            miniProgress = nil
+            originalProgressTransform = nil
+            appliedProgressTransform = nil
+        }
+
         func removeMaterial() {
             geometryRetry?.cancel()
             geometryRetry = nil
             plate?.removeFromSuperview(); plate = nil
+            restoreMiniCorners?()
+            restoreMiniCorners = nil
+            roundedMini = nil
+            restoreProgress()
             selection = nil
             glassContainer = nil
             NativeTabletGlass.releaseWrapper(for: self)
@@ -358,6 +410,9 @@ enum NativeTabletGlass {
 
     @available(iOS 26.0, *)
     private static func update(_ host: UIView, _ state: State, canRetryGeometry: Bool = true) {
+        guard !applyingLayout else { return }
+        applyingLayout = true
+        defer { applyingLayout = false }
         // Never search a page-sized host, even if a future class name matches.
         guard !host.isHidden, host.alpha > 0.5,
               (1...110).contains(host.bounds.height) else { state.remove(); return }
@@ -389,22 +444,31 @@ enum NativeTabletGlass {
         }
         // Measure the same layout pass that applies the compact margins.
         // Waiting on a host callback can leave the old plate at split widths.
-        if state.bar == .tabs, let row = owner as? UIStackView {
+        let external = (state.bar == .tabs ? owner as? UIStackView : nil).map { siblingTabItems(of: $0, host: host) }
+        if state.bar == .tabs, let row = owner as? UIStackView, external?.items.isEmpty != false {
             compactIfSupported(row, host: host, state: state)
             row.layoutIfNeeded()
+        } else if let compact = state.compactRow {
+            compact.restore()
+            state.compactRow = nil
         }
         let content: CGRect
         let tabCount: Int?
         let tabs: [UIView]
+        let geometryOwner: UIView
         if state.bar == .tabs, let row = owner as? UIStackView {
-            let items = row.arrangedSubviews
+            let extraItems = external?.items ?? []
+            geometryOwner = extraItems.isEmpty ? owner : (external?.root ?? host)
+            let items = (extraItems.isEmpty ? row.arrangedSubviews : row.arrangedSubviews.filter { !$0.isHidden }) + extraItems
             guard (2...6).contains(items.count) else {
                 deferTabGeometry(in: host, state: state, canRetry: canRetryGeometry)
                 return
             }
-            let footprint = items.reduce(CGRect.null) { $0.union($1.convert($1.bounds, to: owner)) }
+            let footprint = items.reduce(CGRect.null) { $0.union($1.convert($1.bounds, to: geometryOwner)) }
             if let margins = state.compactRow?.appliedMargins {
                 content = owner.bounds.insetBy(dx: margins.leading, dy: 0)
+            } else if !extraItems.isEmpty, let measured = visibleTabContent(items, in: geometryOwner) {
+                content = measured
             } else if let centered = NativeGlassGeometry.centeredContent(footprint, in: owner.bounds),
                       centered.width <= CGFloat(items.count) * 82 + 40 {
                 content = centered
@@ -418,12 +482,13 @@ enum NativeTabletGlass {
             tabCount = items.count
             tabs = items
         } else {
+            geometryOwner = owner
             content = owner.bounds
             tabCount = nil
             tabs = []
         }
         guard let frame = NativeGlassGeometry.frame(
-            bounds: owner.bounds, content: content, miniPlayer: state.bar == .miniPlayer,
+            bounds: geometryOwner.bounds, content: content, miniPlayer: state.bar == .miniPlayer,
             tabCount: tabCount
         ) else {
             // A just-compacted stack can report its pre-layout 825pt frames
@@ -451,7 +516,7 @@ enum NativeTabletGlass {
         // has its own paint stack, so keep material inside the bar under its controls.
         let anchor = glassAnchor(for: host, in: state.navigationRoot)
         let container = state.bar == .miniPlayer ? owner : (anchor.superview ?? owner)
-        let converted = owner.convert(frame, to: container)
+        let converted = geometryOwner.convert(frame, to: container)
         guard converted.minX.isFinite, converted.minY.isFinite,
               converted.width.isFinite, converted.height.isFinite,
               converted.width >= 40, converted.height >= 20 else { state.remove(); return }
@@ -475,8 +540,8 @@ enum NativeTabletGlass {
             // A replaced bar must not retain the old glass or opaque backings.
             state.removeMaterial()
         }
-        let plate = ShrubifyLiquidGlass.makePlate(radius: nil, interactive: false,
-                                                  prefersReadableGlass: state.bar == .miniPlayer)
+        let radius = state.bar == .miniPlayer ? NativeGlassGeometry.miniRadius(for: frame.size) : nil
+        let plate = ShrubifyLiquidGlass.makePlate(radius: radius, interactive: false, prefersReadableGlass: true)
         if state.bar == .miniPlayer { plate.overrideUserInterfaceStyle = .dark }
         plate.accessibilityIdentifier = "shrubify.native.glass.material"
         plate.isUserInteractionEnabled = false
@@ -623,6 +688,28 @@ enum NativeTabletGlass {
         indicator.layer.cornerRadius = min(indicator.bounds.height, indicator.bounds.width) / 2
     }
 
+    private static func siblingTabItems(of row: UIStackView, host: UIView) -> (root: UIView, items: [UIView]) {
+        var root = host
+        if let wrapper = host.superview, wrapper.bounds.height <= 120 { root = wrapper }
+        var queue = [root]
+        var index = 0
+        var items: [UIView] = []
+        let band = row.convert(row.bounds, to: root)
+        while index < queue.count, items.count < 2 {
+            let view = queue[index]; index += 1
+            guard view !== row, !view.isHidden, view.alpha > 0.5 else { continue }
+            let name = NSStringFromClass(type(of: view))
+            let rect = view.convert(view.bounds, to: root)
+            if name.contains("TabBarItem"), (34...180).contains(rect.width), (30...100).contains(rect.height),
+               abs(rect.midY - band.midY) < 12, view.isUserInteractionEnabled {
+                items.append(view)
+                continue
+            }
+            if !(view is UIScrollView || view is UIImageView) { queue.append(contentsOf: view.subviews.prefix(100 - queue.count)) }
+        }
+        return (root, items)
+    }
+
     private static func matches(_ view: UIView, _ bar: Bar) -> Bool {
         if bar == .miniPlayer {
             guard (30...110).contains(view.bounds.height), view.bounds.width >= 140 else { return false }
@@ -655,7 +742,10 @@ enum NativeTabletGlass {
     }
 
     private static func clearBarBacking(around owner: UIView, within host: UIView, state: State) {
-        if state.bar == .miniPlayer { state.suppressMiniFill(owner) }
+        if state.bar == .miniPlayer {
+            state.suppressMiniFill(owner)
+            state.containMiniContent(in: owner)
+        }
         for case let effect as UIVisualEffectView in owner.subviews
         where effect !== state.plate && effect.frame == owner.bounds && effect.contentView.subviews.isEmpty {
             state.clearBlur(effect)
@@ -679,6 +769,10 @@ enum NativeTabletGlass {
             while index < nodes.count {
                 let view = nodes[index]
                 index += 1
+                if view.accessibilityIdentifier == "now-playing-bar-duration" {
+                    state.insetMiniProgress(view)
+                    continue
+                }
                 let rect = view.convert(view.bounds, to: owner)
                 guard rect.width >= owner.bounds.width * 0.82,
                       rect.height >= owner.bounds.height * 0.67,

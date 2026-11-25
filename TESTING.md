@@ -1,8 +1,12 @@
-# Shrubify 4.2.5~beta7 testing checklist
+# Shrubify 4.2.5~beta8 testing checklist
 
-## 4.2.5 beta 7 on iPad
+## 4.2.5 beta 8 on iPad
 
-- Watch the live lyric through a verse with timed words. Confirm the line fades smoothly, the emphasis follows the words, and Reduce Motion removes the dissolve. Scrub back and tap the lyric to open the full view.
+- Open fullscreen from the sidebar, tap the close button, and repeat. Test on a bright Canvas track, after opening and closing settings, and across rotation. Confirm that the header stays readable and no duplicate artwork comes through.
+- Swipe up past the playback controls or tap Artist info and credits. Spotify's native player should take over for the rest of the visit. Check the artist section and credits when the track has them.
+- Scroll bright tiles behind the mini-player. Check that the cover corners and the progress rail stay inside the same rounded surface. Start playback on Home and check the selection lens as the tab layout changes.
+
+- Watch a verse switch between one and two lines. The lyric should keep the same top edge, fade in by itself, and maintain word timing. Check Reduce Motion, backward scrubbing, and tapping to open the full view.
 
 - Start a track from an album before opening Now Playing. Confirm every tab remains visible and tappable and the right mini-player shows glass across artwork color changes. Open the split player first, confirm the cover appears, then expand immediately. Watch the native header and background on first open and after returning from fullscreen.
 - Play through several word-timed lyric lines without touching the player. Short gaps should retain the previous line at steady contrast, long instrumental gaps should clear it, and skips should never display the preceding track's lyric.

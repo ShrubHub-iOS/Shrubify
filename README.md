@@ -1,6 +1,6 @@
 > **4.2.5 beta 5:** Refined iPad Now Playing typography and new lrc.red and LyricsPlus providers. The stable install channel continues to serve 4.2.4.
 
-# Shrubify 4.2.5~beta7
+# Shrubify 4.2.5~beta8
 
 **Created and maintained by shrubbery and the ShrubHub team.**
 
@@ -22,7 +22,7 @@ The iPad player adapts the artwork and controls to the pane and keeps Spotify’
 
 ## Install and build
 
-- **Shrubify 4.2.5 beta 7 release notes** [RELEASE-4.2.5~beta7.md](RELEASE-4.2.5~beta7.md)
+- **Shrubify 4.2.5 beta 8 release notes** [RELEASE-4.2.5~beta8.md](RELEASE-4.2.5~beta8.md)
 
 - **Source and full setup:** [SHRUBIFY-SETUP.md](SHRUBIFY-SETUP.md)
 - **Changes in this release:** [CHANGELOG.md](CHANGELOG.md)

@@ -15,48 +15,7 @@ enum NativeTabletCanvasReadability {
     }
 
     private static let pages = NSMapTable<UIView, PageState>.weakToStrongObjects()
-    private static let suppressedVideos = NSMapTable<UIView, VideoSuppression>.weakToStrongObjects()
     private static let overlayID = "shrubify.canvas.readability"
-
-    @MainActor private final class SuppressedVideo {
-        weak var view: UIView?
-        let alpha: CGFloat
-
-        init(_ view: UIView) { self.view = view; alpha = view.alpha }
-
-        func restore() {
-            if let view, view.alpha == 0 { view.alpha = alpha }
-        }
-    }
-
-    private final class VideoSuppression {
-        var videos: [SuppressedVideo] = []
-    }
-
-    static func suppressVideo(in page: UIView) {
-        let state = suppressedVideos.object(forKey: page) ?? VideoSuppression()
-        state.videos.removeAll { snapshot in
-            guard let view = snapshot.view, view.isDescendant(of: page) else {
-                snapshot.restore()
-                return true
-            }
-            if view.alpha != 0 { view.alpha = 0 }
-            return false
-        }
-        // During a transition both the outgoing and incoming Canvas can draw
-        // behind the same translucent native header.
-        for _ in 0..<4 {
-            guard let (_, video) = canvas(in: page) else { break }
-            state.videos.append(SuppressedVideo(video))
-            video.alpha = 0
-        }
-        if !state.videos.isEmpty { suppressedVideos.setObject(state, forKey: page) }
-    }
-
-    static func restoreVideo(in page: UIView) {
-        suppressedVideos.object(forKey: page)?.videos.forEach { $0.restore() }
-        suppressedVideos.removeObject(forKey: page)
-    }
 
     static func clear(in page: UIView) {
         guard let state = pages.object(forKey: page) else { return }
@@ -274,7 +233,7 @@ class NativeTabletCanvasReadabilityHook: ClassHook<UIViewController> {
         let controller = target
         onMainThreadSync {
             guard let page = controller.viewIfLoaded else { return }
-            ResponsivePlayer.remove(from: page)
+            ResponsivePlayer.pageDidDisappear(page)
             NativeTabletCanvasReadability.clear(in: page)
         }
     }

@@ -1,12 +1,18 @@
 import UIKit
 
-/// A fixed-height button for the live lyric. The line dissolves as a unit;
-/// the changing emphasis is drawn independently without relaying out text.
+/// A fixed-height button for the live lyric. Only the incoming line animates.
 @MainActor
 final class PlayerLyricPreview: UIButton {
+    private final class TopLabel: UILabel {
+        override func drawText(in rect: CGRect) {
+            let height = super.textRect(forBounds: rect, limitedToNumberOfLines: numberOfLines).height
+            super.drawText(in: CGRect(x: rect.minX, y: rect.minY, width: rect.width, height: min(rect.height, height)))
+        }
+    }
+
     private let content = UIView()
-    private let line = UILabel()
-    private let emphasis = UILabel()
+    private let line = TopLabel()
+    private let emphasis = TopLabel()
     private var lyric: String?
     private var word: Range<String.Index>?
     private var timed = false
@@ -18,6 +24,7 @@ final class PlayerLyricPreview: UIButton {
         super.init(frame: frame)
         content.isUserInteractionEnabled = false
         content.accessibilityElementsHidden = true
+        content.clipsToBounds = true
         addSubview(content)
         for label in [line, emphasis] {
             label.numberOfLines = 2
@@ -54,19 +61,29 @@ final class PlayerLyricPreview: UIButton {
             accessibilityLabel = text
             isAccessibilityElement = text != nil
             isUserInteractionEnabled = text != nil
-            if canAnimate {
-                UIView.transition(with: line, duration: 0.22,
-                                  options: [.transitionCrossDissolve, .beginFromCurrentState, .allowUserInteraction]) {
-                    self.renderLine()
-                }
-            } else {
-                line.layer.removeAllAnimations()
-                renderLine()
-            }
+            content.layer.removeAnimation(forKey: "lyric-entrance")
+            renderLine()
+            if canAnimate, text != nil { animateEntrance() }
         } else if changedTiming { renderLine() }
         if changedWord { renderEmphasis() }
         let alpha = word == nil ? 0 : (UIAccessibility.isReduceMotionEnabled ? 1 : opacity)
         if emphasis.alpha != alpha { emphasis.alpha = alpha }
+    }
+
+    private func animateEntrance() {
+        let fade = CABasicAnimation(keyPath: "opacity")
+        fade.fromValue = 0.55
+        fade.toValue = 1
+        fade.duration = 0.18
+        let rise = CABasicAnimation(keyPath: "transform.translation.y")
+        rise.fromValue = 3
+        rise.toValue = 0
+        rise.duration = fade.duration
+        let animation = CAAnimationGroup()
+        animation.animations = [fade, rise]
+        animation.duration = fade.duration
+        animation.timingFunction = CAMediaTimingFunction(name: .easeOut)
+        content.layer.add(animation, forKey: "lyric-entrance")
     }
 
     private func renderLine() {

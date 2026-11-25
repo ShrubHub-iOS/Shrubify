@@ -93,6 +93,7 @@ final class RootController: UIViewController {
     private let content = ContentFixture(frame: .zero)
     private let miniHost = FixtureMiniWrapper()
     private let mini = UIView()
+    private let miniRail = UIView(frame: CGRect(x: 6, y: 53, width: 228, height: 2))
     private let miniPlay = UIButton(type: .system)
     private let row = UIStackView()
     private let legacy = TabBarGradientView()
@@ -154,6 +155,9 @@ final class RootController: UIViewController {
         view.addSubview(miniHost)
         mini.frame = CGRect(x: 568, y: 64, width: 240, height: 56); mini.accessibilityIdentifier = "SPTNowPlayingBar"
         mini.backgroundColor = .darkGray; miniHost.addSubview(mini)
+        miniRail.accessibilityIdentifier = "now-playing-bar-duration"
+        miniRail.isUserInteractionEnabled = false
+        mini.addSubview(miniRail)
         miniPlay.frame = CGRect(x: 64, y: 0, width: 112, height: 56)
         miniPlay.accessibilityIdentifier = "mini-play"; miniPlay.setTitle("Play", for: .normal)
         miniPlay.addAction(UIAction { [weak self] _ in
@@ -262,9 +266,11 @@ final class RootController: UIViewController {
             && barSurface.effect == nil && barSurface.layer.mask == nil
             && (barHost.layer.backgroundColor?.alpha ?? 0) == 0
             && (mini.layer.backgroundColor?.alpha ?? 0) == 0
+            && mini.clipsToBounds && mini.layer.cornerRadius == 22 && miniRail.frame.maxY < 53
         let restored = legacy.alpha == 1 && dockBacking.alpha == 1 && flatBarBacking.alpha == 1
             && barSurface.effect is UIBlurEffect && barSurface.layer.mask == nil
             && barHost.backgroundColor == .darkGray && mini.backgroundColor == .darkGray
+            && !mini.clipsToBounds && mini.layer.cornerRadius == 0 && miniRail.transform.isIdentity
         let backing = cleared ? "cleared" : (restored ? "native" : "partial")
         let frames = controlFrames
         let controlsIntact = cleared

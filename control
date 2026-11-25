@@ -1,6 +1,6 @@
 Package: com.shrubify.spotify
 Name: Shrubify
-Version: 4.2.5~beta7
+Version: 4.2.5~beta8
 Architecture: iphoneos-arm
 Description: Shrubify by shrubbery and the ShrubHub team. Native glass on iPad bottom bars, custom synced lyrics, Replay, ShrubPanel and ShrubQueue. GPL attribution included.
 Maintainer: shrubbery / ShrubHub team
