@@ -7,7 +7,7 @@ import time
 
 repo = os.environ['GITHUB_REPOSITORY']
 run = os.environ['GITHUB_RUN_ID']
-for attempt in range(120):
+for attempt in range(216):
     payload = json.loads(subprocess.check_output(['gh', 'api', f'repos/{repo}/actions/runs/{run}/jobs?per_page=100']))
     job = next((job for job in payload['jobs'] if job['name'] == 'Verify lyrics interactions on iPad'), None)
     if job and job['status'] == 'completed':
