@@ -256,7 +256,7 @@ final class ResponsivePlayerView: UIView, UIScrollViewDelegate {
         }
         configure(menu, symbol: "ellipsis", label: "More options") { [weak self] in
             guard let self else { return }
-            if tablet, activeNative("Context menu") == nil, let page {
+            if tablet, activeNative("Context menu") == nil, let page = self.page {
                 ResponsivePlayer.yieldToSpotify(in: page)
             } else { performNative("Context menu") }
         }
