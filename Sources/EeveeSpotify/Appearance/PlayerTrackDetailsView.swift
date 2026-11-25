@@ -5,6 +5,7 @@ final class PlayerTrackDetailsView: UIView {
     private let stack = UIStackView()
     private let artistCard = UIStackView()
     private let creditsCard = UIStackView()
+    private let photoRow = UIView()
     private let photo = UIImageView()
     private let artistHeading = UILabel()
     private let artistName = UILabel()
@@ -39,7 +40,7 @@ final class PlayerTrackDetailsView: UIView {
         photo.contentMode = .scaleAspectFit
         photo.clipsToBounds = true
         photo.layer.cornerCurve = .continuous
-        photo.layer.cornerRadius = 12
+        photo.layer.cornerRadius = 22
         photo.accessibilityElementsHidden = true
         configure(artistHeading, style: .subheadline, weight: .semibold)
         artistHeading.text = "About the artist"
@@ -48,8 +49,9 @@ final class PlayerTrackDetailsView: UIView {
         artistCard.addArrangedSubview(artistHeading)
         artistCard.addArrangedSubview(artistName)
         artistCard.setCustomSpacing(4, after: artistHeading)
-        artistCard.addArrangedSubview(photo)
-        photo.isHidden = true
+        photoRow.addSubview(photo)
+        artistCard.addArrangedSubview(photoRow)
+        photoRow.isHidden = true
         artistCard.addArrangedSubview(biography)
         configure(biography, style: .body)
         biographySource.titleLabel?.font = .preferredFont(forTextStyle: .caption1)
@@ -104,14 +106,13 @@ final class PlayerTrackDetailsView: UIView {
         guard !id.isEmpty, !artist.isEmpty else { return }
         let nextPhotoID = PlayerArtistPhoto.artistID(from: artistURI)
         artistLink.isHidden = nextPhotoID == nil
-        artistLink.isEnabled = SpotifyURIOpener.isReady
         if photoID != nextPhotoID {
             photo.layer.removeAllAnimations()
             photo.image = nil
             photoID = nextPhotoID
             requestedPhotoID = nil
             reservesPhoto = photoID != nil
-            photo.isHidden = !reservesPhoto
+            photoRow.isHidden = !reservesPhoto
             onContentChange?()
         }
         guard id != self.id else { return }
@@ -135,7 +136,7 @@ final class PlayerTrackDetailsView: UIView {
             PlayerArtistPhoto.load(id: photoID) { [weak self] image in
                 guard let self, self.photoID == photoID else { return }
                 reservesPhoto = image != nil
-                photo.isHidden = !reservesPhoto
+                photoRow.isHidden = !reservesPhoto
                 photo.image = image
                 if image != nil, !UIAccessibility.isReduceMotionEnabled {
                     photo.alpha = 0
@@ -229,10 +230,14 @@ final class PlayerTrackDetailsView: UIView {
     override func layoutSubviews() {
         super.layoutSubviews()
         stack.frame = bounds
+        stack.layoutIfNeeded()
+        guard let image = photo.image, image.size.height > 0 else { return }
+        let width = min(photoRow.bounds.width, photoRow.bounds.height * image.size.width / image.size.height)
+        photo.frame = CGRect(x: (photoRow.bounds.width - width) / 2, y: 0, width: width, height: photoRow.bounds.height)
     }
 
     private lazy var photoHeight: NSLayoutConstraint = {
-        let constraint = photo.heightAnchor.constraint(equalToConstant: 0)
+        let constraint = photoRow.heightAnchor.constraint(equalToConstant: 0)
         constraint.priority = .defaultHigh
         constraint.isActive = true
         return constraint

@@ -38,6 +38,10 @@ final class ControlsTests: XCTestCase {
         app.buttons["Minimize"].tap()
         XCTAssertEqual(button.label, "Enter fullscreen")
         XCTAssertEqual(app.staticTexts["live-preview-status"].label, "Ready for native action")
+        button.tap()
+        app.buttons["Open artist page"].tap()
+        XCTAssertEqual(button.label, "Enter fullscreen")
+        XCTAssertEqual(app.staticTexts["live-preview-status"].label, "Artist opened in app")
         app.buttons["shrubify.player.current-lyric"].tap()
         XCTAssertEqual(app.staticTexts["live-preview-status"].label, "Lyrics opened")
     }

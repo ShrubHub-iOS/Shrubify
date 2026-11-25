@@ -40,6 +40,12 @@ final class InteractionScene: UIResponder, UIWindowSceneDelegate {
             ? InlineLyricController() : RootController()
         window.makeKeyAndVisible(); self.window = window
     }
+
+    func scene(_ scene: UIScene, continue userActivity: NSUserActivity) {
+        guard userActivity.webpageURL?.absoluteString == "https://open.spotify.com/artist/4MCBfE4596Uoi2O4DtmEMz",
+              let controller = window?.rootViewController as? InlineLyricController else { return }
+        controller.openArtistInFixture()
+    }
 }
 
 final class InlineLyricController: UIViewController {
@@ -93,6 +99,22 @@ final class InlineLyricController: UIViewController {
             }
         }, for: .touchUpInside)
         player.addSubview(minimize)
+        let artist = UIButton(type: .system)
+        artist.frame = CGRect(x: 245, y: 148, width: 150, height: 52)
+        artist.setTitle("Open artist page", for: .normal)
+        artist.addAction(UIAction { [weak self] _ in
+            guard let self, let fullscreen else { return }
+            let scene = view.window?.windowScene
+            fullscreen.exit {
+                PlayerArtistNavigation.open(id: "4MCBfE4596Uoi2O4DtmEMz", in: scene) { _ in false }
+            }
+        }, for: .touchUpInside)
+        player.addSubview(artist)
+    }
+
+    func openArtistInFixture() {
+        guard presentedViewController == nil, player.superview === view else { return }
+        status.text = "Artist opened in app"
     }
 }
 
@@ -117,7 +139,7 @@ final class RootController: UIViewController {
     private var selections = 0
     private let barSurface = FixtureTabBarView(effect: UIBlurEffect(style: .systemMaterialDark))
     private let dockWrapper = UIView()
-    private let dockBacking = UIView()
+    private let dockBacking = UIVisualEffectView(effect: UIGlassEffect(style: .clear))
     private let dockBackdrop = FixtureBackdropView()
     private var blueBackdrop = false
     private var barHost: UIView { barSurface.contentView }
@@ -262,7 +284,10 @@ final class RootController: UIViewController {
             nativeMargins = row.directionalLayoutMargins
             nativeMarginsRelative = row.isLayoutMarginsRelativeArrangement
             didCaptureNativeLayout = true
+            // Layout has to see the bar before its appearance fade completes.
+            mini.alpha = 0.15
             layoutBars()
+            mini.alpha = 1
         }
         reportMaterial()
     }
@@ -295,11 +320,13 @@ final class RootController: UIViewController {
         }
         let wells = (row.arrangedSubviews + [miniPlay]).reduce(0) { $0 + $1.fixtureGlassCount }
         let cleared = legacy.alpha == 0 && dockBacking.alpha == 0 && flatBarBacking.alpha == 0
+            && dockBacking.effect == nil
             && barSurface.effect == nil && barSurface.layer.mask == nil
             && (barHost.layer.backgroundColor?.alpha ?? 0) == 0
             && (mini.layer.backgroundColor?.alpha ?? 0) == 0
             && mini.clipsToBounds && mini.layer.cornerRadius == 22 && miniRail.frame.maxY < 53
         let restored = legacy.alpha == 1 && dockBacking.alpha == 1 && flatBarBacking.alpha == 1
+            && dockBacking.effect is UIGlassEffect
             && barSurface.effect is UIBlurEffect && barSurface.layer.mask == nil
             && barHost.backgroundColor == .darkGray && mini.backgroundColor == .darkGray
             && !mini.clipsToBounds && mini.layer.cornerRadius == 0 && miniRail.transform.isIdentity

@@ -5,6 +5,7 @@ import UIKit
 @MainActor
 final class PlayerFullscreenPresentation: UIViewController, UIViewControllerTransitioningDelegate {
     private let player: UIView
+    fileprivate var transitionContent: UIView { player }
     private weak var origin: UIView?
     private var placeholder: UIView?
     private var returnsToOrigin = true
@@ -40,7 +41,9 @@ final class PlayerFullscreenPresentation: UIViewController, UIViewControllerTran
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
-        if player.superview === view, player.frame != view.bounds { player.frame = view.bounds }
+        if player.superview === view, player.transform.isIdentity, player.frame != view.bounds {
+            player.frame = view.bounds
+        }
     }
 
     func exit(returningPlayer: Bool = true, completion: (() -> Void)? = nil) {
@@ -91,7 +94,7 @@ private final class PlayerExpansionAnimator: NSObject, UIViewControllerAnimatedT
     }
 
     func transitionDuration(using transitionContext: UIViewControllerContextTransitioning?) -> TimeInterval {
-        UIAccessibility.isReduceMotionEnabled ? 0.16 : 0.34
+        UIAccessibility.isReduceMotionEnabled ? 0.16 : 0.44
     }
 
     func animateTransition(using context: UIViewControllerContextTransitioning) {
@@ -115,11 +118,13 @@ private final class PlayerExpansionAnimator: NSObject, UIViewControllerAnimatedT
         view.layoutIfNeeded()
         let panel = anchor.map { view.convert($0.convert($0.bounds, to: container), from: container) }
         let duration = transitionDuration(using: context)
-        var startsAt: CGFloat = expanding ? 0 : 1
-        var endsAt: CGFloat = expanding ? 1 : 0
+        let startsAt: CGFloat = expanding ? 0 : 1
+        let endsAt: CGFloat = expanding ? 1 : 0
+        var startTransform = CGAffineTransform.identity
+        var endTransform = CGAffineTransform.identity
         if !UIAccessibility.isReduceMotionEnabled, let panel,
            panel.width > 1, panel.height > 1, panel.intersects(view.bounds) {
-            let rounded = UIBezierPath(roundedRect: panel, cornerRadius: 22).cgPath
+            let rounded = UIBezierPath(roundedRect: panel, cornerRadius: min(22, panel.width / 2, panel.height / 2)).cgPath
             let full = UIBezierPath(roundedRect: view.bounds, cornerRadius: 1).cgPath
             let mask = CAShapeLayer()
             mask.frame = view.bounds
@@ -129,16 +134,27 @@ private final class PlayerExpansionAnimator: NSObject, UIViewControllerAnimatedT
             reveal.fromValue = expanding ? rounded : full
             reveal.toValue = mask.path
             reveal.duration = duration
-            reveal.timingFunction = CAMediaTimingFunction(controlPoints: 0.22, 0.8, 0.28, 1)
+            reveal.timingFunction = CAMediaTimingFunction(controlPoints: 0.2, 0.68, 0.2, 1)
             mask.add(reveal, forKey: "player-expansion")
-            startsAt = expanding ? 0.82 : 1
-            endsAt = expanding ? 1 : 0.82
+            let settle = CGAffineTransform(translationX: (panel.midX - view.bounds.midX) * 0.06,
+                                           y: (panel.midY - view.bounds.midY) * 0.06)
+                .scaledBy(x: 0.97, y: 0.97)
+            if expanding { startTransform = settle }
+            else { endTransform = settle }
         }
+        let content = (controller as? PlayerFullscreenPresentation)?.transitionContent
+        content?.transform = startTransform
         view.alpha = startsAt
-        UIView.animate(withDuration: duration, delay: 0, options: [.curveEaseInOut]) {
+        let timing = UICubicTimingParameters(controlPoint1: CGPoint(x: 0.2, y: 0.68),
+                                             controlPoint2: CGPoint(x: 0.2, y: 1))
+        let animator = UIViewPropertyAnimator(duration: duration, timingParameters: timing)
+        animator.addAnimations {
             view.alpha = endsAt
-        } completion: { _ in
+            content?.transform = endTransform
+        }
+        animator.addCompletion { _ in
             let finished = !context.transitionWasCancelled
+            content?.transform = .identity
             if self.expanding || !finished {
                 view.layer.mask = nil
                 view.alpha = 1
@@ -147,5 +163,6 @@ private final class PlayerExpansionAnimator: NSObject, UIViewControllerAnimatedT
             view.layer.mask = nil
             view.alpha = 1
         }
+        animator.startAnimation()
     }
 }

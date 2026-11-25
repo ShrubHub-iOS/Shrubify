@@ -481,7 +481,7 @@ final class ResponsivePlayerView: UIView, UIScrollViewDelegate {
             artist.accessibilityLabel = "Artist: " + info.artist
             title.isEnabled = info.metadata["album_uri"] != nil && SpotifyURIOpener.isReady
             title.accessibilityHint = title.isEnabled ? "Open album" : nil
-            artist.isEnabled = PlayerArtistPhoto.artistID(from: info.metadata["artist_uri"]) != nil && SpotifyURIOpener.isReady
+            artist.isEnabled = PlayerArtistPhoto.artistID(from: info.metadata["artist_uri"]) != nil
         }
         let required = ["SPTNowPlayingPlayButton", "SPTNowPlayingPreviousTrackButton", "SPTNowPlayingNextTrackButton"]
             + (tablet ? [] : ["now-playing-minimize-button"])
@@ -845,9 +845,13 @@ final class ResponsivePlayerView: UIView, UIScrollViewDelegate {
     }
 
     private func openArtist() {
-        guard SpotifyURIOpener.isReady,
-              let id = PlayerArtistPhoto.artistID(from: CurrentSpotifyTrack.snapshot?.metadata["artist_uri"]) else { return }
-        let navigate = { _ = SpotifyURIOpener.open("spotify:artist:\(id)", allowSystemFallback: false) }
+        guard let id = PlayerArtistPhoto.artistID(from: CurrentSpotifyTrack.snapshot?.metadata["artist_uri"]) else { return }
+        let scene = window?.windowScene
+        let navigate: () -> Void = {
+            PlayerArtistNavigation.open(id: id, in: scene) {
+                SpotifyURIOpener.open($0, allowSystemFallback: false)
+            }
+        }
         if let fullscreen { fullscreen.exit(completion: navigate) }
         else { navigate() }
     }

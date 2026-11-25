@@ -92,14 +92,15 @@ enum NativeTabletGlass {
             view.isOpaque = false
         }
 
-        func clearBlur(_ view: UIVisualEffectView) {
+        func clearEffect(_ view: UIVisualEffectView, includingGlass: Bool = false) {
+            guard let effect = view.effect,
+                  includingGlass || effect is UIBlurEffect else { return }
             if blurs.contains(view) {
-                if view.effect is UIBlurEffect { view.effect = nil }
+                view.effect = nil
                 return
             }
-            guard let blur = view.effect as? UIBlurEffect else { return }
             blurs.add(view)
-            restoreBacking.append { [weak view] in if view?.effect == nil { view?.effect = blur } }
+            restoreBacking.append { [weak view] in if view?.effect == nil { view?.effect = effect } }
             view.effect = nil
         }
         func hide(_ view: UIView) {
@@ -303,7 +304,7 @@ enum NativeTabletGlass {
         while index < nodes.count {
             let view = nodes[index]
             index += 1
-            guard !view.isHidden, view.alpha > 0.5 else { continue }
+            guard !view.isHidden else { continue }
             let name = NSStringFromClass(type(of: view))
             if standard == nil, tabViews.prefix(2).contains(name), (1...110).contains(view.bounds.height),
                findOwner(in: view, bar: .tabs) != nil {
@@ -405,7 +406,8 @@ enum NativeTabletGlass {
            host.isDescendant(of: root) { state.navigationRoot = root }
         // Remember the bar so Studio can apply a change immediately. When off,
         // don't inspect a single subview, allocate a material or mutate UIKit.
-        if enabled { update(host, state) }
+        if enabled, bar == .miniPlayer { UIView.performWithoutAnimation { update(host, state) } }
+        else if enabled { update(host, state) }
     }
 
     @available(iOS 26.0, *)
@@ -414,11 +416,11 @@ enum NativeTabletGlass {
         applyingLayout = true
         defer { applyingLayout = false }
         // Never search a page-sized host, even if a future class name matches.
-        guard !host.isHidden, host.alpha > 0.5,
+        guard !host.isHidden, (state.bar == .miniPlayer || host.alpha > 0.5),
               (1...110).contains(host.bounds.height) else { state.remove(); return }
         let owner: UIView
         if let cached = state.owner, (cached === host || cached.isDescendant(of: host)),
-           !cached.isHidden, cached.alpha > 0.5,
+           !cached.isHidden, (state.bar == .miniPlayer || cached.alpha > 0.5),
            (matches(cached, state.bar) || cached === state.miniOwner) { owner = cached }
         else {
             state.remove()
@@ -502,13 +504,19 @@ enum NativeTabletGlass {
         }
         state.geometryRetry?.cancel()
         state.geometryRetry = nil
-        // Yield if Spotify supplies its own bar material, even after install.
-        if owner.subviews.contains(where: { $0 !== state.plate && ($0 as? UIVisualEffectView)?.effect is UIGlassEffect }) {
-            state.remove(); return
-        }
+        // An already snug native glass surface can own the bar. A wide
+        // backing must instead be removed when the compact plate is mounted.
+        let targetWidth = frame.width
+        if owner.subviews.contains(where: {
+            $0 !== state.plate && ($0 as? UIVisualEffectView)?.effect is UIGlassEffect
+                && $0.bounds.width <= targetWidth + 8
+        }) { state.remove(); return }
         var ancestor: UIView? = owner
         while let view = ancestor {
-            if (view as? UIVisualEffectView)?.effect is UIGlassEffect { state.remove(); return }
+            if (view as? UIVisualEffectView)?.effect is UIGlassEffect, view.bounds.width <= targetWidth + 8 {
+                state.remove()
+                return
+            }
             if view === host { break }
             ancestor = view.superview
         }
@@ -642,7 +650,7 @@ enum NativeTabletGlass {
         while index < nodes.count {
             let view = nodes[index]
             index += 1
-            guard !view.isHidden, view.alpha > 0.5 else { continue }
+            guard !view.isHidden, (bar == .miniPlayer || view.alpha > 0.5) else { continue }
             if (view is UILabel || view is UIImageView), view.bounds.width <= 128, view.bounds.height <= 64 {
                 let bounds = view.convert(view.bounds, to: parent)
                 if bounds.width > 1, bounds.height > 1 { footprint = footprint.union(bounds) }
@@ -751,12 +759,12 @@ enum NativeTabletGlass {
         }
         for case let effect as UIVisualEffectView in owner.subviews
         where effect !== state.plate && effect.frame == owner.bounds && effect.contentView.subviews.isEmpty {
-            state.clearBlur(effect)
+            state.clearEffect(effect, includingGlass: state.bar == .tabs && effect.bounds.width > (state.plate?.bounds.width ?? 0) + 8)
         }
         var ancestor: UIView? = owner
         while let root = ancestor, root.bounds.height <= 110 {
             if let material = root as? UIVisualEffectView {
-                state.clearBlur(material)
+                state.clearEffect(material, includingGlass: state.bar == .tabs && root.bounds.width > (state.plate?.bounds.width ?? 0) + 8)
                 state.clearColor(material.contentView)
                 state.clearOpacity(material.contentView)
             }
@@ -784,7 +792,7 @@ enum NativeTabletGlass {
                 state.suppressMiniFill(view)
                 state.clearColor(view)
                 state.clearOpacity(view)
-                if let effect = view as? UIVisualEffectView { state.clearBlur(effect) }
+                if let effect = view as? UIVisualEffectView { state.clearEffect(effect) }
                 clearBackingChildren(of: view, protecting: owner, state: state)
                 if nodes.count < 24 {
                     nodes.append(contentsOf: view.subviews.filter { $0 !== state.plate }.prefix(24 - nodes.count))
@@ -805,7 +813,7 @@ enum NativeTabletGlass {
             backing.state.clearColor(wrapper)
             backing.state.clearOpacity(wrapper)
             if let effect = wrapper as? UIVisualEffectView {
-                backing.state.clearBlur(effect)
+                backing.state.clearEffect(effect, includingGlass: state.bar == .tabs && wrapper.bounds.width > (state.plate?.bounds.width ?? 0) + 8)
                 backing.state.clearColor(effect.contentView)
             }
             clearBackingChildren(of: wrapper, protecting: host, state: backing.state)
@@ -820,11 +828,12 @@ enum NativeTabletGlass {
                 if parent !== root, (1...155).contains(parent.bounds.height), parent !== host.superview {
                     state.clearColor(parent)
                     state.clearOpacity(parent)
-                    if let material = parent as? UIVisualEffectView { state.clearBlur(material) }
+                    if let material = parent as? UIVisualEffectView {
+                        state.clearEffect(material, includingGlass: parent.bounds.width > (state.plate?.bounds.width ?? 0) + 8)
+                    }
                 }
                 for child in parent.subviews where child !== branch && child !== state.plate {
                     guard child.accessibilityIdentifier != "shrubify.native.glass.material" else { continue }
-                    if #available(iOS 26.0, *), (child as? UIVisualEffectView)?.effect is UIGlassEffect { continue }
                     let frame = child.convert(child.bounds, to: root)
                     guard frame.intersects(hostFrame), frame.width >= hostFrame.width * 0.7 else { continue }
                     guard !(child is UIStackView || child is UIScrollView) else { continue }
@@ -832,7 +841,12 @@ enum NativeTabletGlass {
                     let named = name.contains("TabBarGradientView") || name.contains("TabBarBackgroundView")
                     let fillsBand = (child is UIVisualEffectView || type(of: child) == UIView.self)
                         && frame.height <= 155 && frame.height >= hostFrame.height * 0.7
-                    if (named || fillsBand), !containsNativeContent(child) { state.hide(child) }
+                    if #available(iOS 26.0, *), (child as? UIVisualEffectView)?.effect is UIGlassEffect,
+                       frame.width <= (state.plate?.bounds.width ?? 0) + 8 { continue }
+                    if (named || fillsBand), !containsNativeContent(child) {
+                        if let effect = child as? UIVisualEffectView { state.clearEffect(effect, includingGlass: true) }
+                        state.hide(child)
+                    }
                 }
                 if parent === root { break }
                 branch = parent

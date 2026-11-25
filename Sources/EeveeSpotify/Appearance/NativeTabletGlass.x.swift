@@ -70,6 +70,14 @@ class NativeTabletMiniControllerHook: ClassHook<UIViewController> {
     typealias Group = NativeTabletMiniControllerGroup
     static let targetName = "_TtC18NowPlaying_BarImpl27NowPlayingBarViewController"
 
+    func viewWillLayoutSubviews() {
+        orig.viewWillLayoutSubviews()
+        let controller = target
+        onMainThreadSync {
+            if let view = controller.viewIfLoaded { NativeTabletGlass.layoutMiniControllerView(view) }
+        }
+    }
+
     func viewDidLayoutSubviews() {
         orig.viewDidLayoutSubviews()
         let controller = target
