@@ -51,7 +51,7 @@ enum ArtistBioSource {
     static func exactWikipediaBio(for artist: String, completion: @escaping (String?, URL?) -> Void) {
         guard var url = URLComponents(string: "https://\(wikipediaHost())/w/api.php") else { completion(nil, nil); return }
         url.queryItems = ["action": "query", "prop": "extracts|info", "exintro": "1", "explaintext": "1",
-                          "inprop": "url", "titles": artist, "format": "json"].map { URLQueryItem(name: $0.key, value: $0.value) }
+                          "inprop": "url", "redirects": "1", "titles": artist, "format": "json"].map { URLQueryItem(name: $0.key, value: $0.value) }
             .sorted { $0.name < $1.name }
         guard let request = url.url else { completion(nil, nil); return }
         fetchJSON(request, using: wikipediaSession, tag: "Wikipedia artist") { payload in
