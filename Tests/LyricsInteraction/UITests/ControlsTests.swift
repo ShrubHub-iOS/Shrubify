@@ -74,7 +74,11 @@ final class ControlsTests: XCTestCase {
                        thenDragTo: slider.coordinate(withNormalizedOffset: CGVector(dx: 0.8, dy: 0.5)),
                        withVelocity: .slow, thenHoldForDuration: 0.4)
             let seek = Int(app.staticTexts["seek-value"].label.filter { $0.isNumber }) ?? 0
-            XCTAssertGreaterThan(seek, 100_000); XCTAssertLessThan(seek, 160_000)
+            // XCUITest coordinates are normalized against the accessibility
+            // frame, whose track insets vary. Check that playback moved forward
+            // from the 60-second fixture position and stayed within the song.
+            XCTAssertGreaterThan(seek, 75_000)
+            XCTAssertLessThan(seek, 180_000)
             let capture = XCTAttachment(screenshot: app.screenshot()); capture.name = "lyrics-controls-cycle-\(cycle)"; capture.lifetime = .keepAlways; add(capture)
             close.coordinate(withNormalizedOffset: CGVector(dx: 0.15, dy: 0.5)).tap()
             XCTAssertTrue(app.buttons["open-lyrics"].waitForExistence(timeout: 10))
