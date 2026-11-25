@@ -39,6 +39,17 @@ check(partial.activeLineIndex(at: 499, requiresActiveInterval: true) == nil
     && partial.activeLineIndex(at: 900, requiresActiveInterval: true) == 0
     && partial.activeLineIndex(at: 1500, requiresActiveInterval: true) == nil
     && partial.activeLineIndex(at: 2000, requiresActiveInterval: true) == 1, "Live lyric follows real intervals")
+for time in stride(from: 1400, to: 2000, by: 100) {
+    check(partial.previewLineIndex(at: time) == 0, "The live preview must not flash off between lines")
+    check(partial.lines[0].highlightRange(at: time) == nil, "Do not extend word emphasis into the gap")
+}
+check(partial.previewLineIndex(at: 2000) == 1 && partial.previewLineIndex(at: 499) == nil,
+      "The preview advances on time and rewinds on a backward seek")
+var longGap = partial
+longGap.lines[1].startMs = 12_000
+longGap.lines[1].endMs = 15_000
+check(longGap.previewLineIndex(at: 6000) == nil && longGap.previewLineIndex(at: 15_000) == nil,
+      "The preview clears during long instrumental gaps and at the end of lyrics")
 check(partial.lines[0].highlightRange(at: 500) == nil, "Untimed parts do not become active words")
 if let range = partial.lines[0].highlightRange(at: 1150) {
     check(partial.lines[0].plainText[range] == "words", "A preview highlights the active provider-timed word")

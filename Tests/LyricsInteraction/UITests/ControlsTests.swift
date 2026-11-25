@@ -149,6 +149,11 @@ final class ControlsTests: XCTestCase {
         let first = app.buttons["TabBar.Item.fixture-0"].frame
         let last = app.buttons["TabBar.Item.fixture-4"].frame
         let tile = app.buttons["TabBar.Item.fixture-2"].frame
+        app.buttons["mini-play"].tap()
+        XCTAssertEqual(state.label, "1/1 bars · 0 wells · intact · cleared")
+        XCTAssertEqual(app.staticTexts["optical-selection"].label, "Lens under tab 0")
+        XCTAssertEqual(app.buttons["TabBar.Item.fixture-0"].frame, first)
+        XCTAssertEqual(app.buttons["TabBar.Item.fixture-4"].frame, last)
         // Use the controls to locate the capsule. Sample its center and both
         // sides in the same frame, well within the old full-width backing.
         let probes = [
@@ -179,7 +184,7 @@ final class ControlsTests: XCTestCase {
         XCTAssertEqual(app.staticTexts["optical-selection"].label, "No selection lens")
         for index in 0..<5 { app.buttons["TabBar.Item.fixture-\(index)"].tap() }
         XCTAssertEqual(app.staticTexts["tab-count"].label, "6")
-        app.buttons["mini-play"].tap(); XCTAssertEqual(app.buttons["mini-play"].label, "Pause")
+        XCTAssertEqual(app.buttons["mini-play"].label, "Pause")
         app.buttons["toggle-glass"].tap()
         XCTAssertEqual(state.label, "1/1 bars · 0 wells · intact · cleared")
         app.buttons["TabBar.Item.fixture-4"].tap()

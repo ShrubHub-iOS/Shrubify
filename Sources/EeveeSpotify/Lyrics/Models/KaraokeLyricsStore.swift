@@ -10,6 +10,7 @@ final class KaraokeLyricsStore {
     private var order: [String] = []
     private let capacity = 8
     private var notificationPending = false
+    private var generation = 0
 
     private init() {}
 
@@ -49,8 +50,15 @@ final class KaraokeLyricsStore {
         lock.lock()
         cache = [:]
         order = []
+        generation += 1
         lock.unlock()
         notify()
+    }
+
+    var resetGeneration: Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return generation
     }
 
     func notify() {

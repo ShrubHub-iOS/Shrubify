@@ -15,7 +15,48 @@ enum NativeTabletCanvasReadability {
     }
 
     private static let pages = NSMapTable<UIView, PageState>.weakToStrongObjects()
+    private static let suppressedVideos = NSMapTable<UIView, VideoSuppression>.weakToStrongObjects()
     private static let overlayID = "shrubify.canvas.readability"
+
+    @MainActor private final class SuppressedVideo {
+        weak var view: UIView?
+        let alpha: CGFloat
+
+        init(_ view: UIView) { self.view = view; alpha = view.alpha }
+
+        func restore() {
+            if let view, view.alpha == 0 { view.alpha = alpha }
+        }
+    }
+
+    private final class VideoSuppression {
+        var videos: [SuppressedVideo] = []
+    }
+
+    static func suppressVideo(in page: UIView) {
+        let state = suppressedVideos.object(forKey: page) ?? VideoSuppression()
+        state.videos.removeAll { snapshot in
+            guard let view = snapshot.view, view.isDescendant(of: page) else {
+                snapshot.restore()
+                return true
+            }
+            if view.alpha != 0 { view.alpha = 0 }
+            return false
+        }
+        // During a transition both the outgoing and incoming Canvas can draw
+        // behind the same translucent native header.
+        for _ in 0..<4 {
+            guard let (_, video) = canvas(in: page) else { break }
+            state.videos.append(SuppressedVideo(video))
+            video.alpha = 0
+        }
+        if !state.videos.isEmpty { suppressedVideos.setObject(state, forKey: page) }
+    }
+
+    static func restoreVideo(in page: UIView) {
+        suppressedVideos.object(forKey: page)?.videos.forEach { $0.restore() }
+        suppressedVideos.removeObject(forKey: page)
+    }
 
     static func clear(in page: UIView) {
         guard let state = pages.object(forKey: page) else { return }
@@ -130,8 +171,10 @@ enum NativeTabletCanvasReadability {
     }
 
     private static func isCanvasCell(_ view: UIView, in page: UIView) -> Bool {
-        guard let identifier = view.accessibilityIdentifier,
-              identifier.contains("nowplaying-contentlayer-cell-5") else { return false }
+        let identifier = view.accessibilityIdentifier ?? ""
+        let name = NSStringFromClass(type(of: view))
+        guard identifier.contains("nowplaying-contentlayer-cell-5")
+                || name.hasSuffix("CanvasNowPlayingCell") else { return false }
         return view.bounds.width > 180 && view.bounds.height > 280
             && view.window === page.window
             && view.convert(view.bounds, to: page).intersects(page.bounds)
@@ -159,7 +202,8 @@ enum NativeTabletCanvasReadability {
             while index < nodes.count, index < 90 {
                 let node = nodes[index]
                 index += 1
-                if hasPlaybackLayer(node.layer, depth: 0) { return child }
+                if NSStringFromClass(type(of: node)).hasSuffix("CanvasPlayerView")
+                    || hasPlaybackLayer(node.layer, depth: 0) { return child }
                 if nodes.count < 90 {
                     nodes.append(contentsOf: node.subviews.prefix(90 - nodes.count))
                 }

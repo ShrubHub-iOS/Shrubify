@@ -117,6 +117,16 @@ struct KaraokeLyricsDto: Equatable {
         return requiresActiveInterval && position >= lines[index].endMs ? nil : index
     }
 
+    /// Keep the last line through short breaks between lines. Word highlighting
+    /// still follows the provider's exact timestamps.
+    func previewLineIndex(at position: Int) -> Int? {
+        guard let index = activeLineIndex(at: position) else { return nil }
+        let line = lines[index]
+        if position < line.endMs { return index }
+        guard index + 1 < lines.count, position - line.endMs < 4_000 else { return nil }
+        return index
+    }
+
     var lines: [KaraokeLineDto]
 
     var isRTL: Bool {

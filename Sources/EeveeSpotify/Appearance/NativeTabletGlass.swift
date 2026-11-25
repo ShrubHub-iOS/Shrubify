@@ -1,4 +1,7 @@
 import UIKit
+#if canImport(EeveeSpotifyC)
+import EeveeSpotifyC
+#endif
 
 /// One native glass owner per recognized tablet bar. Only dedicated layout
 /// hooks mount material; no window scanning or playback-control decoration.
@@ -12,6 +15,7 @@ enum NativeTabletGlass {
     private static var accessibilityObserver: NSObjectProtocol?
     private static var glassObserver: NSObjectProtocol?
     private static var enabled = false
+    static let miniWrapperClass = "_TtC22NowPlaying_BarPageImplP33_CCC0D2EEA6D4725EECD8965E8C38C86D20TouchPassthroughView"
 
     @MainActor private final class SharedBacking {
         let bars = NSHashTable<State>.weakObjects()
@@ -30,9 +34,6 @@ enum NativeTabletGlass {
         weak var miniOwner: UIView?
         var compactRow: CompactRow?
         var geometryRetry: DispatchWorkItem?
-        private weak var clippedHost: UIView?
-        private var clippedFrame: CGRect?
-        private var capsuleMask: CAShapeLayer?
         var restoreBacking: [() -> Void] = []
         // Repaint protection: Spotify sometimes redraws an already-cleared
         // background when switching tabs. The original state is captured once.
@@ -40,6 +41,10 @@ enum NativeTabletGlass {
         private let opacity = NSHashTable<UIView>.weakObjects()
         private let blurs = NSHashTable<UIVisualEffectView>.weakObjects()
         private let hidden = NSHashTable<UIView>.weakObjects()
+#if canImport(EeveeSpotifyC)
+        private weak var attemptedMiniFill: UIView?
+        private var miniFill: MiniFill?
+#endif
         init(_ bar: Bar) { self.bar = bar }
 
         private static func hasFill(_ view: UIView) -> Bool {
@@ -48,6 +53,9 @@ enum NativeTabletGlass {
         }
 
         func clearColor(_ view: UIView) {
+#if canImport(EeveeSpotifyC)
+            if miniFill?.view === view { return }
+#endif
             guard Self.hasFill(view) else { return }
             if !colors.contains(view) {
                 let originalColor = view.backgroundColor
@@ -99,43 +107,34 @@ enum NativeTabletGlass {
             restoreBacking.append { [weak view] in if view?.alpha == 0 { view?.alpha = alpha } }
             view.alpha = 0
         }
-        func clip(_ host: UIView, to frame: CGRect) {
-            if clippedHost !== host || host.layer.mask !== capsuleMask {
-                restoreClip()
-                // Spotify may already use a mask for a transition. Leave that
-                // animation in charge rather than overwriting its shape.
-                guard host.layer.mask == nil else { return }
-                clippedHost = host
-                let mask = CAShapeLayer()
-                capsuleMask = mask
-                host.layer.mask = mask
-            }
-            guard let capsuleMask, clippedFrame != frame || capsuleMask.frame != host.bounds else { return }
-            clippedFrame = frame
-            CATransaction.begin()
-            CATransaction.setDisableActions(true)
-            capsuleMask.frame = host.bounds
-            capsuleMask.path = UIBezierPath(roundedRect: frame,
-                                            cornerRadius: min(frame.width, frame.height) / 2).cgPath
-            CATransaction.commit()
-        }
 
-        private func restoreClip() {
-            if let host = clippedHost, host.layer.mask === capsuleMask { host.layer.mask = nil }
-            clippedHost = nil
-            capsuleMask = nil
-            clippedFrame = nil
+        func suppressMiniFill(_ view: UIView) {
+#if canImport(EeveeSpotifyC)
+            // Spotify writes the artwork color after layout as well as within
+            // it. Reuse the existing per-layer interceptor on the actual bar.
+            guard view.accessibilityIdentifier == "SPTNowPlayingBar", attemptedMiniFill !== view else { return }
+            attemptedMiniFill = view
+            let fill = MiniFill(view)
+            if EeveeInterceptBackground(view, { fill.latest = $0 }) { miniFill = fill }
+#endif
         }
 
         func removeMaterial() {
             geometryRetry?.cancel()
             geometryRetry = nil
-            restoreClip()
             plate?.removeFromSuperview(); plate = nil
             selection = nil
             glassContainer = nil
             NativeTabletGlass.releaseWrapper(for: self)
             restoreBacking.reversed().forEach { $0() }; restoreBacking.removeAll()
+#if canImport(EeveeSpotifyC)
+            if let fill = miniFill, let view = fill.view {
+                EeveeRestoreBackground(view)
+                view.backgroundColor = fill.latest
+            }
+            miniFill = nil
+            attemptedMiniFill = nil
+#endif
             colors.removeAllObjects(); opacity.removeAllObjects()
             blurs.removeAllObjects(); hidden.removeAllObjects()
         }
@@ -145,6 +144,15 @@ enum NativeTabletGlass {
             owner = nil
         }
     }
+
+#if canImport(EeveeSpotifyC)
+    private final class MiniFill: @unchecked Sendable {
+        weak var view: UIView?
+        var latest: UIColor?
+
+        @MainActor init(_ view: UIView) { self.view = view; latest = view.backgroundColor }
+    }
+#endif
 
     @MainActor private final class CompactRow {
         weak var row: UIStackView?
@@ -234,24 +242,31 @@ enum NativeTabletGlass {
         guard root.window != nil else { return }
         var nodes = [root]
         var index = 0
+        var standard: UIView?
         var compact: UIView?
+        var mini: UIView?
         while index < nodes.count {
             let view = nodes[index]
             index += 1
             guard !view.isHidden, view.alpha > 0.5 else { continue }
             let name = NSStringFromClass(type(of: view))
-            if tabViews.prefix(2).contains(name), (1...110).contains(view.bounds.height),
+            if standard == nil, tabViews.prefix(2).contains(name), (1...110).contains(view.bounds.height),
                findOwner(in: view, bar: .tabs) != nil {
-                layout(.tabs, in: view, navigationRoot: root)
-                return
+                standard = view
             }
             if tabViews.suffix(2).contains(name), (1...110).contains(view.bounds.height),
                findOwner(in: view, bar: .tabs) != nil { compact = view }
+            if mini == nil, view.accessibilityIdentifier == "SPTNowPlayingBar", matches(view, .miniPlayer) {
+                mini = view
+            }
+            if standard != nil, mini != nil { break }
             if !(view is UIScrollView || view is UIControl || view is UIImageView), nodes.count < 112 {
                 nodes.append(contentsOf: view.subviews.prefix(112 - nodes.count))
             }
         }
-        if let compact { layout(.tabs, in: compact, fallback: true, navigationRoot: root) }
+        if let standard { layout(.tabs, in: standard, navigationRoot: root) }
+        else if let compact { layout(.tabs, in: compact, fallback: true, navigationRoot: root) }
+        if let mini { layoutMiniControllerView(mini, isContentController: false) }
     }
 
     static func layoutCompactTabs(in host: UIView) {
@@ -263,21 +278,42 @@ enum NativeTabletGlass {
         }
     }
 
-    static func layoutMiniControllerView(_ view: UIView) {
+    static func layoutMiniWrapper(_ view: UIView) {
+        if view.window == nil {
+            for case let host as UIView in bars.keyEnumerator().allObjects
+            where host === view || host.isDescendant(of: view) {
+                guard let state = bars.object(forKey: host), state.bar == .miniPlayer else { continue }
+                state.remove()
+                bars.removeObject(forKey: host)
+            }
+        } else if (30...110).contains(view.bounds.height) {
+            layout(.miniPlayer, in: view)
+        } else {
+            layoutMiniControllerView(view, isContentController: false)
+        }
+    }
+
+    static func layoutMiniControllerView(_ view: UIView, isContentController: Bool = true) {
+        guard view.window != nil else { layout(.miniPlayer, in: view, fallback: true); return }
+        let owner: UIView
+        if let found = findOwner(in: view, bar: .miniPlayer) { owner = found }
+        else if isContentController && (30...110).contains(view.bounds.height) { owner = view }
+        else { return }
         // A content-controller callback and the page wrapper can both fire.
-        // The wrapper owns the glass wherever it actually encloses this bar.
-        let compactClassName = "_TtC22NowPlaying_BarPageImplP33_CCC0D2EEA6D4725EECD8965E8C38C86D20TouchPassthroughView"
-        var node: UIView? = view
+        // The wrapper owns glass only if it is itself bar-sized. The split
+        // page can use the same passthrough class for the entire right pane.
+        var node: UIView? = owner
         for _ in 0..<5 {
             guard let candidate = node else { break }
             let name = NSStringFromClass(type(of: candidate))
-            if name == compactClassName || name == "NowPlaying_BarPageImpl.TouchPassthroughView" {
-                layout(.miniPlayer, in: candidate, miniOwner: view)
+            if (name == miniWrapperClass || name == "NowPlaying_BarPageImpl.TouchPassthroughView"),
+               (30...110).contains(candidate.bounds.height) {
+                layout(.miniPlayer, in: candidate, miniOwner: owner)
                 return
             }
             node = candidate.superview
         }
-        layout(.miniPlayer, in: view, fallback: true, miniOwner: view)
+        layout(.miniPlayer, in: owner, fallback: true, miniOwner: owner)
     }
 
     private static func navigationRoot(for host: UIView) -> UIView? {
@@ -331,6 +367,18 @@ enum NativeTabletGlass {
             owner = found
             state.owner = found
         }
+        // Transfer ownership before capturing margins or reading geometry. A
+        // second layout hook must never snapshot the first hook's compact row.
+        for case let otherHost as UIView in bars.keyEnumerator().allObjects {
+            guard otherHost !== host, let other = bars.object(forKey: otherHost),
+                  other.bar == state.bar, other.owner === owner else { continue }
+            if state.fallback && !other.fallback {
+                state.remove()
+                return
+            }
+            other.remove()
+            bars.removeObject(forKey: otherHost)
+        }
         // Measure the same layout pass that applies the compact margins.
         // Waiting on a host callback can leave the old plate at split widths.
         if state.bar == .tabs, let row = owner as? UIStackView {
@@ -341,13 +389,13 @@ enum NativeTabletGlass {
         let tabCount: Int?
         let tabs: [UIView]
         if state.bar == .tabs, let row = owner as? UIStackView {
-            let items = row.arrangedSubviews.filter { !$0.isHidden && $0.alpha > 0.01 && $0.bounds.width > 1 }
-            guard (2...6).contains(items.count) else {
+            let items = row.arrangedSubviews.filter { !$0.isHidden }
+            guard (2...6).contains(items.count), items.allSatisfy({ $0.bounds.width > 1 }) else {
                 deferTabGeometry(in: host, state: state, canRetry: canRetryGeometry)
                 return
             }
             let footprint = items.reduce(CGRect.null) { $0.union($1.convert($1.bounds, to: owner)) }
-            if footprint.width <= CGFloat(items.count) * 82 + 40 {
+            if owner.bounds.contains(footprint), footprint.width <= CGFloat(items.count) * 82 + 40 {
                 content = footprint
             } else if let visibleContent = visibleTabContent(items, in: owner) {
                 content = visibleContent
@@ -377,18 +425,6 @@ enum NativeTabletGlass {
         }
         state.geometryRetry?.cancel()
         state.geometryRetry = nil
-        // A fallback and direct hook may discover the same owner. Restore the
-        // outgoing backing before transfer, and never share ownership across windows.
-        for case let otherHost as UIView in bars.keyEnumerator().allObjects {
-            guard otherHost !== host, let other = bars.object(forKey: otherHost),
-                  other.bar == state.bar, other.owner === owner else { continue }
-            if state.fallback && !other.fallback {
-                state.remove()
-                return
-            }
-            other.remove()
-            bars.removeObject(forKey: otherHost)
-        }
         // Yield if Spotify supplies its own bar material, even after install.
         if owner.subviews.contains(where: { $0 !== state.plate && ($0 as? UIVisualEffectView)?.effect is UIGlassEffect }) {
             state.remove(); return
@@ -420,7 +456,6 @@ enum NativeTabletGlass {
                 // Clearing these views is idempotent and does not append
                 // duplicate restoration closures across layout passes.
                 clearBarBacking(around: owner, within: host, state: state)
-                if state.bar == .tabs { state.clip(host, to: owner.convert(frame, to: host)) }
                 placeSelection(in: plate, tabs: tabs, state: state)
                 return
             }
@@ -440,7 +475,6 @@ enum NativeTabletGlass {
         // underneath our single glass effect; that is the grey-slab failure.
         // Leave native hit regions and unrecognized content unchanged.
         clearBarBacking(around: owner, within: host, state: state)
-        if state.bar == .tabs { state.clip(host, to: owner.convert(frame, to: host)) }
         placeSelection(in: plate, tabs: tabs, state: state)
     }
 
@@ -478,7 +512,9 @@ enum NativeTabletGlass {
     /// Only the known native Spotify dock is eligible, and only when UIKit
     /// already owns equal-width arranged items. Unknown layouts stay untouched.
     private static func compactIfSupported(_ row: UIStackView, host: UIView, state: State) {
-        let visible = row.arrangedSubviews.filter { !$0.isHidden && $0.alpha > 0.01 }
+        // Alpha is animated when Spotify attaches/detaches its Now Playing
+        // bar. Sizing from that animated value shifts every native tab.
+        let visible = row.arrangedSubviews.filter { !$0.isHidden }
         let hostName = NSStringFromClass(type(of: host))
         guard (hostName.contains("TabBarView") || hostName.contains("TabBarCompactView")),
               row.axis == .horizontal,
@@ -533,6 +569,9 @@ enum NativeTabletGlass {
     }
 
     private static func placeSelection(in plate: UIVisualEffectView, tabs: [UIView], state: State) {
+        // A partially animated row is not a new selection. Keep the previous
+        // lens until Spotify finishes laying out all of the tabs.
+        guard tabs.allSatisfy({ $0.alpha > 0.5 }) else { return }
         let signals = tabs.map { tab -> (UIView, Bool, Bool) in
             var nodes = [tab]
             var explicit = false
@@ -582,9 +621,11 @@ enum NativeTabletGlass {
 
     private static func matches(_ view: UIView, _ bar: Bar) -> Bool {
         if bar == .miniPlayer {
+            guard (30...110).contains(view.bounds.height), view.bounds.width >= 140 else { return false }
             let name = NSStringFromClass(type(of: view))
             return view.accessibilityIdentifier == "SPTNowPlayingBar"
-                || (name.hasPrefix("NowPlaying_Bar") && name.hasSuffix(".NowPlayingBarView"))
+                || (name.contains("NowPlaying_Bar")
+                    && (name.hasSuffix("NowPlayingBarView") || name.hasSuffix("NowPlayingBarTopStack")))
         }
         guard let row = view as? UIStackView, row.axis == .horizontal,
               row.bounds.height <= 100, (2...6).contains(row.arrangedSubviews.count) else { return false }
@@ -594,18 +635,23 @@ enum NativeTabletGlass {
 
     private static func findOwner(in host: UIView, bar: Bar) -> UIView? {
         var nodes = [host]; var index = 0
+        var miniCandidate: UIView?
         while index < nodes.count {
             let view = nodes[index]; index += 1
             guard !view.isHidden, view.alpha > 0.5 else { continue }
-            if matches(view, bar) { return view }
+            if matches(view, bar) {
+                if bar == .tabs || view.accessibilityIdentifier == "SPTNowPlayingBar" { return view }
+                if miniCandidate == nil { miniCandidate = view }
+            }
             if !(view is UIScrollView || view is UIControl || view is UIImageView), nodes.count < 96 {
                 nodes.append(contentsOf: view.subviews.prefix(96 - nodes.count))
             }
         }
-        return nil
+        return miniCandidate
     }
 
     private static func clearBarBacking(around owner: UIView, within host: UIView, state: State) {
+        if state.bar == .miniPlayer { state.suppressMiniFill(owner) }
         for case let effect as UIVisualEffectView in owner.subviews
         where effect !== state.plate && effect.frame == owner.bounds && effect.contentView.subviews.isEmpty {
             state.clearBlur(effect)

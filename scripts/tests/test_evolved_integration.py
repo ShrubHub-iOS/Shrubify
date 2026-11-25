@@ -16,11 +16,12 @@ class EvolvedIntegrationTests(unittest.TestCase):
         # Spotify. Guard against installing a cell/base-class scroll hook again.
         appearance = ROOT / "Sources/EeveeSpotify/Appearance"
         hooks = (appearance / "NativeTabletGlass.x.swift").read_text()
-        self.assertCountEqual(re.findall(r'ClassHook<([^>]+)>', hooks), ["UIView", "UIView", "UIView", "UIViewController", "UIViewController"])
+        self.assertCountEqual(re.findall(r'ClassHook<([^>]+)>', hooks), ["UIView"] * 3 + ["UIViewController"] * 3)
         self.assertCountEqual(re.findall(r'static let targetName = "([^"]+)"', hooks), [
             "NavigationUI_TabBarImpl.TabBarView",
             "_TtC23NavigationUI_TabBarImpl17TabBarCompactView",
             "_TtC18NowPlaying_BarImpl27NowPlayingBarViewController",
+            "_TtC18NowPlaying_BarImpl36NowPlayingBarContainerViewController",
             "_TtC22NowPlaying_BarPageImplP33_CCC0D2EEA6D4725EECD8965E8C38C86D20TouchPassthroughView",
             "_TtC23NavigationUI_TabBarImpl19TabBarContainerImpl",
         ])
@@ -48,6 +49,7 @@ class EvolvedIntegrationTests(unittest.TestCase):
         self.assertIn('state.clearColor(material.contentView)', tablet)
         self.assertIn('state.clearOpacity(root)', tablet)
         self.assertIn('container.insertSubview(plate, belowSubview: sibling)', tablet)
+        self.assertNotIn('host.layer.mask =', tablet)
         self.assertIn('tabCount: tabCount', tablet)
         self.assertIn('colors.removeAllObjects()', tablet)
         self.assertIn('clearBarBacking(around: owner, within: host, state: state)', tablet)

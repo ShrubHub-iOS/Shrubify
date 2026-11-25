@@ -1,6 +1,9 @@
-# Shrubify 4.2.5~beta5 testing checklist
+# Shrubify 4.2.5~beta6 testing checklist
 
-## 4.2.5 beta 5 on iPad
+## 4.2.5 beta 6 on iPad
+
+- Start a track from an album before opening Now Playing. Confirm every tab remains visible and tappable and the right mini-player shows glass across artwork color changes. Open the split player first, confirm the cover appears, then expand immediately. Watch the native header and background on first open and after returning from fullscreen.
+- Play through several word-timed lyric lines without touching the player. Short gaps should retain the previous line at steady contrast, long instrumental gaps should clear it, and skips should never display the preceding track's lyric.
 
 - Scroll bright and dark artwork underneath the Home and album docks. Check that the material shows the page beneath it and labels stay readable. Switch tabs and resize or open the split player while watching the selection and plate alignment.
 - Open and close the mini-player repeatedly. With two bars present, confirm both show the page through the glass. Toggle glass off and verify native backings return.

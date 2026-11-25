@@ -45,6 +45,12 @@ final class TabBarGradientView: UIView {}
 final class TabBarItemElementView: UIButton {}
 final class FixtureTabBarView: UIVisualEffectView {}
 final class FixtureBackdropView: UIView {}
+final class FixtureMiniWrapper: UIView {
+    override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
+        let hit = super.hitTest(point, with: event)
+        return hit === self ? nil : hit
+    }
+}
 
 final class RootController: UIViewController {
     private var closes = 0
@@ -61,7 +67,7 @@ final class RootController: UIViewController {
     private var blueBackdrop = false
     private var barHost: UIView { barSurface.contentView }
     private let content = ContentFixture(frame: .zero)
-    private let miniHost = UIView()
+    private let miniHost = FixtureMiniWrapper()
     private let mini = UIView()
     private let miniPlay = UIButton(type: .system)
     private let row = UIStackView()
@@ -120,12 +126,20 @@ final class RootController: UIViewController {
         view.addSubview(dockBacking)
         view.addSubview(dockWrapper)
         dockWrapper.addSubview(barSurface)
-        miniHost.frame = CGRect(x: 568, y: 64, width: 240, height: 56); view.addSubview(miniHost)
-        mini.frame = miniHost.bounds; mini.accessibilityIdentifier = "SPTNowPlayingBar"
+        view.addSubview(miniHost)
+        mini.frame = CGRect(x: 568, y: 64, width: 240, height: 56); mini.accessibilityIdentifier = "SPTNowPlayingBar"
         mini.backgroundColor = .darkGray; miniHost.addSubview(mini)
         miniPlay.frame = CGRect(x: 64, y: 0, width: 112, height: 56)
         miniPlay.accessibilityIdentifier = "mini-play"; miniPlay.setTitle("Play", for: .normal)
-        miniPlay.addAction(UIAction { [weak self] _ in self?.miniPlay.setTitle("Pause", for: .normal) }, for: .touchUpInside)
+        miniPlay.addAction(UIAction { [weak self] _ in
+            guard let self, let first = row.arrangedSubviews.first else { return }
+            miniPlay.setTitle("Pause", for: .normal)
+            mini.backgroundColor = .systemRed
+            first.alpha = 0
+            layoutBars()
+            first.alpha = 1
+            reportMaterial()
+        }, for: .touchUpInside)
         mini.addSubview(miniPlay)
         barHost.backgroundColor = .darkGray
         flatBarBacking.backgroundColor = .gray
@@ -154,6 +168,7 @@ final class RootController: UIViewController {
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         content.frame = CGRect(x: 24, y: 264, width: min(660, view.bounds.width - 48), height: 200)
+        miniHost.frame = view.bounds
         dockWrapper.frame = CGRect(x: 32, y: view.bounds.height - 104, width: min(825, view.bounds.width - 64), height: 84)
         dockBacking.frame = dockWrapper.frame
         dockBackdrop.frame = dockWrapper.frame.insetBy(dx: -8, dy: -12)
@@ -168,7 +183,7 @@ final class RootController: UIViewController {
     }
     private func layoutBars() {
         NativeTabletGlass.layout(.tabs, in: barSurface, navigationRoot: view)
-        NativeTabletGlass.layout(.miniPlayer, in: miniHost)
+        NativeTabletGlass.layoutMiniControllerView(miniHost, isContentController: false)
     }
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
@@ -193,10 +208,10 @@ final class RootController: UIViewController {
         if let selected = row.arrangedSubviews.firstIndex(where: { ($0 as? UIControl)?.isSelected == true }) {
             selectionStatus.text = "Tab \(selected) native-selected · \(extra.count) overlays"
         } else { selectionStatus.text = "No selected tab · \(extra.count) overlays" }
-        let glasses = view.subviews.compactMap { $0 as? UIVisualEffectView }
+        let glasses = (view.subviews + miniHost.subviews).compactMap { $0 as? UIVisualEffectView }
             .filter { $0.accessibilityIdentifier == "shrubify.native.glass.material" && $0.effect is UIGlassEffect }
-        let tabs = glasses.filter { abs($0.frame.midY - dockWrapper.frame.midY) < 30 }
-        let minis = glasses.filter { abs($0.frame.midY - miniHost.frame.midY) < 30 }
+        let tabs = glasses.filter { $0.superview === view && abs($0.frame.midY - dockWrapper.frame.midY) < 30 }
+        let minis = glasses.filter { $0.superview === miniHost && abs($0.frame.midY - mini.frame.midY) < 30 }
         if let plate = tabs.first, let marker = plate.contentView.subviews.first(where: {
             $0.accessibilityIdentifier == "shrubify.native.selection" && !$0.isHidden
         }), plate.contentView.bounds.contains(marker.frame),
@@ -209,13 +224,13 @@ final class RootController: UIViewController {
         }
         let safe = (tabs + minis).allSatisfy { plate in
             guard let parent = plate.superview, let plateIndex = parent.subviews.firstIndex(of: plate) else { return false }
-            let host: UIView = tabs.contains(where: { $0 === plate }) ? dockWrapper : miniHost
+            let host: UIView = tabs.contains(where: { $0 === plate }) ? dockWrapper : mini
             guard let hostIndex = parent.subviews.firstIndex(of: host) else { return false }
             return !plate.isUserInteractionEnabled && plate.accessibilityElementsHidden && plateIndex < hostIndex
         }
         let wells = (row.arrangedSubviews + [miniPlay]).reduce(0) { $0 + $1.fixtureGlassCount }
         let cleared = legacy.alpha == 0 && dockBacking.alpha == 0 && flatBarBacking.alpha == 0
-            && barSurface.effect == nil && barSurface.layer.mask is CAShapeLayer
+            && barSurface.effect == nil && barSurface.layer.mask == nil
             && (barHost.layer.backgroundColor?.alpha ?? 0) == 0
             && (mini.layer.backgroundColor?.alpha ?? 0) == 0
         let restored = legacy.alpha == 1 && dockBacking.alpha == 1 && flatBarBacking.alpha == 1

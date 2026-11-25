@@ -7,6 +7,7 @@ struct NativeTabletMiniGlassGroup: HookGroup {}
 struct NativeTabletNavigationGroup: HookGroup {}
 struct NativeTabletCompactTabGroup: HookGroup {}
 struct NativeTabletMiniControllerGroup: HookGroup {}
+struct NativeTabletMiniContainerGroup: HookGroup {}
 
 // Intentionally limited to the two bar hosts. Never hook a cell, image or
 // button base class: scrolling Home must not run any Shrubify glass layout.
@@ -42,12 +43,12 @@ class NativeTabletMiniGlassHook: ClassHook<UIView> {
     func layoutSubviews() {
         orig.layoutSubviews()
         let view = target
-        onMainThreadSync { NativeTabletGlass.layout(.miniPlayer, in: view) }
+        onMainThreadSync { NativeTabletGlass.layoutMiniWrapper(view) }
     }
     func didMoveToWindow() {
         orig.didMoveToWindow()
         let view = target
-        onMainThreadSync { NativeTabletGlass.layout(.miniPlayer, in: view) }
+        onMainThreadSync { NativeTabletGlass.layoutMiniWrapper(view) }
     }
 }
 
@@ -78,6 +79,21 @@ class NativeTabletMiniControllerHook: ClassHook<UIViewController> {
     }
 }
 
+class NativeTabletMiniContainerHook: ClassHook<UIViewController> {
+    typealias Group = NativeTabletMiniContainerGroup
+    static let targetName = "_TtC18NowPlaying_BarImpl36NowPlayingBarContainerViewController"
+
+    func viewDidLayoutSubviews() {
+        orig.viewDidLayoutSubviews()
+        let controller = target
+        onMainThreadSync {
+            if let view = controller.viewIfLoaded {
+                NativeTabletGlass.layoutMiniControllerView(view, isContentController: false)
+            }
+        }
+    }
+}
+
 func activateNativeTabletGlass() {
     guard #available(iOS 26.0, *), EvolvedInterfaceAvailability.usesNativeTabletInterface else { return }
     onMainThreadSync { NativeTabletGlass.start() }
@@ -92,7 +108,8 @@ func activateNativeTabletGlass() {
     }
     for (name, activate) in [
         (NativeTabletNavigationHook.targetName, { NativeTabletNavigationGroup().activate() }),
-        (NativeTabletMiniControllerHook.targetName, { NativeTabletMiniControllerGroup().activate() })
+        (NativeTabletMiniControllerHook.targetName, { NativeTabletMiniControllerGroup().activate() }),
+        (NativeTabletMiniContainerHook.targetName, { NativeTabletMiniContainerGroup().activate() })
     ] {
         guard let cls = NSClassFromString(name) as? UIViewController.Type,
               class_getInstanceMethod(cls, #selector(UIViewController.viewDidLayoutSubviews)) != nil else { continue }

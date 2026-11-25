@@ -13,6 +13,31 @@ enum ArtworkInspector {
         return view.isKind(of: coverClass) && NowPlayingLyricsPlate.isInsideCoverCell(view)
     }
 
+    static func isNativeCoverCell(_ view: UIView) -> Bool {
+        if let type = NowPlayingLyricsPlate.coverCellClass, view.isKind(of: type) { return true }
+        let name = NSStringFromClass(type(of: view))
+        return name.contains("NowPlaying_ContentLayersImpl") && name.hasSuffix("CoverArtCellImpl")
+    }
+
+    static func nativeImage(in cover: UIView) -> UIImage? {
+        var nodes = [cover]
+        var index = 0
+        while index < nodes.count {
+            let view = nodes[index]
+            index += 1
+            let name = NSStringFromClass(type(of: view))
+            guard !view.isHidden, !name.localizedCaseInsensitiveContains("placeholder"),
+                  view.accessibilityIdentifier?.localizedCaseInsensitiveContains("placeholder") != true else { continue }
+            if let image = (view as? UIImageView)?.image, usableImage(image) { return image }
+            nodes.append(contentsOf: view.subviews.prefix(64 - nodes.count))
+        }
+        return nil
+    }
+
+    static func usableImage(_ image: UIImage) -> Bool {
+        !image.isSymbolImage && NowPlayingLyricsPlate.isUsableArtwork(image)
+    }
+
     /// Spotify 9.2.0 exposes handleTap as a no-argument Objective-C
     /// method on the cover. Require the same live view and enabled gesture
     /// that Spotify uses for its own tap.
