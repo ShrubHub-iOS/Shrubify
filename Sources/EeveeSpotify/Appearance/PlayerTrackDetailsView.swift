@@ -5,9 +5,7 @@ final class PlayerTrackDetailsView: UIView {
     private let stack = UIStackView()
     private let artistCard = UIStackView()
     private let creditsCard = UIStackView()
-    private let hero = UIView()
     private let photo = UIImageView()
-    private let scrim = CAGradientLayer()
     private let artistHeading = UILabel()
     private let artistName = UILabel()
     private let biography = UILabel()
@@ -38,33 +36,20 @@ final class PlayerTrackDetailsView: UIView {
             card.layer.cornerCurve = .continuous
             stack.addArrangedSubview(card)
         }
-        hero.clipsToBounds = true
-        hero.layer.cornerCurve = .continuous
-        hero.layer.cornerRadius = 16
-        hero.backgroundColor = UIColor.white.withAlphaComponent(0.08)
-        photo.contentMode = .scaleAspectFill
+        photo.contentMode = .scaleAspectFit
+        photo.clipsToBounds = true
+        photo.layer.cornerCurve = .continuous
+        photo.layer.cornerRadius = 12
         photo.accessibilityElementsHidden = true
-        hero.addSubview(photo)
-        scrim.colors = [UIColor.black.withAlphaComponent(0.06).cgColor,
-                        UIColor.black.withAlphaComponent(0.20).cgColor, UIColor.black.withAlphaComponent(0.87).cgColor]
-        scrim.locations = [0, 0.43, 1]
-        hero.layer.addSublayer(scrim)
         configure(artistHeading, style: .subheadline, weight: .semibold)
         artistHeading.text = "About the artist"
         artistHeading.accessibilityTraits.insert(.header)
         configure(artistName, style: .title1, weight: .bold)
-        let identity = UIStackView(arrangedSubviews: [artistHeading, artistName])
-        identity.axis = .vertical
-        identity.spacing = 4
-        identity.translatesAutoresizingMaskIntoConstraints = false
-        hero.addSubview(identity)
-        NSLayoutConstraint.activate([
-            identity.leadingAnchor.constraint(equalTo: hero.leadingAnchor, constant: 16),
-            identity.trailingAnchor.constraint(equalTo: hero.trailingAnchor, constant: -16),
-            identity.bottomAnchor.constraint(equalTo: hero.bottomAnchor, constant: -14)
-        ])
-        hero.heightAnchor.constraint(greaterThanOrEqualTo: identity.heightAnchor, constant: 32).isActive = true
-        artistCard.addArrangedSubview(hero)
+        artistCard.addArrangedSubview(artistHeading)
+        artistCard.addArrangedSubview(artistName)
+        artistCard.setCustomSpacing(4, after: artistHeading)
+        artistCard.addArrangedSubview(photo)
+        photo.isHidden = true
         artistCard.addArrangedSubview(biography)
         configure(biography, style: .body)
         biographySource.titleLabel?.font = .preferredFont(forTextStyle: .caption1)
@@ -76,7 +61,7 @@ final class PlayerTrackDetailsView: UIView {
         artistCard.addArrangedSubview(biographySource)
         var link = UIButton.Configuration.tinted()
         link.title = "Open artist page"
-        link.image = UIImage(systemName: "arrow.up.right")
+        link.image = UIImage(systemName: "chevron.right")
         link.imagePlacement = .trailing
         link.imagePadding = 7
         link.baseForegroundColor = .white
@@ -117,14 +102,16 @@ final class PlayerTrackDetailsView: UIView {
 
     func setTrack(id: String, title: String, artist: String, album: String?, isrc: String?, artistURI: String?) {
         guard !id.isEmpty, !artist.isEmpty else { return }
-        artistLink.isHidden = artistURI == nil
         let nextPhotoID = PlayerArtistPhoto.artistID(from: artistURI)
+        artistLink.isHidden = nextPhotoID == nil
+        artistLink.isEnabled = SpotifyURIOpener.isReady
         if photoID != nextPhotoID {
             photo.layer.removeAllAnimations()
             photo.image = nil
             photoID = nextPhotoID
             requestedPhotoID = nil
             reservesPhoto = photoID != nil
+            photo.isHidden = !reservesPhoto
             onContentChange?()
         }
         guard id != self.id else { return }
@@ -148,6 +135,7 @@ final class PlayerTrackDetailsView: UIView {
             PlayerArtistPhoto.load(id: photoID) { [weak self] image in
                 guard let self, self.photoID == photoID else { return }
                 reservesPhoto = image != nil
+                photo.isHidden = !reservesPhoto
                 photo.image = image
                 if image != nil, !UIAccessibility.isReduceMotionEnabled {
                     photo.alpha = 0
@@ -227,10 +215,12 @@ final class PlayerTrackDetailsView: UIView {
 
     func preferredHeight(for width: CGFloat) -> CGFloat {
         guard !isHidden, width > 44 else { return 0 }
-        let heroMinimum = reservesPhoto ? min(266, max(176, width * 0.43)) : 98
-        artistName.preferredMaxLayoutWidth = max(1, width - 64)
-        biography.preferredMaxLayoutWidth = max(1, width - 32)
-        photoHeight.constant = heroMinimum
+        let contentWidth = max(1, width - 32)
+        artistName.preferredMaxLayoutWidth = contentWidth
+        biography.preferredMaxLayoutWidth = contentWidth
+        let imageSize = photo.image?.size ?? CGSize(width: 1, height: 1)
+        let maximumHeight = min(216, contentWidth * 0.62)
+        photoHeight.constant = reservesPhoto ? min(maximumHeight, contentWidth * imageSize.height / max(1, imageSize.width)) : 0
         return ceil(stack.systemLayoutSizeFitting(CGSize(width: width, height: 0),
                                                   withHorizontalFittingPriority: .required,
                                                   verticalFittingPriority: .fittingSizeLevel).height)
@@ -239,13 +229,11 @@ final class PlayerTrackDetailsView: UIView {
     override func layoutSubviews() {
         super.layoutSubviews()
         stack.frame = bounds
-        stack.layoutIfNeeded()
-        photo.frame = hero.bounds
-        scrim.frame = hero.bounds
     }
 
     private lazy var photoHeight: NSLayoutConstraint = {
-        let constraint = hero.heightAnchor.constraint(greaterThanOrEqualToConstant: 98)
+        let constraint = photo.heightAnchor.constraint(equalToConstant: 0)
+        constraint.priority = .defaultHigh
         constraint.isActive = true
         return constraint
     }()

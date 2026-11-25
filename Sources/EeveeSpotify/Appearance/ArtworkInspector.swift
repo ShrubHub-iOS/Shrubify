@@ -1,4 +1,5 @@
 import ObjectiveC.runtime
+import CoreMotion
 import SwiftUI
 import UIKit
 
@@ -142,7 +143,9 @@ enum ArtworkInspector {
               target.viewIfLoaded?.window === source.window, target.presentedViewController == nil,
               !target.isBeingDismissed else { return }
         let modal = KaraokeModal.make(onDismiss: {}) { close in
-            ArtworkDetail(image: image, close: close)
+            ArtworkDetail(image: image, close: close) { [weak source] in
+                source?.window?.windowScene?.interfaceOrientation ?? .portrait
+            }
         }
         target.present(modal, animated: true)
     }
@@ -152,8 +155,20 @@ enum ArtworkInspector {
 private struct ArtworkDetail: View {
     let image: UIImage
     let close: () -> Void
+    let orientation: () -> UIInterfaceOrientation
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @GestureState private var tilt: CGSize = .zero
+    @State private var dragTilt: CGSize = .zero
+    @State private var motionTilt: CGSize = .zero
+    @State private var motion = CMMotionManager()
+    @State private var referenceGravity: CMAcceleration?
+    @State private var referenceOrientation: UIInterfaceOrientation?
+    private let motionClock = Timer.publish(every: 1.0 / 30, on: .main, in: .common).autoconnect()
+
+    private var tilt: CGSize {
+        guard !reduceMotion else { return .zero }
+        return CGSize(width: limit(dragTilt.width + motionTilt.width, to: 14),
+                      height: limit(dragTilt.height + motionTilt.height, to: 14))
+    }
 
     var body: some View {
         GeometryReader { geometry in
@@ -171,16 +186,83 @@ private struct ArtworkDetail: View {
                 Image(uiImage: image)
                     .resizable().scaledToFit()
                     .frame(width: side, height: side)
+                    .overlay { reflection(side: side) }
                     .clipShape(RoundedRectangle(cornerRadius: 16))
                     .accessibilityLabel("Album cover")
-                    .rotation3DEffect(.degrees(reduceMotion ? 0 : Double(min(14, max(-14, tilt.width / 9)))), axis: (x: 0, y: 1, z: 0))
-                    .rotation3DEffect(.degrees(reduceMotion ? 0 : Double(min(14, max(-14, -tilt.height / 9)))), axis: (x: 1, y: 0, z: 0))
-                    .gesture(DragGesture().updating($tilt) { drag, state, _ in state = drag.translation })
+                    .rotation3DEffect(.degrees(Double(tilt.width)), axis: (x: 0, y: 1, z: 0))
+                    .rotation3DEffect(.degrees(Double(-tilt.height)), axis: (x: 1, y: 0, z: 0))
+                    .gesture(DragGesture()
+                        .onChanged { drag in
+                            guard !reduceMotion else { return }
+                            dragTilt = CGSize(width: drag.translation.width / 9, height: drag.translation.height / 9)
+                        }
+                        .onEnded { _ in
+                            withAnimation(.spring(response: 0.28, dampingFraction: 0.78)) { dragTilt = .zero }
+                        })
                 Spacer()
             }
             .padding(20)
         }
         .foregroundColor(.white)
         .background(Color(white: 0.06).ignoresSafeArea())
+        .onAppear(perform: updateMotion)
+        .onChange(of: reduceMotion) { _ in updateMotion() }
+        .onReceive(motionClock) { _ in sampleMotion() }
+        .onDisappear { motion.stopDeviceMotionUpdates() }
+    }
+
+    private func reflection(side: CGFloat) -> some View {
+        let x = tilt.width / 14
+        let y = tilt.height / 14
+        let strength = Double(min(1, hypot(x, y)))
+        return RadialGradient(
+            colors: [.white.opacity(0.24 * strength), .white.opacity(0.07 * strength), .clear],
+            center: UnitPoint(x: 0.48 - 0.54 * x, y: 0.27 - 0.52 * y),
+            startRadius: 0, endRadius: side * 0.65
+        )
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
+
+    private func updateMotion() {
+        if reduceMotion {
+            motion.stopDeviceMotionUpdates()
+            referenceGravity = nil
+            motionTilt = .zero
+            dragTilt = .zero
+        } else if motion.isDeviceMotionAvailable, !motion.isDeviceMotionActive {
+            motion.deviceMotionUpdateInterval = 1.0 / 30
+            motion.startDeviceMotionUpdates()
+        }
+    }
+
+    private func sampleMotion() {
+        guard !reduceMotion, let gravity = motion.deviceMotion?.gravity else { return }
+        let current = orientation()
+        guard let reference = referenceGravity, referenceOrientation == current else {
+            referenceGravity = gravity
+            referenceOrientation = current
+            motionTilt = .zero
+            return
+        }
+        let x = CGFloat(gravity.x - reference.x)
+        let y = CGFloat(gravity.y - reference.y)
+        let horizontal: CGFloat
+        let vertical: CGFloat
+        switch current {
+        case .landscapeLeft: (horizontal, vertical) = (y, x)
+        case .landscapeRight: (horizontal, vertical) = (-y, -x)
+        case .portraitUpsideDown: (horizontal, vertical) = (-x, y)
+        default: (horizontal, vertical) = (x, -y)
+        }
+        let targetX = limit(horizontal * 36, to: 11)
+        let targetY = limit(vertical * 36, to: 11)
+        guard abs(targetX - motionTilt.width) > 0.12 || abs(targetY - motionTilt.height) > 0.12 else { return }
+        motionTilt = CGSize(width: 0.72 * motionTilt.width + 0.28 * targetX,
+                            height: 0.72 * motionTilt.height + 0.28 * targetY)
+    }
+
+    private func limit(_ value: CGFloat, to range: CGFloat) -> CGFloat {
+        min(range, max(-range, value))
     }
 }

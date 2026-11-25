@@ -261,6 +261,7 @@ final class ResponsivePlayerView: UIView, UIScrollViewDelegate {
         }
         if tablet {
             close.accessibilityIdentifier = "shrubify.player.close"
+            close.accessibilityLabel = "Minimize player"
             configure(pane, symbol: "arrow.up.left.and.arrow.down.right", label: "Enter fullscreen") { [weak self] in
                 self?.toggleFullscreen()
             }
@@ -274,7 +275,7 @@ final class ResponsivePlayerView: UIView, UIScrollViewDelegate {
             headerTitle.lineBreakMode = .byTruncatingTail
             headerTitle.isAccessibilityElement = true
             headerTitle.accessibilityTraits = .header
-            trackDetails.openArtist = { [weak self] in self?.openMetadata("artist_uri") }
+            trackDetails.openArtist = { [weak self] in self?.openArtist() }
             trackDetails.onContentChange = { [weak self] in self?.setNeedsLayout() }
             scroll.addSubview(trackDetails)
         } else { scroll.addSubview(close); scroll.addSubview(menu) }
@@ -289,7 +290,7 @@ final class ResponsivePlayerView: UIView, UIScrollViewDelegate {
         title.titleLabel?.lineBreakMode = .byTruncatingTail
         artist.titleLabel?.lineBreakMode = .byTruncatingTail
         title.addAction(UIAction { [weak self] _ in self?.openMetadata("album_uri") }, for: .touchUpInside)
-        artist.addAction(UIAction { [weak self] _ in self?.openMetadata("artist_uri") }, for: .touchUpInside)
+        artist.addAction(UIAction { [weak self] _ in self?.openArtist() }, for: .touchUpInside)
         scroll.addSubview(title); scroll.addSubview(artist)
         progress.minimumValue = 0; progress.maximumValue = 1
         progress.minimumTrackTintColor = .white
@@ -480,7 +481,7 @@ final class ResponsivePlayerView: UIView, UIScrollViewDelegate {
             artist.accessibilityLabel = "Artist: " + info.artist
             title.isEnabled = info.metadata["album_uri"] != nil && SpotifyURIOpener.isReady
             title.accessibilityHint = title.isEnabled ? "Open album" : nil
-            artist.isEnabled = info.metadata["artist_uri"] != nil && SpotifyURIOpener.isReady
+            artist.isEnabled = PlayerArtistPhoto.artistID(from: info.metadata["artist_uri"]) != nil && SpotifyURIOpener.isReady
         }
         let required = ["SPTNowPlayingPlayButton", "SPTNowPlayingPreviousTrackButton", "SPTNowPlayingNextTrackButton"]
             + (tablet ? [] : ["now-playing-minimize-button"])
@@ -765,8 +766,15 @@ final class ResponsivePlayerView: UIView, UIScrollViewDelegate {
     }
 
     private func leaveTabletPlayer() {
-        if let fullscreen { fullscreen.exit(); return }
-        guard let page else { return }
+        if let fullscreen {
+            fullscreen.exit { [weak self] in self?.minimizeTabletPlayer() }
+        } else {
+            minimizeTabletPlayer()
+        }
+    }
+
+    private func minimizeTabletPlayer() {
+        guard let page, page.window != nil else { return }
         lastDiscovery = 0
         discoverNative(in: page)
         if let source = activeNative(NowPlayingLyricsPlate.minimizeButtonIdentifier), activate(source) { return }
@@ -798,7 +806,6 @@ final class ResponsivePlayerView: UIView, UIScrollViewDelegate {
         pane.setImage(UIImage(systemName: symbol, withConfiguration: UIImage.SymbolConfiguration(pointSize: 19, weight: .medium)),
                       for: .normal)
         pane.accessibilityLabel = isFullscreen ? "Exit fullscreen" : "Enter fullscreen"
-        close.accessibilityLabel = isFullscreen ? "Exit fullscreen" : "Close player"
     }
 
     private func updateTabletMenu() {
@@ -835,6 +842,14 @@ final class ResponsivePlayerView: UIView, UIScrollViewDelegate {
         guard let info = CurrentSpotifyTrack.snapshot,
               let value = info.metadata[key], let url = URL(string: value) else { return }
         _ = SpotifyURIOpener.open(url.absoluteString)
+    }
+
+    private func openArtist() {
+        guard SpotifyURIOpener.isReady,
+              let id = PlayerArtistPhoto.artistID(from: CurrentSpotifyTrack.snapshot?.metadata["artist_uri"]) else { return }
+        let navigate = { _ = SpotifyURIOpener.open("spotify:artist:\(id)", allowSystemFallback: false) }
+        if let fullscreen { fullscreen.exit(completion: navigate) }
+        else { navigate() }
     }
 
     private func seek() {
@@ -1090,8 +1105,11 @@ final class ResponsivePlayerView: UIView, UIScrollViewDelegate {
 
     private func openArtwork() {
         guard let image = artwork.image else { return }
-        if let nativeCover, let page, onPlayerPage(nativeCover, page: page),
-           ArtworkInspector.openNative(from: nativeCover) { return }
+        if let page {
+            lastDiscovery = 0
+            discoverNative(in: page)
+            if let nativeCover, nativeCover.window === window, ArtworkInspector.openNative(from: nativeCover) { return }
+        }
         if #available(iOS 15.0, *) { ArtworkInspector.present(image, from: self) }
     }
 

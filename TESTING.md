@@ -1,8 +1,10 @@
-# Shrubify 4.2.5~beta10 testing checklist
+# Shrubify 4.2.5~beta11 testing checklist
 
-## 4.2.5 beta 10 on iPad
+## 4.2.5 beta 11 on iPad
 
-- Scroll to the artist card while playing “Conversations.” Look for the Spotify artist portrait, readable biography, and separate credit rows. Skip to a different artist while the photo is loading and confirm the previous portrait never appears.
+- Scroll to the artist card while playing “Conversations.” Check that the entire portrait is visible at a compact size in both layouts. Skip to a different artist while the photo is loading and confirm the previous portrait never appears.
+- In fullscreen, tap the artist name below the track title. Repeat with Open artist page in the artist card. Both should show the Spotify artist page beside the player, without a prompt.
+- In fullscreen, tap the down arrow and check that playback continues in the bottom-right mini-player. Tap the fullscreen icon on a separate visit and check that the player returns to the sidebar.
 - Expand and collapse the sidebar with a lyric and with the artist card on screen. The rounded transition should preserve the current content, and Reduce Motion should use the short fade.
 - Open fullscreen from the sidebar, tap the close button, and repeat. Test on a bright Canvas track, after opening and closing settings, and across rotation. Confirm that the header stays readable and no duplicate artwork comes through.
 - Swipe up past playback controls to the About the artist and Song credits sections. Swipe back to playback and toggle fullscreen twice. Confirm the current track, artwork, lyrics and controls stay in Shrubify's player and stale credits never appear after a skip.
@@ -19,7 +21,7 @@
 - Open full screen and split Now Playing over bright Canvas. Check that the transition below the header has no hard edge. The playback, volume and shortcut rows should fit in the normal split pane. Change tracks and use the stock pane, dismiss and menu buttons.
 - Play “Conversations” and “Bad Energy” from Legends Never Die. Tap Lyrics before the initial lookup finishes and try rapid skips, an offline retry and reopening. Verify timed lyrics follow the playing track and native lyrics survive a failed custom request.
 
-- Tap the cover in split view and full screen. Check the native tilt viewer when Spotify exposes it and the artwork detail otherwise. Dismiss the viewer and verify playback and the current track stay intact.
+- Tap the cover in split view and fullscreen. Check the native tilt viewer when Spotify exposes it. In Shrubify's viewer, drag the cover and tilt the device to see the reflection move. With Reduce Motion enabled, the cover stays still. Dismiss the viewer and verify playback and the current track stay intact.
 - Scrub both directions during a lyric and across a gap. Verify the live line tracks the song, the preview stays aligned under the cover, and tapping it opens lyrics without changing playback.
 - Try a known word-timed lyric and a line-only response such as the LRCLIB versions of “Conversations” and “Bad Energy.” Check the timing label, partial lines, retry, and follow after manual scrolling.
 

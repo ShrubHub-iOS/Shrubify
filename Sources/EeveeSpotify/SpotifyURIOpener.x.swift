@@ -65,7 +65,9 @@ enum SpotifyURIOpener {
     /// 没抓到时 `open` 会退回 `UIApplication.open(spotify:…)` ——
     /// 对 App 自己那个 scheme 是**空操作**（不会弹、也不会跳）。调用方（听歌页的歌名/艺人点击）
     /// 据此改走"转发给原生控件"，而不是"点上去没反应"。
-    static var isReady: Bool { dispatcher != nil }
+    static var isReady: Bool {
+        dispatcher?.responds(to: NSSelectorFromString(navigateSelectorName)) == true
+    }
 
     // MARK: - 交给 hook 的那一半
     //
@@ -88,7 +90,7 @@ enum SpotifyURIOpener {
     //
     // - Note: 卡片点击本来就在主线程；万一不是，就排到主队列再打开（导航必须在主线程）。
     @discardableResult
-    static func open(_ uri: String) -> Bool {
+    static func open(_ uri: String, allowSystemFallback: Bool = true) -> Bool {
         let trimmed = uri.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
             writeDebugLog("[LinkOpen] asked to open an empty uri, nothing done")
@@ -105,10 +107,11 @@ enum SpotifyURIOpener {
 
         guard Thread.isMainThread else {
             writeDebugLog("[LinkOpen] \(trimmed) came in off the main thread, queued on the main queue")
-            DispatchQueue.main.async { _ = open(trimmed) }
+            DispatchQueue.main.async { _ = open(trimmed, allowSystemFallback: allowSystemFallback) }
             return true
         }
         guard let dispatcher = SpotifyURIOpener.dispatcher else {
+            guard allowSystemFallback else { return false }
             return fallbackOpen(
                 url,
                 uri: trimmed,
@@ -119,6 +122,7 @@ enum SpotifyURIOpener {
         let selector = NSSelectorFromString(navigateSelectorName)
         let kind = NSStringFromClass(type(of: dispatcher))
         guard dispatcher.responds(to: selector) else {
+            guard allowSystemFallback else { return false }
             return fallbackOpen(
                 url,
                 uri: trimmed,
@@ -126,6 +130,7 @@ enum SpotifyURIOpener {
             )
         }
         guard let method = class_getInstanceMethod(type(of: dispatcher), selector) else {
+            guard allowSystemFallback else { return false }
             return fallbackOpen(
                 url,
                 uri: trimmed,

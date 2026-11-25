@@ -73,7 +73,8 @@ final class InlineLyricController: UIViewController {
         expand.addAction(UIAction { [weak self, weak expand] _ in
             guard let self, let expand else { return }
             if let fullscreen { fullscreen.exit(); return }
-            let full = PlayerFullscreenPresentation(player: player, origin: view) {
+            let full = PlayerFullscreenPresentation(player: player, origin: view) { [weak self] in
+                self?.fullscreen = nil
                 expand.setTitle("Enter fullscreen", for: .normal)
             }
             fullscreen = full
@@ -81,6 +82,17 @@ final class InlineLyricController: UIViewController {
             present(full, animated: true)
         }, for: .touchUpInside)
         player.addSubview(expand)
+        let minimize = UIButton(type: .system)
+        minimize.frame = CGRect(x: 252, y: 30, width: 130, height: 52)
+        minimize.setTitle("Minimize", for: .normal)
+        minimize.addAction(UIAction { [weak self] _ in
+            guard let self, let fullscreen else { return }
+            fullscreen.exit { [weak self] in
+                guard let self, self.presentedViewController == nil, self.player.superview === self.view else { return }
+                self.status.text = "Ready for native action"
+            }
+        }, for: .touchUpInside)
+        player.addSubview(minimize)
     }
 }
 

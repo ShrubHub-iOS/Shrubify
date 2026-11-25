@@ -43,10 +43,13 @@ final class PlayerFullscreenPresentation: UIViewController, UIViewControllerTran
         if player.superview === view, player.frame != view.bounds { player.frame = view.bounds }
     }
 
-    func exit(returningPlayer: Bool = true) {
+    func exit(returningPlayer: Bool = true, completion: (() -> Void)? = nil) {
         if !returningPlayer { returnsToOrigin = false }
         guard !isBeingDismissed, !isBeingPresented else { return }
-        dismiss(animated: returningPlayer) { [self] in restorePlayer() }
+        dismiss(animated: returningPlayer) { [self] in
+            restorePlayer()
+            if returnsToOrigin, let origin, player.superview === origin { completion?() }
+        }
     }
 
     func animationController(forPresented presented: UIViewController, presenting: UIViewController,
