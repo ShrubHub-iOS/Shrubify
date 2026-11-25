@@ -151,6 +151,7 @@ final class ResponsivePlayerView: UIView, UIScrollViewDelegate {
     private weak var fullscreen: PlayerFullscreenPresentation?
     fileprivate var isFullscreen: Bool { fullscreen != nil }
     private let headerTitle = UILabel()
+    private var headerGlass: UIVisualEffectView?
     private let trackDetails = PlayerTrackDetailsView(frame: .zero)
     private weak var nativeList: UIScrollView?
     private let progress = UISlider()
@@ -264,11 +265,13 @@ final class ResponsivePlayerView: UIView, UIScrollViewDelegate {
                 self?.toggleFullscreen()
             }
             pane.accessibilityIdentifier = "shrubify.player.fullscreen"
+            let glass = ShrubifyLiquidGlass.makePlate(prefersReadableGlass: true)
+            addSubview(glass)
+            headerGlass = glass
             for view in [close, pane, headerTitle, menu] { addSubview(view) }
-            headerTitle.font = .preferredFont(forTextStyle: .subheadline)
-            headerTitle.adjustsFontForContentSizeCategory = true
             headerTitle.textColor = .white
             headerTitle.textAlignment = .center
+            headerTitle.lineBreakMode = .byTruncatingTail
             headerTitle.isAccessibilityElement = true
             headerTitle.accessibilityTraits = .header
             trackDetails.openArtist = { [weak self] in self?.openMetadata("artist_uri") }
@@ -469,7 +472,7 @@ final class ResponsivePlayerView: UIView, UIScrollViewDelegate {
                     ?? info.metadata["album_title"] ?? info.title
                 trackDetails.setTrack(id: currentID, title: info.title, artist: info.artist,
                                       album: info.metadata["album_title"], isrc: info.metadata["isrc"] ?? info.metadata["ISRC"],
-                                      canOpenArtist: info.metadata["artist_uri"] != nil)
+                                      artistURI: info.metadata["artist_uri"])
             }
             title.setTitle(info.title, for: .normal)
             artist.setTitle(info.artist, for: .normal)
@@ -787,7 +790,7 @@ final class ResponsivePlayerView: UIView, UIScrollViewDelegate {
         }
         fullscreen = presentation
         updateFullscreenButton()
-        presenter.present(presentation, animated: false)
+        presenter.present(presentation, animated: true)
     }
 
     private func updateFullscreenButton() {
@@ -948,6 +951,8 @@ final class ResponsivePlayerView: UIView, UIScrollViewDelegate {
                 .scaledFont(for: .systemFont(ofSize: wide ? 35 : 28, weight: .bold), compatibleWith: traitCollection)
             artist.titleLabel?.font = UIFontMetrics(forTextStyle: .body)
                 .scaledFont(for: .systemFont(ofSize: wide ? 19 : 16, weight: .medium), compatibleWith: traitCollection)
+            headerTitle.font = UIFontMetrics(forTextStyle: .headline)
+                .scaledFont(for: .systemFont(ofSize: wide ? 19 : 16, weight: .semibold), compatibleWith: traitCollection)
             inlineFont = UIFontMetrics(forTextStyle: .headline)
                 .scaledFont(for: .systemFont(ofSize: wide ? 23 : 19, weight: .semibold), compatibleWith: traitCollection)
             inlineLyric.lyricFont = inlineFont
@@ -1051,6 +1056,7 @@ final class ResponsivePlayerView: UIView, UIScrollViewDelegate {
         close.frame = TabletPlayerLayout.closeFrame(safeTop: safeAreaInsets.top)
         let headerY = close.frame.minY
         pane.frame = CGRect(x: close.frame.maxX + 2, y: headerY, width: 48, height: 48)
+        headerGlass?.frame = close.frame.union(pane.frame).insetBy(dx: -2, dy: 2)
         menu.frame = CGRect(x: bounds.width - 60, y: headerY, width: 48, height: 48)
         headerTitle.frame = CGRect(x: 112, y: headerY, width: max(0, bounds.width - 224), height: 48)
 

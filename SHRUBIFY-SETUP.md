@@ -1,12 +1,12 @@
-# Shrubify 4.2.5~beta9 setup and releases
+# Shrubify 4.2.5~beta10 setup and releases
 
-The iPad beta uses one system glass effect per recognized bottom bar and restores Spotify's own backing when the glass is disabled. Native playback remains available in both iPad layouts. Custom lyrics can open while their source is loading. Read the [beta notes](RELEASE-4.2.5~beta9.md), [testing checklist](TESTING.md) and [integration notes](docs/EVOLVED-INTEGRATION.md).
+The iPad beta uses one system glass effect per recognized bottom bar and restores Spotify's own backing when the glass is disabled. Native playback remains available in both iPad layouts. Custom lyrics can open while their source is loading. Read the [beta notes](RELEASE-4.2.5~beta10.md), [testing checklist](TESTING.md) and [integration notes](docs/EVOLVED-INTEGRATION.md).
 
 The tweak keeps the internal `EeveeSpotify.dylib` and `EeveeSpotify.bundle` identifiers for compatibility. The package is `com.shrubify.spotify`; branded IPAs use `com.shrubify.client`. The Shrubify version comes from `control`, which generates the in-app version at build time. Spotify’s app version is a separate value.
 
 ## Install
 
-Find the 4.2.5 beta 5 prerelease in [GitHub Releases](https://github.com/ShrubHub-iOS/Shrubify/releases). The default AltStore feed lists stable releases. Sign the IPA using your own compatible certificate/profile and installation method. Jailbreak packages require the matching Theos Orion dependency. These are community builds; device compatibility is not guaranteed.
+Find the 4.2.5 beta 10 prerelease in [GitHub Releases](https://github.com/ShrubHub-iOS/Shrubify/releases). The default AltStore feed lists stable releases. Sign the IPA using your own compatible certificate/profile and installation method. Jailbreak packages require the matching Theos Orion dependency. These are community builds; device compatibility is not guaranteed.
 
 ## Build locally
 

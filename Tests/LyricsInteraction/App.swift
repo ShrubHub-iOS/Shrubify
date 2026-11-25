@@ -78,7 +78,7 @@ final class InlineLyricController: UIViewController {
             }
             fullscreen = full
             expand.setTitle("Exit fullscreen", for: .normal)
-            present(full, animated: false)
+            present(full, animated: true)
         }, for: .touchUpInside)
         player.addSubview(expand)
     }
