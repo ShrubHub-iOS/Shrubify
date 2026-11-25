@@ -136,7 +136,7 @@ private final class PlayerExpansionAnimator: NSObject, UIViewControllerAnimatedT
             view.alpha = endsAt
         } completion: { _ in
             let finished = !context.transitionWasCancelled
-            if expanding || !finished {
+            if self.expanding || !finished {
                 view.layer.mask = nil
                 view.alpha = 1
             }
