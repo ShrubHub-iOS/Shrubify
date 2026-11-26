@@ -45,6 +45,31 @@ enum ArtworkInspector {
         return !rejectedImages.contains(image)
     }
 
+    static func showsArtwork(_ image: UIImage, in cover: UIView) -> Bool {
+        guard let native = nativeImage(in: cover) else { return false }
+        if image === native { return true }
+        guard let a = smallColorSample(of: image), let b = smallColorSample(of: native) else { return false }
+        let difference = zip(a, b).reduce(0) { sum, pair in sum + abs(Int(pair.0) - Int(pair.1)) }
+        return difference <= a.count * 8
+    }
+
+    private static func smallColorSample(of image: UIImage) -> [UInt8]? {
+        guard let bitmap = image.cgImage else { return nil }
+        let side = 16
+        var rgba = [UInt8](repeating: 0, count: side * side * 4)
+        let drew = rgba.withUnsafeMutableBytes { buffer -> Bool in
+            guard let context = CGContext(data: buffer.baseAddress, width: side, height: side,
+                                          bitsPerComponent: 8, bytesPerRow: side * 4,
+                                          space: CGColorSpaceCreateDeviceRGB(),
+                                          bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return false }
+            context.interpolationQuality = .medium
+            context.draw(bitmap, in: CGRect(x: 0, y: 0, width: side, height: side))
+            return true
+        }
+        guard drew else { return nil }
+        return rgba.enumerated().compactMap { $0.offset % 4 == 3 ? nil : $0.element }
+    }
+
     private static func looksLikePlaceholder(_ image: UIImage) -> Bool {
         guard let bitmap = image.cgImage else { return false }
         let side = 24

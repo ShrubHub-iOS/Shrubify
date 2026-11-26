@@ -1060,7 +1060,7 @@ final class ResponsivePlayerView: UIView, UIScrollViewDelegate {
         if let page {
             lastDiscovery = 0
             discoverNative(in: page)
-            if let nativeCover, nativeCover.window === window, ArtworkInspector.nativeImage(in: nativeCover) === image,
+            if let nativeCover, nativeCover.window === window, ArtworkInspector.showsArtwork(image, in: nativeCover),
                ArtworkInspector.openNative(from: nativeCover) { return }
         }
         if #available(iOS 15.0, *) { ArtworkInspector.present(image, from: self) }
