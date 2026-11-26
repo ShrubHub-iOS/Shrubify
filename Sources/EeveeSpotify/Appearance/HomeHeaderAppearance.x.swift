@@ -54,6 +54,7 @@ enum HomeHeaderAppearance {
     /// 首页标签的名字（从标签栏那一颗读一次，跟随 App 语言）。
     private static var tabName: String?
     private static var chipShapeKey: UInt8 = 0
+    private static var compactedFeedKey: UInt8 = 0
     private final class ChipShape {
         let radius: CGFloat; let curve: CALayerCornerCurve; let border: CGFloat
         init(_ view: UIView) { radius = view.layer.cornerRadius; curve = view.layer.cornerCurve; border = view.layer.borderWidth }
@@ -90,6 +91,42 @@ enum HomeHeaderAppearance {
                 }
             } else if queue.count < 160 { queue.append(contentsOf: chip.subviews.prefix(160 - queue.count)) }
         }
+        if page !== header { compactEmptyLeadIn(page: page, header: header) }
+    }
+
+    @MainActor private static func compactEmptyLeadIn(page: UIView, header: UIView) {
+        var nodes = [page]
+        var index = 0
+        var feed: UICollectionView?
+        while index < nodes.count, feed == nil {
+            let view = nodes[index]
+            index += 1
+            guard view !== header, !view.isHidden else { continue }
+            if let collection = view as? UICollectionView,
+               collection.bounds.width >= page.bounds.width * 0.85,
+               collection.bounds.height >= page.bounds.height * 0.55 {
+                feed = collection
+            } else {
+                nodes.append(contentsOf: view.subviews.prefix(120 - nodes.count))
+            }
+        }
+        guard let feed, feed.window != nil, !feed.isTracking, !feed.isDecelerating,
+              objc_getAssociatedObject(feed, &compactedFeedKey) == nil,
+              abs(feed.contentOffset.y + feed.adjustedContentInset.top) < 2 else { return }
+        let headerBottom = header.convert(header.bounds, to: page).maxY
+        let cells = feed.visibleCells.filter { !$0.isHidden && $0.alpha > 0.5 }.sorted { $0.frame.minY < $1.frame.minY }
+        guard let first = cells.first, let shortcut = eeveeFindView(first, identifier: "Shortcut.Card.Home", maxNodes: 120) else { return }
+        let top = shortcut.convert(shortcut.bounds, to: page).minY
+        let gap = top - headerBottom
+        guard (64...180).contains(gap) else { return }
+        // Only trim the empty strip above a verified first shortcut, at the
+        // resting top. Leave populated or partially scrolled feeds alone.
+        let trim = gap - 16
+        objc_setAssociatedObject(feed, &compactedFeedKey, NSNumber(value: Double(trim)), .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+        var inset = feed.contentInset
+        inset.top -= trim
+        feed.contentInset = inset
+        feed.contentOffset.y = -feed.adjustedContentInset.top
     }
 
     // MARK: - 施加

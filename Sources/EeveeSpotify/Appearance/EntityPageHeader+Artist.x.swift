@@ -61,6 +61,19 @@ extension EntityPageHeaderManager {
     /// 读到的简介（没有就是 nil）。
     static func cachedBioText(for name: String) -> String? { bioTexts[name] }
 
+    static func tabletBiography(from card: UIView, expectedArtist: String? = nil) -> String? {
+        let headerID = eeveeArtistBioCardIdPrefix + ".HeaderLabel"
+        let header = eeveeFindView(card, identifier: headerID, maxNodes: 110)
+        guard let name = ((header as? UILabel)?.text ?? header?.accessibilityLabel)?
+            .trimmingCharacters(in: .whitespacesAndNewlines), !name.isEmpty,
+              expectedArtist == nil || expectedArtist?.caseInsensitiveCompare(name) == .orderedSame,
+              let body = eeveeArtistBioText(in: card) ?? eeveeArtistBioBlockText(in: card) else { return nil }
+        let text = eeveeSanitizedArtistBio(body, artistName: name)
+        guard text.caseInsensitiveCompare(name) != .orderedSame, !text.isEmpty else { return nil }
+        Self.applyArtistAbout(biography: text, links: [], to: expectedArtist ?? name)
+        return text
+    }
+
     /// **Spotify 自己那条数据线**（`SPTArtistAboutDataLoader`）交出的 `SPTArtistAbout` ——
     /// "关于艺人"的**权威正文 + 真链接**。
     ///
@@ -650,6 +663,10 @@ extension EntityPageHeaderManager {
     /// `ListRow id=artist-about-listeners`）⇒ 从根搜基本拿不到目标。
     /// 这个类**没有 accessibility id**，但它是 ObjC 类（`SPT*`）⇒ 直接挂它自己：事件驱动、零搜索。
     static func artistBiographyAppeared(_ view: UIView) {
+        if EvolvedInterfaceAvailability.usesNativeTabletInterface {
+            if isArtistPageAncestor(of: view) { _ = tabletBiography(from: view) }
+            return
+        }
         guard isEnabled else { return }
         guard isArtistPageAncestor(of: view) else { return }
         cachedArtistBio = view

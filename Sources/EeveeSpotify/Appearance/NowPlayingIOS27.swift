@@ -734,16 +734,37 @@ enum NowPlayingIOS27 {
         guard metadataArtworkAttempts < 3,
               let track = CurrentSpotifyTrack.snapshot, track.identifier == trackId else { return }
         let urls = LyricsArtworkResolver.playerArtworkURLs(for: track)
-        guard !urls.isEmpty else { return }
+        let tablet = ResponsivePlayer.tabletEnabled
+        let profile = tablet && trackId.range(of: #"^[A-Za-z0-9]{22}$"#, options: .regularExpression) != nil
+            ? URL(string: "https://open.spotify.com/track/\(trackId)") : nil
+        guard !urls.isEmpty || profile != nil else { return }
         metadataArtworkAttempts += 1
         metadataArtworkLoading = true
         let request = UUID()
         metadataArtworkRequest = request
-        fetchMetadataArtwork(urls[...], for: trackId, request: request)
+        fetchMetadataArtwork(urls[...], for: trackId, request: request, profile: profile)
     }
 
-    private static func fetchMetadataArtwork(_ urls: ArraySlice<URL>, for trackId: String, request: UUID) {
+    private static func fetchMetadataArtwork(_ urls: ArraySlice<URL>, for trackId: String, request: UUID,
+                                             profile: URL? = nil) {
         guard let url = urls.first else {
+            if let profile {
+                URLSession.shared.dataTask(with: URLRequest(url: profile, timeoutInterval: 6)) { data, response, _ in
+                    let address: URL?
+                    if let data, data.count <= 1_000_000, let response = response as? HTTPURLResponse,
+                       response.statusCode == 200, response.url?.host == "open.spotify.com",
+                       response.url?.path == profile.path, let html = String(data: data, encoding: .utf8) {
+                        address = PlayerArtistPhoto.imageURL(in: html)
+                    } else {
+                        address = nil
+                    }
+                    DispatchQueue.main.async {
+                        guard metadataArtworkTrackId == trackId, metadataArtworkRequest == request else { return }
+                        fetchMetadataArtwork([address].compactMap { $0 }[...], for: trackId, request: request)
+                    }
+                }.resume()
+                return
+            }
             metadataArtworkLoading = false
             metadataArtworkRequest = nil
             return
@@ -754,7 +775,7 @@ enum NowPlayingIOS27 {
             DispatchQueue.main.async {
                 guard metadataArtworkTrackId == trackId, metadataArtworkRequest == request else { return }
                 guard let image, image.size.width > 1, image.size.height > 1 else {
-                    fetchMetadataArtwork(urls.dropFirst(), for: trackId, request: request)
+                    fetchMetadataArtwork(urls.dropFirst(), for: trackId, request: request, profile: profile)
                     return
                 }
                 metadataArtworkLoading = false

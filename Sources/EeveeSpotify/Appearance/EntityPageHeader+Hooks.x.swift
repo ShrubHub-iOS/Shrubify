@@ -3,6 +3,20 @@ import Orion
 import UIKit
 import ObjectiveC.runtime
 
+func activateTabletArtistDetails() {
+    if let cls = NSClassFromString(ArtistBiographyCardLayoutHook.targetName),
+       class_getInstanceMethod(cls, #selector(UIView.layoutSubviews)) != nil {
+        ArtistBioCardHookGroup().activate()
+    }
+    if ArtistAboutDataLoaderProbe.canInstall(className: SPTArtistAboutDataLoaderHook.targetName) {
+        ArtistAboutDataHookGroup().activate()
+    }
+    if let cls = NSClassFromString(TabletArtistPageHook.targetName),
+       class_getInstanceMethod(cls, #selector(UIView.layoutSubviews)) != nil {
+        TabletArtistPageHookGroup().activate()
+    }
+}
+
 // MARK: - 挂点
 
 func activateEntityPageHeader() {

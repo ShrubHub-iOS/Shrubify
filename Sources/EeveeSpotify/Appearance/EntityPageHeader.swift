@@ -282,7 +282,7 @@ func eeveeArtistBioCard(in view: UIView) -> UIView? {
 func eeveeArtistBioText(in card: UIView) -> String? {
     guard let label = eeveeFindView(card, identifier: eeveeArtistBioTextId)
         ?? eeveeFindView(card, identifier: eeveeArtistBioTextId + "*") else { return nil }
-    let raw = (label as? UILabel)?.text ?? (label as? UITextView)?.text
+    let raw = (label as? UILabel)?.text ?? (label as? UITextView)?.text ?? label.accessibilityLabel
     let trimmed = raw?.trimmingCharacters(in: .whitespacesAndNewlines)
     guard let trimmed, !trimmed.isEmpty else { return nil }
     return trimmed

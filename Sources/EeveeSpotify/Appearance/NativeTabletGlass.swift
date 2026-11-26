@@ -42,6 +42,7 @@ enum NativeTabletGlass {
         private let opacity = NSHashTable<UIView>.weakObjects()
         private let blurs = NSHashTable<UIVisualEffectView>.weakObjects()
         private let hidden = NSHashTable<UIView>.weakObjects()
+        private let decorations = NSHashTable<CALayer>.weakObjects()
         private weak var roundedMini: UIView?
         private var restoreMiniCorners: (() -> Void)?
         private weak var miniProgress: UIView?
@@ -113,6 +114,18 @@ enum NativeTabletGlass {
             hidden.add(view)
             restoreBacking.append { [weak view] in if view?.alpha == 0 { view?.alpha = alpha } }
             view.alpha = 0
+        }
+
+        func clearDecorationLayers(in view: UIView) {
+            let managed = view.subviews.map(\.layer)
+            for layer in view.layer.sublayers ?? [] where layer is CAGradientLayer && !managed.contains(layer) {
+                if !decorations.contains(layer) {
+                    let previous = layer.isHidden
+                    decorations.add(layer)
+                    restoreBacking.append { [weak layer] in layer?.isHidden = previous }
+                }
+                layer.isHidden = true
+            }
         }
 
         func suppressMiniFill(_ view: UIView) {
@@ -193,6 +206,7 @@ enum NativeTabletGlass {
 #endif
             colors.removeAllObjects(); opacity.removeAllObjects()
             blurs.removeAllObjects(); hidden.removeAllObjects()
+            decorations.removeAllObjects()
         }
         func remove() {
             compactRow?.restore(); compactRow = nil
@@ -397,11 +411,6 @@ enum NativeTabletGlass {
         else { state = State(bar); state.fallback = fallback; bars.setObject(state, forKey: host) }
         if !fallback { state.fallback = false }
         if let miniOwner { state.miniOwner = miniOwner }
-#if canImport(EeveeSpotifyC)
-        if bar == .miniPlayer, let source = state.owner ?? miniOwner ?? findOwner(in: host, bar: .miniPlayer) {
-            ResponsivePlayer.rememberMiniArtwork(in: source)
-        }
-#endif
         if bar == .tabs, let root = navigationRoot ?? Self.navigationRoot(for: host),
            host.isDescendant(of: root) { state.navigationRoot = root }
         // Remember the bar so Studio can apply a change immediately. When off,
@@ -550,7 +559,15 @@ enum NativeTabletGlass {
         }
         let radius = state.bar == .miniPlayer ? NativeGlassGeometry.miniRadius(for: frame.size) : nil
         let plate = ShrubifyLiquidGlass.makePlate(radius: radius, interactive: false, prefersReadableGlass: true)
-        if state.bar == .miniPlayer { plate.overrideUserInterfaceStyle = .dark }
+        plate.overrideUserInterfaceStyle = .dark
+        plate.clipsToBounds = true
+        if state.bar == .tabs {
+            let contrast = UIView(frame: CGRect(origin: .zero, size: converted.size))
+            contrast.backgroundColor = UIColor(white: 0.05, alpha: 0.36)
+            contrast.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+            contrast.isUserInteractionEnabled = false
+            plate.contentView.addSubview(contrast)
+        }
         plate.accessibilityIdentifier = "shrubify.native.glass.material"
         plate.isUserInteractionEnabled = false
         plate.accessibilityElementsHidden = true
@@ -678,7 +695,7 @@ enum NativeTabletGlass {
             state.selection?.isHidden = true
             return
         }
-        let center = tabGlyphs(tab, in: plate.contentView)?.midX ?? tab.convert(tab.bounds, to: plate.contentView).midX
+        let center = tabIconCenter(tab, in: plate.contentView) ?? tab.convert(tab.bounds, to: plate.contentView).midX
         let width = min(78, plate.bounds.width / CGFloat(max(visible.count, 1))) - 6
         guard let item = NativeGlassGeometry.selectionFrame(centerX: center, width: width, in: plate.bounds) else {
             state.selection?.isHidden = true
@@ -689,7 +706,7 @@ enum NativeTabletGlass {
             indicator.isUserInteractionEnabled = false
             indicator.accessibilityElementsHidden = true
             indicator.accessibilityIdentifier = "shrubify.native.selection"
-            indicator.backgroundColor = UIColor.label.withAlphaComponent(0.16)
+            indicator.backgroundColor = UIColor.white.withAlphaComponent(0.20)
             indicator.layer.cornerCurve = .continuous
             plate.contentView.addSubview(indicator)
             state.selection = indicator
@@ -697,6 +714,22 @@ enum NativeTabletGlass {
         indicator.isHidden = false
         indicator.frame = item
         indicator.layer.cornerRadius = min(indicator.bounds.height, indicator.bounds.width) / 2
+    }
+
+    private static func tabIconCenter(_ tab: UIView, in target: UIView) -> CGFloat? {
+        var nodes = [tab]
+        var index = 0
+        while index < nodes.count {
+            let node = nodes[index]
+            index += 1
+            guard !node.isHidden, node.alpha > 0.5 else { continue }
+            if node is UIImageView, (16...36).contains(node.bounds.width),
+               (16...36).contains(node.bounds.height) {
+                return node.convert(CGPoint(x: node.bounds.midX, y: node.bounds.midY), to: target).x
+            }
+            nodes.append(contentsOf: node.subviews.prefix(32 - nodes.count))
+        }
+        return nil
     }
 
     private static func siblingTabItems(of row: UIStackView, host: UIView) -> (root: UIView, items: [UIView]) {
@@ -822,6 +855,10 @@ enum NativeTabletGlass {
         }
         if let root = state.navigationRoot, host.isDescendant(of: root) {
             let hostFrame = host.convert(host.bounds, to: root)
+            let plateWidth = state.plate?.bounds.width ?? 0
+            // The outer footer can paint its glass inside a wrapper that also
+            // carries tabs. Suppress the backing itself and preserve the wrapper.
+            removeWideDockEffects(in: root, band: hostFrame, plateWidth: plateWidth, state: state)
             var branch = host
             for _ in 0..<6 {
                 guard let parent = branch.superview else { break }
@@ -851,6 +888,33 @@ enum NativeTabletGlass {
                 if parent === root { break }
                 branch = parent
             }
+        }
+    }
+
+    private static func removeWideDockEffects(in root: UIView, band: CGRect, plateWidth: CGFloat, state: State) {
+        guard plateWidth > 0 else { return }
+        var nodes = [root]
+        var index = 0
+        while index < nodes.count {
+            let view = nodes[index]
+            index += 1
+            guard view !== state.plate, !view.isHidden,
+                  !(view is UIScrollView || view is UIControl || view is UIImageView) else { continue }
+            let frame = view.convert(view.bounds, to: root)
+            guard frame.intersects(band) else { continue }
+            if frame.width > plateWidth + 24, frame.width >= band.width * 0.72, (16...160).contains(frame.height) {
+                if let effect = view as? UIVisualEffectView {
+                    state.clearEffect(effect, includingGlass: true)
+                    state.clearColor(effect.contentView)
+                }
+                let name = NSStringFromClass(type(of: view))
+                if name.contains("TabBar") || view.accessibilityIdentifier == "tabs-background-view-identifier" {
+                    state.clearColor(view)
+                    state.clearOpacity(view)
+                    state.clearDecorationLayers(in: view)
+                }
+            }
+            nodes.append(contentsOf: view.subviews.prefix(150 - nodes.count))
         }
     }
 

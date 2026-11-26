@@ -10,28 +10,6 @@ enum ResponsivePlayer {
     private static var key: UInt8 = 0
     private static let views = NSHashTable<ResponsivePlayerView>.weakObjects()
     private static let mountingPages = NSHashTable<UIView>.weakObjects()
-    fileprivate static let tabletArtwork: NSCache<NSString, UIImage> = {
-        let cache = NSCache<NSString, UIImage>()
-        cache.countLimit = 8
-        return cache
-    }()
-    private static let thumbnailOwners = NSMapTable<UIImage, NSString>.weakToStrongObjects()
-
-    fileprivate static func artworkKey(for track: SafeTrackMetadata) -> NSString? {
-        if let album = track.metadata["album_uri"], album.hasPrefix("spotify:album:") { return album as NSString }
-        return track.identifier.map { $0 as NSString }
-    }
-
-    static func rememberMiniArtwork(in bar: UIView) {
-        guard bar.accessibilityIdentifier == "SPTNowPlayingBar", tabletEnabled,
-              let track = CurrentSpotifyTrack.snapshot,
-              let key = artworkKey(for: track), tabletArtwork.object(forKey: key) == nil,
-              let image = ArtworkInspector.miniImage(in: bar, title: track.title) else { return }
-        if let previous = thumbnailOwners.object(forKey: image), previous != key { return }
-        thumbnailOwners.setObject(key, forKey: image)
-        tabletArtwork.setObject(image, forKey: key)
-    }
-
     static func apply(in page: UIView, image: UIImage?, trackID: String) {
         guard NowPlayingIOS27.isEnabled else { removeAll(); return }
         mount(in: page, image: image, trackID: trackID, tablet: false)
@@ -130,10 +108,6 @@ final class ResponsivePlayerView: UIView, UIScrollViewDelegate {
     private let artworkButton = UIButton(type: .custom)
     private let inlineLyric = PlayerLyricPreview(frame: .zero)
     private weak var nativeCover: UIView?
-    private weak var nativeCoverCell: UIView?
-    private weak var canvasCover: UIView?
-    private weak var lastNativeImage: UIImage?
-    private weak var staleNativeImage: UIImage?
     private var previewLyrics: KaraokeLyricsDto?
     private var previewGeneration: Int?
     private var requestedPreviewTrack: String?
@@ -414,11 +388,9 @@ final class ResponsivePlayerView: UIView, UIScrollViewDelegate {
         guard let page else { return }
         let info = CurrentSpotifyTrack.snapshot
         let currentID = info?.identifier ?? (tablet && !self.trackID.isEmpty ? self.trackID : trackID)
-        let artworkKey = tablet ? info.flatMap { ResponsivePlayer.artworkKey(for: $0) } : nil
         if self.trackID != currentID {
             self.trackID = currentID
             artwork.image = nil; background.image = nil
-            staleNativeImage = lastNativeImage
             lastVersion = -1
             lastDiscovery = 0
             lastArtworkRetry = 0
@@ -444,33 +416,11 @@ final class ResponsivePlayerView: UIView, UIScrollViewDelegate {
             }
         }
         discoverNative(in: page)
-        if let artworkKey, let cached = ResponsivePlayer.tabletArtwork.object(forKey: artworkKey) {
-            upgradeTabletArtwork(cached)
-        }
-        if tablet, let nativeImage = [nativeCover, nativeCoverCell, canvasCover].lazy
-            .compactMap({ $0.flatMap { ArtworkInspector.nativeImage(in: $0) } }).first {
-            lastNativeImage = nativeImage
-            if info?.identifier == currentID, nativeImage !== staleNativeImage {
-                upgradeTabletArtwork(nativeImage)
-            }
-        }
-        if tablet, artwork.image == nil, let info, info.identifier == currentID,
-           let playerInfo = MPNowPlayingInfoCenter.default().nowPlayingInfo,
-           playerInfo[MPMediaItemPropertyTitle] as? String == info.title,
-           playerInfo[MPMediaItemPropertyArtist] as? String == info.artist,
-           let cover = playerInfo[MPMediaItemPropertyArtwork] as? MPMediaItemArtwork,
-           let displayImage = cover.image(at: CGSize(width: 1024, height: 1024)),
-           ArtworkInspector.usableFallback(displayImage) {
-            upgradeTabletArtwork(displayImage)
-        }
-        if let artworkKey, let cover = artwork.image,
-           ResponsivePlayer.tabletArtwork.object(forKey: artworkKey) !== cover {
-            ResponsivePlayer.tabletArtwork.setObject(cover, forKey: artworkKey)
-        }
         if let info {
             if tablet {
-                headerTitle.text = (native.object(forKey: NowPlayingIOS27.navTitleIdentifier as NSString) as? UILabel)?.text
-                    ?? info.metadata["album_title"] ?? info.title
+                headerTitle.text = info.metadata["album_title"]
+                    ?? (native.object(forKey: NowPlayingIOS27.navTitleIdentifier as NSString) as? UILabel)?.text
+                    ?? info.title
                 trackDetails.setTrack(id: currentID, title: info.title, artist: info.artist,
                                       album: info.metadata["album_title"], isrc: info.metadata["isrc"] ?? info.metadata["ISRC"],
                                       artistURI: info.metadata["artist_uri"])
@@ -550,9 +500,10 @@ final class ResponsivePlayerView: UIView, UIScrollViewDelegate {
     private func upgradeTabletArtwork(_ candidate: UIImage) {
         let existing = artwork.image.map { $0.size.width * $0.scale } ?? 0
         guard candidate.size.width * candidate.scale > existing else { return }
+        let requestedTrack = trackID
         artwork.image = candidate
         LyricsBackdropImageCache.shared.blurArtwork(candidate) { [weak self] blurred in
-            guard let self, artwork.image === candidate else { return }
+            guard let self, artwork.image === candidate, trackID == requestedTrack else { return }
             background.image = blurred
         }
     }
@@ -643,7 +594,7 @@ final class ResponsivePlayerView: UIView, UIScrollViewDelegate {
         lastDiscovery = now
         native.removeAllObjects()
         let previousCover = nativeCover
-        if tablet { nativeCover = nil; nativeCoverCell = nil; canvasCover = nil }
+        if tablet { nativeCover = nil }
         savedAccessibility.removeAll { $0.view == nil }
         var queue = [page]; var index = 0
         let ids = Set(actions.keys).union(["now-playing-minimize-button", "Context menu", "SPTNowPlayingSliderV2",
@@ -653,18 +604,15 @@ final class ResponsivePlayerView: UIView, UIScrollViewDelegate {
             if view === self { continue }
             queue.append(contentsOf: view.subviews)
             let rect = view.convert(view.bounds, to: page)
-            // Spotify intentionally hides this cover while Canvas plays. Its
-            // current bitmap can still back the player in the narrow pane.
-            if tablet, canvasCover == nil, rect.intersects(page.bounds), ArtworkInspector.isCanvasCover(view) {
-                canvasCover = view
-            }
             guard !view.isHidden, rect.intersects(page.bounds),
                   !tablet || onPlayerPage(view, page: page) else { continue }
             if tablet, nativeCover == nil, ArtworkInspector.isNativeCover(view) {
                 nativeCover = view
             }
-            if tablet, nativeCoverCell == nil, ArtworkInspector.isNativeCoverCell(view) {
-                nativeCoverCell = view
+            if tablet, NSStringFromClass(type(of: view)).hasSuffix("CreatorBiographyCardLayout"),
+               let artist = CurrentSpotifyTrack.snapshot?.artist, !artist.isEmpty {
+                let lead = LyricsMatch.leadArtist(artist.components(separatedBy: ", ").first ?? artist)
+                _ = EntityPageHeaderManager.tabletBiography(from: view, expectedArtist: lead)
             }
             if tablet, view !== page, rect.minY >= page.bounds.minY + headerHeight,
                !savedAccessibility.contains(where: { snapshot in
@@ -1112,7 +1060,8 @@ final class ResponsivePlayerView: UIView, UIScrollViewDelegate {
         if let page {
             lastDiscovery = 0
             discoverNative(in: page)
-            if let nativeCover, nativeCover.window === window, ArtworkInspector.openNative(from: nativeCover) { return }
+            if let nativeCover, nativeCover.window === window, ArtworkInspector.nativeImage(in: nativeCover) === image,
+               ArtworkInspector.openNative(from: nativeCover) { return }
         }
         if #available(iOS 15.0, *) { ArtworkInspector.present(image, from: self) }
     }

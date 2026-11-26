@@ -53,7 +53,7 @@ enum PlayerArtistPhoto {
         }.resume()
     }
 
-    private static func imageURL(in html: String) -> URL? {
+    static func imageURL(in html: String) -> URL? {
         let pattern = #"<meta\s+property="og:image"\s+content="(https://i\.scdn\.co/image/[A-Za-z0-9]+)"\s*/?>"#
         guard let regex = try? NSRegularExpression(pattern: pattern),
               let match = regex.firstMatch(in: html, range: NSRange(html.startIndex..., in: html)),

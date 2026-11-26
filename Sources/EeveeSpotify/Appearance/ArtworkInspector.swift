@@ -16,25 +16,6 @@ enum ArtworkInspector {
         return view.isKind(of: coverClass) && NowPlayingLyricsPlate.isInsideCoverCell(view)
     }
 
-    static func isNativeCoverCell(_ view: UIView) -> Bool {
-        if let type = NowPlayingLyricsPlate.coverCellClass, view.isKind(of: type) { return true }
-        let name = NSStringFromClass(type(of: view))
-        return name.contains("NowPlaying_ContentLayersImpl") && name.hasSuffix("CoverArtCellImpl")
-    }
-
-    static func isCanvasCover(_ view: UIView) -> Bool {
-        guard view.accessibilityIdentifier == NowPlayingLyricsPlate.coverImageIdentifier,
-              view.bounds.width >= 160, view.bounds.height >= 160 else { return false }
-        var parent = view.superview
-        for _ in 0..<8 {
-            guard let current = parent else { break }
-            if current.accessibilityIdentifier?.contains("nowplaying-contentlayer-cell-5") == true
-                || NSStringFromClass(type(of: current)).hasSuffix("CanvasNowPlayingCell") { return true }
-            parent = current.superview
-        }
-        return false
-    }
-
     static func nativeImage(in cover: UIView) -> UIImage? {
         var nodes = [cover]
         var index = 0
@@ -55,42 +36,13 @@ enum ArtworkInspector {
         !image.isSymbolImage && NowPlayingLyricsPlate.isUsableArtwork(image)
     }
 
-    static func usableFallback(_ image: UIImage, thumbnail: Bool = false) -> Bool {
-        guard !image.isSymbolImage,
-              thumbnail ? min(image.size.width, image.size.height) * image.scale >= 48 : usableImage(image)
-        else { return false }
+    private static func usableFallback(_ image: UIImage) -> Bool {
+        guard usableImage(image) else { return false }
         if !checkedImages.contains(image) {
             checkedImages.add(image)
             if looksLikePlaceholder(image) { rejectedImages.add(image) }
         }
         return !rejectedImages.contains(image)
-    }
-
-    static func miniImage(in bar: UIView, title: String) -> UIImage? {
-        guard bar.accessibilityIdentifier == "SPTNowPlayingBar", !title.isEmpty else { return nil }
-        var nodes = [bar]
-        var index = 0
-        var artwork: UIImage?
-        var titleMatches = false
-        while index < nodes.count {
-            let view = nodes[index]
-            index += 1
-            guard !view.isHidden, view.alpha > 0.1 else { continue }
-            let label = (view as? UILabel)?.text ?? view.accessibilityLabel ?? ""
-            if label == title || label.hasPrefix(title + ", ") || label.hasPrefix(title + "\n") {
-                titleMatches = true
-            }
-            if artwork == nil, let value = (view as? UIImageView)?.image {
-                let rect = view.convert(view.bounds, to: bar)
-                if (30...85).contains(rect.width), abs(rect.width - rect.height) < 2,
-                   rect.minX >= 0, rect.maxX <= 100, usableFallback(value, thumbnail: true) {
-                    artwork = value
-                }
-            }
-            if let artwork, titleMatches { return artwork }
-            nodes.append(contentsOf: view.subviews.prefix(120 - nodes.count))
-        }
-        return nil
     }
 
     private static func looksLikePlaceholder(_ image: UIImage) -> Bool {

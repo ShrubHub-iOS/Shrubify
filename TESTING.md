@@ -1,6 +1,6 @@
-# Shrubify 4.2.5~beta12 testing checklist
+# Shrubify 4.2.5~beta13 testing checklist
 
-## 4.2.5 beta 12 on iPad
+## 4.2.5 beta 13 on iPad
 
 - Scroll to the artist card while playing “Conversations.” Check that the entire portrait is visible at a compact size in both layouts. Skip to a different artist while the photo is loading and confirm the previous portrait never appears.
 - In fullscreen, tap the artist name below the track title. Repeat with Open artist page in the artist card. Both should show the Spotify artist page beside the player, without a prompt.

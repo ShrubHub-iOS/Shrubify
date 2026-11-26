@@ -115,7 +115,16 @@ final class PlayerTrackDetailsView: UIView {
             photoRow.isHidden = !reservesPhoto
             onContentChange?()
         }
-        guard id != self.id else { return }
+        guard id != self.id else {
+            if let name = info?.artist, let native = EntityPageHeaderManager.cachedBioText(for: name), native != biography.text {
+                biography.text = native
+                biography.isHidden = false
+                biographySource.isHidden = true
+                biographyURL = nil
+                onContentChange?()
+            }
+            return
+        }
         self.id = id
         let primary = LyricsMatch.leadArtist(artist.components(separatedBy: ", ").first ?? artist)
         info = (title, primary, album, isrc)

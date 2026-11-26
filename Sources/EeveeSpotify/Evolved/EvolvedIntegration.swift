@@ -24,6 +24,7 @@ func activateEvolvedInterface() {
         // Tablet presentation is handled by its dedicated player and bar hooks.
         activateHomeHeaderAppearance()
         activateHomeShortcutTiles()
+        activateTabletArtistDetails()
         writeDebugLog("[Shrubify] iPad: artwork-led player body over native presentation; scoped glass and Home appearance")
         return
     }

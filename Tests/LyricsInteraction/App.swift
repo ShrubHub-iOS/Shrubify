@@ -139,6 +139,7 @@ final class RootController: UIViewController {
     private var selections = 0
     private let barSurface = FixtureTabBarView(effect: UIBlurEffect(style: .systemMaterialDark))
     private let dockWrapper = UIView()
+    private let nestedDockBacking = UIVisualEffectView(effect: UIGlassEffect(style: .regular))
     private let dockBacking = UIVisualEffectView(effect: UIGlassEffect(style: .clear))
     private let dockBackdrop = FixtureBackdropView()
     private var blueBackdrop = false
@@ -204,6 +205,7 @@ final class RootController: UIViewController {
         dockBacking.isUserInteractionEnabled = false
         view.addSubview(dockBacking)
         view.addSubview(dockWrapper)
+        dockWrapper.addSubview(nestedDockBacking)
         dockWrapper.addSubview(barSurface)
         view.addSubview(miniHost)
         mini.frame = CGRect(x: 568, y: 64, width: 240, height: 56); mini.accessibilityIdentifier = "SPTNowPlayingBar"
@@ -260,6 +262,7 @@ final class RootController: UIViewController {
         dockBacking.frame = dockWrapper.frame
         dockBackdrop.frame = dockWrapper.frame.insetBy(dx: -8, dy: -12)
         barSurface.frame = dockWrapper.bounds
+        nestedDockBacking.frame = dockWrapper.bounds
         barSurface.layoutIfNeeded()
         row.frame = barHost.bounds
         flatBarBacking.frame = barHost.bounds
@@ -321,12 +324,14 @@ final class RootController: UIViewController {
         let wells = (row.arrangedSubviews + [miniPlay]).reduce(0) { $0 + $1.fixtureGlassCount }
         let cleared = legacy.alpha == 0 && dockBacking.alpha == 0 && flatBarBacking.alpha == 0
             && dockBacking.effect == nil
+            && nestedDockBacking.effect == nil
             && barSurface.effect == nil && barSurface.layer.mask == nil
             && (barHost.layer.backgroundColor?.alpha ?? 0) == 0
             && (mini.layer.backgroundColor?.alpha ?? 0) == 0
             && mini.clipsToBounds && mini.layer.cornerRadius == 22 && miniRail.frame.maxY < 53
         let restored = legacy.alpha == 1 && dockBacking.alpha == 1 && flatBarBacking.alpha == 1
             && dockBacking.effect is UIGlassEffect
+            && nestedDockBacking.effect is UIGlassEffect
             && barSurface.effect is UIBlurEffect && barSurface.layer.mask == nil
             && barHost.backgroundColor == .darkGray && mini.backgroundColor == .darkGray
             && !mini.clipsToBounds && mini.layer.cornerRadius == 0 && miniRail.transform.isIdentity
