@@ -695,9 +695,16 @@ enum NativeTabletGlass {
             state.selection?.isHidden = true
             return
         }
-        let center = tabIconCenter(tab, in: plate.contentView) ?? tab.convert(tab.bounds, to: plate.contentView).midX
-        let width = min(78, plate.bounds.width / CGFloat(max(visible.count, 1))) - 6
-        guard let item = NativeGlassGeometry.selectionFrame(centerX: center, width: width, in: plate.bounds) else {
+        let slot = tab.convert(tab.bounds, to: plate.contentView)
+        let preferredWidth = min(78, plate.bounds.width / CGFloat(max(visible.count, 1))) - 6
+        let icon = tabIconCenter(tab, in: plate.contentView) ?? slot.midX
+        let safeWidth = min(preferredWidth, 2 * min(icon - plate.bounds.minX, plate.bounds.maxX - icon) - 4)
+        // The outer icon can sit near a capsule edge on a horizontal label.
+        // Narrow the lens there, or retain the verified slot center.
+        let center = safeWidth >= 44 && abs(icon - slot.midX) <= slot.width / 2 ? icon : slot.midX
+        let width = center == icon && safeWidth >= 44 ? safeWidth : preferredWidth
+        guard let item = NativeGlassGeometry.selectionFrame(centerX: center, width: width, in: plate.bounds)
+                ?? NativeGlassGeometry.selectionFrame(centerX: slot.midX, width: preferredWidth, in: plate.bounds) else {
             state.selection?.isHidden = true
             return
         }
