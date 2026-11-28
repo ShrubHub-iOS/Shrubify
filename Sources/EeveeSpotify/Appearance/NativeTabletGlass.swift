@@ -118,14 +118,18 @@ enum NativeTabletGlass {
 
         func clearDecorationLayers(in view: UIView) {
             let managed = view.subviews.map(\.layer)
-            for layer in view.layer.sublayers ?? [] where layer is CAGradientLayer && !managed.contains(layer) {
-                if !decorations.contains(layer) {
-                    let previous = layer.isHidden
-                    decorations.add(layer)
-                    restoreBacking.append { [weak layer] in layer?.isHidden = previous }
-                }
-                layer.isHidden = true
+            for layer in view.layer.sublayers ?? [] where !managed.contains(layer) && layer is CAGradientLayer {
+                hideDecoration(layer)
             }
+        }
+
+        func hideDecoration(_ layer: CALayer) {
+            if !decorations.contains(layer) {
+                let previous = layer.isHidden
+                decorations.add(layer)
+                restoreBacking.append { [weak layer] in layer?.isHidden = previous }
+            }
+            layer.isHidden = true
         }
 
         func suppressMiniFill(_ view: UIView) {
@@ -326,7 +330,7 @@ enum NativeTabletGlass {
             }
             if tabViews.suffix(2).contains(name), (1...110).contains(view.bounds.height),
                findOwner(in: view, bar: .tabs) != nil { compact = view }
-            if mini == nil, view.accessibilityIdentifier == "SPTNowPlayingBar", matches(view, .miniPlayer) {
+            if mini == nil, matches(view, .miniPlayer) {
                 mini = view
             }
             if standard != nil, mini != nil { break }
@@ -384,6 +388,20 @@ enum NativeTabletGlass {
             node = candidate.superview
         }
         layout(.miniPlayer, in: owner, fallback: true, miniOwner: owner)
+    }
+
+    static func layoutMiniStack(_ view: UIView) {
+        var node: UIView? = view
+        for _ in 0..<5 {
+            guard let candidate = node, !(candidate is UIWindow) else { break }
+            if candidate.accessibilityIdentifier == "SPTNowPlayingBar"
+                || candidate.accessibilityIdentifier == "now-playing-bar-content" {
+                layoutMiniControllerView(candidate, isContentController: false)
+                return
+            }
+            node = candidate.superview
+        }
+        if matches(view, .miniPlayer) { layoutMiniControllerView(view, isContentController: false) }
     }
 
     private static func navigationRoot(for host: UIView) -> UIView? {
@@ -516,13 +534,13 @@ enum NativeTabletGlass {
         // An already snug native glass surface can own the bar. A wide
         // backing must instead be removed when the compact plate is mounted.
         let targetWidth = frame.width
-        if owner.subviews.contains(where: {
+        if state.bar == .tabs, owner.subviews.contains(where: {
             $0 !== state.plate && ($0 as? UIVisualEffectView)?.effect is UIGlassEffect
                 && $0.bounds.width <= targetWidth + 8
         }) { state.remove(); return }
         var ancestor: UIView? = owner
         while let view = ancestor {
-            if (view as? UIVisualEffectView)?.effect is UIGlassEffect, view.bounds.width <= targetWidth + 8 {
+            if state.bar == .tabs, (view as? UIVisualEffectView)?.effect is UIGlassEffect, view.bounds.width <= targetWidth + 8 {
                 state.remove()
                 return
             }
@@ -766,6 +784,7 @@ enum NativeTabletGlass {
             guard (30...110).contains(view.bounds.height), view.bounds.width >= 140 else { return false }
             let name = NSStringFromClass(type(of: view))
             return view.accessibilityIdentifier == "SPTNowPlayingBar"
+                || view.accessibilityIdentifier == "now-playing-bar-content"
                 || (name.contains("NowPlaying_Bar")
                     && (name.hasSuffix("NowPlayingBarView") || name.hasSuffix("NowPlayingBarTopStack")))
         }
@@ -796,15 +815,29 @@ enum NativeTabletGlass {
         if state.bar == .miniPlayer {
             state.suppressMiniFill(owner)
             state.containMiniContent(in: owner)
+            // Spotify can paint the album color on the outer mini bar even
+            // when the tagged content view has already been made transparent.
+            var parent = owner.superview
+            for _ in 0..<4 {
+                guard let view = parent, (30...120).contains(view.bounds.height),
+                      view.bounds.width <= owner.bounds.width + 24 else { break }
+                state.suppressMiniFill(view)
+                state.clearColor(view)
+                state.clearOpacity(view)
+                state.clearDecorationLayers(in: view)
+                if let effect = view as? UIVisualEffectView { state.clearEffect(effect, includingGlass: true) }
+                clearBackingChildren(of: view, protecting: owner, state: state)
+                parent = view.superview
+            }
         }
         for case let effect as UIVisualEffectView in owner.subviews
         where effect !== state.plate && effect.frame == owner.bounds && effect.contentView.subviews.isEmpty {
-            state.clearEffect(effect, includingGlass: state.bar == .tabs && effect.bounds.width > (state.plate?.bounds.width ?? 0) + 8)
+            state.clearEffect(effect, includingGlass: state.bar == .miniPlayer || effect.bounds.width > (state.plate?.bounds.width ?? 0) + 8)
         }
         var ancestor: UIView? = owner
         while let root = ancestor, root.bounds.height <= 110 {
             if let material = root as? UIVisualEffectView {
-                state.clearEffect(material, includingGlass: state.bar == .tabs && root.bounds.width > (state.plate?.bounds.width ?? 0) + 8)
+                state.clearEffect(material, includingGlass: state.bar == .miniPlayer || root.bounds.width > (state.plate?.bounds.width ?? 0) + 8)
                 state.clearColor(material.contentView)
                 state.clearOpacity(material.contentView)
             }
@@ -832,7 +865,7 @@ enum NativeTabletGlass {
                 state.suppressMiniFill(view)
                 state.clearColor(view)
                 state.clearOpacity(view)
-                if let effect = view as? UIVisualEffectView { state.clearEffect(effect) }
+                if let effect = view as? UIVisualEffectView { state.clearEffect(effect, includingGlass: true) }
                 clearBackingChildren(of: view, protecting: owner, state: state)
                 if nodes.count < 24 {
                     nodes.append(contentsOf: view.subviews.filter { $0 !== state.plate }.prefix(24 - nodes.count))
@@ -860,12 +893,14 @@ enum NativeTabletGlass {
         } else {
             releaseWrapper(for: state)
         }
-        if let root = state.navigationRoot, host.isDescendant(of: root) {
+        if state.bar == .tabs {
+            let root = dockBackingRoot(for: host, navigationRoot: state.navigationRoot)
             let hostFrame = host.convert(host.bounds, to: root)
             let plateWidth = state.plate?.bounds.width ?? 0
             // The outer footer can paint its glass inside a wrapper that also
             // carries tabs. Suppress the backing itself and preserve the wrapper.
-            removeWideDockEffects(in: root, band: hostFrame, plateWidth: plateWidth, state: state)
+            let dockFrame = state.plate.map { $0.convert($0.bounds, to: root) } ?? hostFrame
+            removeWideDockEffects(in: root, band: dockFrame, state: state)
             var branch = host
             for _ in 0..<6 {
                 guard let parent = branch.superview else { break }
@@ -898,8 +933,17 @@ enum NativeTabletGlass {
         }
     }
 
-    private static func removeWideDockEffects(in root: UIView, band: CGRect, plateWidth: CGFloat, state: State) {
-        guard plateWidth > 0 else { return }
+    private static func dockBackingRoot(for host: UIView, navigationRoot: UIView?) -> UIView {
+        var root = navigationRoot ?? host
+        for _ in 0..<3 {
+            guard let parent = root.superview, !(parent is UIWindow || parent is UIScrollView) else { break }
+            root = parent
+        }
+        return root
+    }
+
+    private static func removeWideDockEffects(in root: UIView, band: CGRect, state: State) {
+        guard band.width > 0 else { return }
         var nodes = [root]
         var index = 0
         while index < nodes.count {
@@ -909,16 +953,33 @@ enum NativeTabletGlass {
                   !(view is UIScrollView || view is UIControl || view is UIImageView) else { continue }
             let frame = view.convert(view.bounds, to: root)
             guard frame.intersects(band) else { continue }
-            if frame.width > plateWidth + 24, frame.width >= band.width * 0.72, (16...160).contains(frame.height) {
+            let coversDock = frame.width > band.width + 24
+                && frame.minX <= band.minX + 8 && frame.maxX >= band.maxX - 8
+                && frame.minY <= band.midY && frame.maxY >= band.midY - 8
+            if coversDock, (8...220).contains(frame.height) {
+                let name = NSStringFromClass(type(of: view))
                 if let effect = view as? UIVisualEffectView {
                     state.clearEffect(effect, includingGlass: true)
                     state.clearColor(effect.contentView)
                 }
-                let name = NSStringFromClass(type(of: view))
-                if name.contains("TabBar") || view.accessibilityIdentifier == "tabs-background-view-identifier" {
+                if name.contains("TabBar") || name.contains("ScrollEdgeEffect")
+                    || view.accessibilityIdentifier == "tabs-background-view-identifier" {
                     state.clearColor(view)
                     state.clearOpacity(view)
                     state.clearDecorationLayers(in: view)
+                }
+                if (name.contains("Gradient") || name.contains("ScrollEdgeEffect")) && !containsNativeContent(view) {
+                    state.hide(view)
+                }
+            }
+            let managed = view.subviews.map(\.layer)
+            let localBand = root.convert(band, to: view)
+            for layer in view.layer.sublayers ?? [] where layer is CAGradientLayer && !managed.contains(layer) {
+                let region = layer.frame
+                if region.width > localBand.width + 24, region.minX <= localBand.minX + 8,
+                   region.maxX >= localBand.maxX - 8, region.minY <= localBand.midY,
+                   region.maxY >= localBand.midY - 8, region.height <= 220 {
+                    state.hideDecoration(layer)
                 }
             }
             nodes.append(contentsOf: view.subviews.prefix(150 - nodes.count))

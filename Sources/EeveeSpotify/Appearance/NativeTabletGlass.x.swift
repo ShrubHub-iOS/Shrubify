@@ -8,6 +8,7 @@ struct NativeTabletNavigationGroup: HookGroup {}
 struct NativeTabletCompactTabGroup: HookGroup {}
 struct NativeTabletMiniControllerGroup: HookGroup {}
 struct NativeTabletMiniContainerGroup: HookGroup {}
+struct NativeTabletMiniStackGroup: HookGroup {}
 
 // Intentionally limited to the two bar hosts. Never hook a cell, image or
 // button base class: scrolling Home must not run any Shrubify glass layout.
@@ -102,12 +103,24 @@ class NativeTabletMiniContainerHook: ClassHook<UIViewController> {
     }
 }
 
+class NativeTabletMiniStackHook: ClassHook<UIView> {
+    typealias Group = NativeTabletMiniStackGroup
+    static let targetName = "_TtC18NowPlaying_BarImpl21NowPlayingBarTopStack"
+
+    func layoutSubviews() {
+        orig.layoutSubviews()
+        let view = target
+        onMainThreadSync { NativeTabletGlass.layoutMiniStack(view) }
+    }
+}
+
 func activateNativeTabletGlass() {
     guard #available(iOS 26.0, *), EvolvedInterfaceAvailability.usesNativeTabletInterface else { return }
     onMainThreadSync { NativeTabletGlass.start() }
     for (name, activate) in [
         (NativeTabletTabGlassHook.targetName, { NativeTabletTabGlassGroup().activate() }),
         (NativeTabletCompactTabHook.targetName, { NativeTabletCompactTabGroup().activate() }),
+        (NativeTabletMiniStackHook.targetName, { NativeTabletMiniStackGroup().activate() }),
         (NativeTabletMiniGlassHook.targetName, { NativeTabletMiniGlassGroup().activate() })
     ] {
         guard let cls = NSClassFromString(name) as? UIView.Type,

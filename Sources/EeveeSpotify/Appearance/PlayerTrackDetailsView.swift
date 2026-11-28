@@ -142,7 +142,15 @@ final class PlayerTrackDetailsView: UIView {
     func loadIfNeeded() {
         if let photoID, requestedPhotoID != photoID {
             requestedPhotoID = photoID
-            PlayerArtistPhoto.load(id: photoID) { [weak self] image in
+            PlayerArtistPhoto.load(id: photoID, biography: { [weak self] text in
+                guard let self, self.photoID == photoID, let text, let name = info?.artist else { return }
+                EntityPageHeaderManager.applyArtistAbout(biography: text, links: [], to: name)
+                biography.text = EntityPageHeaderManager.cachedBioText(for: name) ?? text
+                biography.isHidden = false
+                biographyURL = nil
+                biographySource.isHidden = true
+                onContentChange?()
+            }) { [weak self] image in
                 guard let self, self.photoID == photoID else { return }
                 reservesPhoto = image != nil
                 photoRow.isHidden = !reservesPhoto

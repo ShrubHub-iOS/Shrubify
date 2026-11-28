@@ -142,10 +142,12 @@ final class RootController: UIViewController {
     private let nestedDockBacking = UIVisualEffectView(effect: UIGlassEffect(style: .regular))
     private let dockBacking = UIVisualEffectView(effect: UIGlassEffect(style: .clear))
     private let dockBackdrop = FixtureBackdropView()
+    private let outsideDockGradient = CAGradientLayer()
     private var blueBackdrop = false
     private var barHost: UIView { barSurface.contentView }
     private let content = ContentFixture(frame: .zero)
     private let miniHost = FixtureMiniWrapper()
+    private let miniBacking = UIView()
     private let mini = UIView()
     private let miniRail = UIView(frame: CGRect(x: 6, y: 53, width: 228, height: 2))
     private let miniPlay = UIButton(type: .system)
@@ -201,6 +203,8 @@ final class RootController: UIViewController {
         dockBackdrop.backgroundColor = .systemRed
         dockBackdrop.isUserInteractionEnabled = false
         view.addSubview(dockBackdrop)
+        outsideDockGradient.colors = [UIColor.clear.cgColor, UIColor.black.withAlphaComponent(0.45).cgColor]
+        view.layer.addSublayer(outsideDockGradient)
         dockBacking.backgroundColor = .darkGray
         dockBacking.isUserInteractionEnabled = false
         view.addSubview(dockBacking)
@@ -208,8 +212,11 @@ final class RootController: UIViewController {
         dockWrapper.addSubview(nestedDockBacking)
         dockWrapper.addSubview(barSurface)
         view.addSubview(miniHost)
-        mini.frame = CGRect(x: 568, y: 64, width: 240, height: 56); mini.accessibilityIdentifier = "SPTNowPlayingBar"
-        mini.backgroundColor = .darkGray; miniHost.addSubview(mini)
+        miniBacking.frame = CGRect(x: 568, y: 64, width: 240, height: 56)
+        miniBacking.backgroundColor = .systemIndigo
+        miniHost.addSubview(miniBacking)
+        mini.frame = miniBacking.bounds; mini.accessibilityIdentifier = "now-playing-bar-content"
+        mini.backgroundColor = .darkGray; miniBacking.addSubview(mini)
         miniRail.accessibilityIdentifier = "now-playing-bar-duration"
         miniRail.isUserInteractionEnabled = false
         mini.addSubview(miniRail)
@@ -261,6 +268,7 @@ final class RootController: UIViewController {
         dockWrapper.frame = CGRect(x: 32, y: view.bounds.height - 104, width: min(825, view.bounds.width - 64), height: 84)
         dockBacking.frame = dockWrapper.frame
         dockBackdrop.frame = dockWrapper.frame.insetBy(dx: -8, dy: -12)
+        outsideDockGradient.frame = CGRect(x: 0, y: dockWrapper.frame.midY - 130, width: view.bounds.width, height: 190)
         barSurface.frame = dockWrapper.bounds
         nestedDockBacking.frame = dockWrapper.bounds
         barSurface.layoutIfNeeded()
@@ -325,6 +333,7 @@ final class RootController: UIViewController {
         let cleared = legacy.alpha == 0 && dockBacking.alpha == 0 && flatBarBacking.alpha == 0
             && dockBacking.effect == nil
             && nestedDockBacking.effect == nil
+            && outsideDockGradient.isHidden && miniBacking.backgroundColor == .clear
             && barSurface.effect == nil && barSurface.layer.mask == nil
             && (barHost.layer.backgroundColor?.alpha ?? 0) == 0
             && (mini.layer.backgroundColor?.alpha ?? 0) == 0
@@ -332,6 +341,7 @@ final class RootController: UIViewController {
         let restored = legacy.alpha == 1 && dockBacking.alpha == 1 && flatBarBacking.alpha == 1
             && dockBacking.effect is UIGlassEffect
             && nestedDockBacking.effect is UIGlassEffect
+            && !outsideDockGradient.isHidden && miniBacking.backgroundColor == .systemIndigo
             && barSurface.effect is UIBlurEffect && barSurface.layer.mask == nil
             && barHost.backgroundColor == .darkGray && mini.backgroundColor == .darkGray
             && !mini.clipsToBounds && mini.layer.cornerRadius == 0 && miniRail.transform.isIdentity

@@ -21,18 +21,30 @@ enum PlayerArtistPhoto {
     }
 
     @MainActor
-    static func load(id: String, completion: @escaping @MainActor (UIImage?) -> Void) {
-        if let image = cache.object(forKey: id as NSString) { completion(image); return }
-        guard let profile = URL(string: "https://open.spotify.com/artist/\(id)") else { completion(nil); return }
+    static func load(id: String, biography: @escaping @MainActor (String?) -> Void,
+                     completion: @escaping @MainActor (UIImage?) -> Void) {
+        let cachedImage = cache.object(forKey: id as NSString)
+        if let cachedImage { completion(cachedImage) }
+        guard let profile = URL(string: "https://open.spotify.com/artist/\(id)") else {
+            biography(nil)
+            if cachedImage == nil { completion(nil) }
+            return
+        }
         session.dataTask(with: profile) { data, response, _ in
             guard let data, data.count <= 1_000_000,
                   let response = response as? HTTPURLResponse, response.statusCode == 200,
                   response.url?.host == "open.spotify.com", response.url?.lastPathComponent == id,
-                  let html = String(data: data, encoding: .utf8),
-                  let url = imageURL(in: html) else {
-                DispatchQueue.main.async { completion(nil) }
+                  let html = String(data: data, encoding: .utf8) else {
+                DispatchQueue.main.async {
+                    biography(nil)
+                    if cachedImage == nil { completion(nil) }
+                }
                 return
             }
+            let bio = SpotifyArtistBiography.extract(from: html)
+            DispatchQueue.main.async { biography(bio) }
+            guard cachedImage == nil else { return }
+            guard let url = imageURL(in: html) else { DispatchQueue.main.async { completion(nil) }; return }
             session.dataTask(with: url) { data, response, _ in
                 var photo: UIImage?
                 if let data, data.count <= 4_000_000, let response = response as? HTTPURLResponse,
