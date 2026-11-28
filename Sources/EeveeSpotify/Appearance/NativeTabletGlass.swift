@@ -393,7 +393,7 @@ enum NativeTabletGlass {
     static func layoutMiniStack(_ view: UIView) {
         var node: UIView? = view
         for _ in 0..<5 {
-            guard let candidate = node, !(candidate is UIWindow) else { break }
+            guard let candidate = node, candidate !== view.window else { break }
             if candidate.accessibilityIdentifier == "SPTNowPlayingBar"
                 || candidate.accessibilityIdentifier == "now-playing-bar-content" {
                 layoutMiniControllerView(candidate, isContentController: false)
@@ -936,7 +936,7 @@ enum NativeTabletGlass {
     private static func dockBackingRoot(for host: UIView, navigationRoot: UIView?) -> UIView {
         var root = navigationRoot ?? host
         for _ in 0..<3 {
-            guard let parent = root.superview, !(parent is UIWindow || parent is UIScrollView) else { break }
+            guard let parent = root.superview, parent !== host.window, !(parent is UIScrollView) else { break }
             root = parent
         }
         return root
